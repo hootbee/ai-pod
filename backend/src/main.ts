@@ -18,6 +18,7 @@ async function bootstrap() {
         );
         console.log(`\n[${item.source}] ${item.title}`);
         console.log(content.slice(0, 1200));
+        await crawler.markProcessed(item);
       } catch (error) {
         console.warn(`Failed to fetch content for ${item.link}`);
         console.warn(error);

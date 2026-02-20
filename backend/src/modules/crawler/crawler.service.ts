@@ -1,6 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import Parser from 'rss-parser';
 import * as cheerio from 'cheerio';
+import Redis from 'ioredis';
+import { createHash } from 'crypto';
 
 export type CrawlerItem = {
   sourceId: string;
@@ -22,6 +24,7 @@ type FeedSource = {
 
 @Injectable()
 export class CrawlerService {
+  private readonly logger = new Logger(CrawlerService.name);
   private readonly parser = new Parser({
     timeout: 10000,
     requestOptions: {
@@ -31,6 +34,8 @@ export class CrawlerService {
       },
     },
   });
+  private readonly redis: Redis;
+  private readonly processedTtlSeconds = 60 * 60 * 24 * 7;
 
   private readonly sources: FeedSource[] = [
     {
@@ -59,6 +64,11 @@ export class CrawlerService {
     },
   ];
 
+  constructor() {
+    const redisUrl = process.env.REDIS_URL;
+    this.redis = redisUrl ? new Redis(redisUrl) : new Redis();
+  }
+
   getSources(): FeedSource[] {
     return [...this.sources];
   }
@@ -78,7 +88,7 @@ export class CrawlerService {
   async fetchSource(source: FeedSource, limit = 10): Promise<CrawlerItem[]> {
     const feed = await this.parser.parseURL(source.feedUrl);
 
-    return (feed.items ?? [])
+    const items = (feed.items ?? [])
       .slice(0, limit)
       .map((item) => {
         const summary = this.extractText(
@@ -96,6 +106,17 @@ export class CrawlerService {
         };
       })
       .filter((item) => item.title && item.link);
+
+    const filtered: CrawlerItem[] = [];
+    for (const item of items) {
+      if (await this.isProcessed(item)) {
+        this.logger.debug(`Skipping processed item: ${item.link}`);
+        continue;
+      }
+      filtered.push(item);
+    }
+
+    return filtered;
   }
 
   async fetchArticleContent(url: string, sourceId?: string): Promise<string> {
@@ -123,6 +144,35 @@ export class CrawlerService {
       .filter((text) => text.length > 40);
 
     return paragraphs.join('\n\n').trim();
+  }
+
+  async markProcessed(item: CrawlerItem): Promise<void> {
+    const key = this.buildProcessedKey(item);
+    try {
+      await this.redis.set(key, 'DONE', 'EX', this.processedTtlSeconds);
+    } catch (error) {
+      this.logger.warn(`Failed to mark processed: ${item.link}`);
+      this.logger.debug(error);
+    }
+  }
+
+  private async isProcessed(item: CrawlerItem): Promise<boolean> {
+    const key = this.buildProcessedKey(item);
+    try {
+      const value = await this.redis.get(key);
+      return Boolean(value);
+    } catch (error) {
+      this.logger.warn(`Failed to check processed: ${item.link}`);
+      this.logger.debug(error);
+      return false;
+    }
+  }
+
+  private buildProcessedKey(item: CrawlerItem): string {
+    const hash = createHash('sha256')
+      .update(item.link)
+      .digest('hex');
+    return `crawler:processed:${item.sourceId}:${hash}`;
   }
 
   private selectContentRoot(
