@@ -3,6 +3,7 @@ import Parser from 'rss-parser';
 import * as cheerio from 'cheerio';
 
 export type CrawlerItem = {
+  sourceId: string;
   source: string;
   title: string;
   link: string;
@@ -56,12 +57,6 @@ export class CrawlerService {
       feedUrl: 'https://www.wired.com/feed/rss',
       homepage: 'https://www.wired.com',
     },
-    {
-      id: 'hackernews',
-      name: 'Hacker News',
-      feedUrl: 'https://hnrss.org/frontpage',
-      homepage: 'https://news.ycombinator.com',
-    },
   ];
 
   getSources(): FeedSource[] {
@@ -80,10 +75,7 @@ export class CrawlerService {
     });
   }
 
-  async fetchSource(
-    source: FeedSource,
-    limit = 10,
-  ): Promise<CrawlerItem[]> {
+  async fetchSource(source: FeedSource, limit = 10): Promise<CrawlerItem[]> {
     const feed = await this.parser.parseURL(source.feedUrl);
 
     return (feed.items ?? [])
@@ -94,6 +86,7 @@ export class CrawlerService {
         );
 
         return {
+          sourceId: source.id,
           source: source.name,
           title: item.title?.trim() ?? '',
           link: item.link ?? '',
@@ -105,7 +98,7 @@ export class CrawlerService {
       .filter((item) => item.title && item.link);
   }
 
-  async fetchArticleContent(url: string): Promise<string> {
+  async fetchArticleContent(url: string, sourceId?: string): Promise<string> {
     const response = await fetch(url, {
       headers: {
         'User-Agent':
@@ -121,8 +114,7 @@ export class CrawlerService {
     const html = await response.text();
     const $ = cheerio.load(html);
 
-    const article = $('article');
-    const contentRoot = article.length ? article : $('main');
+    const contentRoot = this.selectContentRoot($, sourceId);
 
     const paragraphs = contentRoot
       .find('p')
@@ -131,6 +123,21 @@ export class CrawlerService {
       .filter((text) => text.length > 40);
 
     return paragraphs.join('\n\n').trim();
+  }
+
+  private selectContentRoot(
+    $: cheerio.CheerioAPI,
+    sourceId?: string,
+  ): cheerio.Cheerio<any> {
+    if (sourceId === 'verge') {
+      const vergeArticle = $('[data-chorus-optimize-field="articleBody"]');
+      if (vergeArticle.length) {
+        return vergeArticle;
+      }
+    }
+
+    const article = $('article');
+    return article.length ? article : $('main');
   }
 
   private extractText(html: string): string {

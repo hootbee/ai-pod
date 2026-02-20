@@ -12,7 +12,10 @@ async function bootstrap() {
 
     for (const item of items) {
       try {
-        const content = await crawler.fetchArticleContent(item.link);
+        const content = await crawler.fetchArticleContent(
+          item.link,
+          item.sourceId,
+        );
         console.log(`\n[${item.source}] ${item.title}`);
         console.log(content.slice(0, 1200));
       } catch (error) {
