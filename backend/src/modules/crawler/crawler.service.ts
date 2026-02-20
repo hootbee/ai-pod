@@ -1,8 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import Parser from 'rss-parser';
 import * as cheerio from 'cheerio';
-import Redis from 'ioredis';
 import { createHash } from 'crypto';
+import { RedisService } from './redis.service';
 
 export type CrawlerItem = {
   sourceId: string;
@@ -34,7 +34,7 @@ export class CrawlerService {
       },
     },
   });
-  private readonly redis: Redis;
+  private readonly redisService: RedisService;
   private readonly processedTtlSeconds = 60 * 60 * 24 * 7;
 
   private readonly sources: FeedSource[] = [
@@ -64,9 +64,8 @@ export class CrawlerService {
     },
   ];
 
-  constructor() {
-    const redisUrl = process.env.REDIS_URL;
-    this.redis = redisUrl ? new Redis(redisUrl) : new Redis();
+  constructor(redisService: RedisService) {
+    this.redisService = redisService;
   }
 
   getSources(): FeedSource[] {
@@ -149,7 +148,9 @@ export class CrawlerService {
   async markProcessed(item: CrawlerItem): Promise<void> {
     const key = this.buildProcessedKey(item);
     try {
-      await this.redis.set(key, 'DONE', 'EX', this.processedTtlSeconds);
+      await this.redisService
+        .getClient()
+        .set(key, 'DONE', 'EX', this.processedTtlSeconds);
     } catch (error) {
       this.logger.warn(`Failed to mark processed: ${item.link}`);
       this.logger.debug(error);
@@ -159,7 +160,7 @@ export class CrawlerService {
   private async isProcessed(item: CrawlerItem): Promise<boolean> {
     const key = this.buildProcessedKey(item);
     try {
-      const value = await this.redis.get(key);
+      const value = await this.redisService.getClient().get(key);
       return Boolean(value);
     } catch (error) {
       this.logger.warn(`Failed to check processed: ${item.link}`);
