@@ -29,8 +29,7 @@ export class CrawlerService {
     timeout: 10000,
     requestOptions: {
       headers: {
-        'User-Agent':
-          'Mozilla/5.0 (compatible; aipod-crawler/1.0; +https://example.com)',
+        'User-Agent': 'Mozilla/5.0 (compatible; aipod-crawler/1.0; +https://example.com)',
       },
     },
   });
@@ -90,9 +89,7 @@ export class CrawlerService {
     const items = (feed.items ?? [])
       .slice(0, limit)
       .map((item) => {
-        const summary = this.extractText(
-          item.contentSnippet || item.content || item.summary || '',
-        );
+        const summary = this.extractText(item.contentSnippet || item.content || item.summary || '');
 
         return {
           sourceId: source.id,
@@ -121,8 +118,7 @@ export class CrawlerService {
   async fetchArticleContent(url: string, sourceId?: string): Promise<string> {
     const response = await fetch(url, {
       headers: {
-        'User-Agent':
-          'Mozilla/5.0 (compatible; aipod-crawler/1.0; +https://example.com)',
+        'User-Agent': 'Mozilla/5.0 (compatible; aipod-crawler/1.0; +https://example.com)',
         Accept: 'text/html,application/xhtml+xml',
       },
     });
@@ -148,9 +144,7 @@ export class CrawlerService {
   async markProcessed(item: CrawlerItem): Promise<void> {
     const key = this.buildProcessedKey(item);
     try {
-      await this.redisService
-        .getClient()
-        .set(key, 'DONE', 'EX', this.processedTtlSeconds);
+      await this.redisService.getClient().set(key, 'DONE', 'EX', this.processedTtlSeconds);
     } catch (error) {
       this.logger.warn(`Failed to mark processed: ${item.link}`);
       this.logger.debug(error);
@@ -170,16 +164,11 @@ export class CrawlerService {
   }
 
   private buildProcessedKey(item: CrawlerItem): string {
-    const hash = createHash('sha256')
-      .update(item.link)
-      .digest('hex');
+    const hash = createHash('sha256').update(item.link).digest('hex');
     return `crawler:processed:${item.sourceId}:${hash}`;
   }
 
-  private selectContentRoot(
-    $: cheerio.CheerioAPI,
-    sourceId?: string,
-  ): cheerio.Cheerio<any> {
+  private selectContentRoot($: cheerio.CheerioAPI, sourceId?: string): cheerio.Cheerio<any> {
     if (sourceId === 'verge') {
       const vergeArticle = $('[data-chorus-optimize-field="articleBody"]');
       if (vergeArticle.length) {
