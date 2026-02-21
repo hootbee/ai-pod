@@ -23,10 +23,7 @@ export class EpisodesController {
   }
 
   @Patch(':id/audio-path')
-  updateAudioPath(
-    @Param('id') id: string,
-    @Body() updateAudioPathDto: UpdateAudioPathDto,
-  ) {
+  updateAudioPath(@Param('id') id: string, @Body() updateAudioPathDto: UpdateAudioPathDto) {
     return this.episodesService.updateAudioPath(id, updateAudioPathDto);
   }
 }
