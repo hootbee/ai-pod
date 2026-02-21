@@ -1,6 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { AI_PROVIDER_TOKEN } from './ai-processor.tokens';
-import type { AiProvider, PodcastScript } from './interfaces/ai-provider.interface';
+import type {
+  AiProvider,
+  BriefingArticle,
+  PodcastScript,
+} from './interfaces/ai-provider.interface';
 
 @Injectable()
 export class AiProcessorService {
@@ -8,5 +12,9 @@ export class AiProcessorService {
 
   async processNewsToPodcast(newsContent: string): Promise<PodcastScript> {
     return this.aiProvider.generatePodcastScript(newsContent);
+  }
+
+  async processNewsBriefing(articles: BriefingArticle[]): Promise<PodcastScript> {
+    return this.aiProvider.generateBriefingScript(articles);
   }
 }
