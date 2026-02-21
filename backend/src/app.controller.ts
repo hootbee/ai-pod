@@ -3,6 +3,7 @@ import { AppService } from './app.service';
 import { AiProcessorService } from './modules/ai-processor/ai-processor.service';
 import { CrawlerService } from './modules/crawler/crawler.service';
 import type { BriefingArticle } from './modules/ai-processor/interfaces/ai-provider.interface';
+import { EpisodesService } from './modules/episodes/episodes.service';
 
 type AiTestRequest = {
   content?: string;
@@ -23,6 +24,7 @@ export class AppController {
     private readonly appService: AppService,
     private readonly aiProcessorService: AiProcessorService,
     private readonly crawlerService: CrawlerService,
+    private readonly episodesService: EpisodesService,
   ) {}
 
   @Get()
@@ -59,6 +61,41 @@ export class AppController {
 
   @Post('pipeline/briefing/preview')
   async previewBriefingPipeline(@Body() body: PipelinePreviewRequest) {
+    const { articles } = await this.collectBriefingArticles(body);
+
+    if (articles.length === 0) {
+      throw new BadRequestException('No article content collected from crawler');
+    }
+
+    const briefing = await this.aiProcessorService.processNewsBriefing(articles);
+    return {
+      articleCount: articles.length,
+      briefing,
+    };
+  }
+
+  @Post('pipeline/briefing/run')
+  async runBriefingPipeline(@Body() body: PipelinePreviewRequest) {
+    const { articles } = await this.collectBriefingArticles(body);
+
+    if (articles.length === 0) {
+      throw new BadRequestException('No article content collected from crawler');
+    }
+
+    const briefing = await this.aiProcessorService.processNewsBriefing(articles);
+    const episode = await this.episodesService.create({
+      title: briefing.title,
+      script: briefing.script,
+      sourceCount: articles.length,
+    });
+
+    return {
+      articleCount: articles.length,
+      episode,
+    };
+  }
+
+  private async collectBriefingArticles(body: PipelinePreviewRequest) {
     const limitPerSource = Math.max(1, Math.min(10, Number(body?.limitPerSource ?? 3)));
     const maxArticles = Math.max(1, Math.min(10, Number(body?.maxArticles ?? 7)));
 
@@ -83,14 +120,6 @@ export class AppController {
       }
     }
 
-    if (articles.length === 0) {
-      throw new BadRequestException('No article content collected from crawler');
-    }
-
-    const briefing = await this.aiProcessorService.processNewsBriefing(articles);
-    return {
-      articleCount: articles.length,
-      briefing,
-    };
+    return { articles };
   }
 }
