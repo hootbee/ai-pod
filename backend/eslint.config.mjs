@@ -29,7 +29,11 @@ export default tseslint.config(
       '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/no-floating-promises': 'warn',
       '@typescript-eslint/no-unsafe-argument': 'warn',
-      "prettier/prettier": ["error", { endOfLine: "auto" }],
+      '@typescript-eslint/no-unsafe-member-access': 'off', // .trim() 같은 메서드 사용 허용
+      '@typescript-eslint/no-unsafe-call': 'off', // 함수 호출 허용
+      '@typescript-eslint/no-unsafe-assignment': 'off', // 변수 할당 허용
+      '@typescript-eslint/no-unsafe-return': 'off', // 반환 허용
+      'prettier/prettier': ['error', { endOfLine: 'auto' }],
     },
   },
 );
