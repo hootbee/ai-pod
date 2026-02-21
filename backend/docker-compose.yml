@@ -10,5 +10,20 @@ services:
       - redis_data:/data
     command: ["redis-server", "--appendonly", "yes"]
 
+  postgres:
+    image: postgres:15-alpine
+    container_name: aipod-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: myuser
+      POSTGRES_PASSWORD: mypassword
+      POSTGRES_DB: aipod_db
+      TZ: Asia/Seoul
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: always
+
 volumes:
   redis_data:
+  postgres_data:
