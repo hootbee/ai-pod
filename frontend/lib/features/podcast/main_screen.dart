@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../shared/widgets/click_wheel.dart';
 import '../card_news/card_news_screen.dart';
+import 'podcast_player_screen.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -56,11 +57,8 @@ class _MainScreenState extends State<MainScreen> {
 
   // 가운데 버튼 클릭 시 상세 화면으로 이동
   void _enterPodcast() {
-    int currentIndex = _pageController.page?.round() ?? 0;
-
-    // TODO: 임시로 SnackBar 띄우기. 나중에 실제 플레이어 화면으로 이동시킬 예정입니다.
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('${currentIndex + 1}번째 팟캐스트로 들어갑니다!')),
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (context) => const PodcastPlayerScreen()),
     );
   }
 
