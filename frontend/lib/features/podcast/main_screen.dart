@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../shared/widgets/click_wheel.dart';
+import '../card_news/card_news_screen.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -9,6 +10,28 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> {
+  void _goToCardNews() {
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) =>
+            const CardNewsScreen(),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          // 오른쪽에서 왼쪽으로 스르륵 나타나는 애니메이션
+          const begin = Offset(1.0, 0.0);
+          const end = Offset.zero;
+          const curve = Curves.easeInOut;
+          var tween = Tween(
+            begin: begin,
+            end: end,
+          ).chain(CurveTween(curve: curve));
+          var offsetAnimation = animation.drive(tween);
+
+          return SlideTransition(position: offsetAnimation, child: child);
+        },
+      ),
+    );
+  }
+
   // PageView를 제어하기 위한 컨트롤러
   final PageController _pageController = PageController(viewportFraction: 0.85);
 
@@ -98,6 +121,7 @@ class _MainScreenState extends State<MainScreen> {
                 onScrollRight: _nextPodcast,
                 onScrollLeft: _previousPodcast,
                 onCenterTap: _enterPodcast,
+                onSwipeLeft: _goToCardNews,
               ),
             ),
           ],
