@@ -68,8 +68,10 @@ export class GeminiProvider implements AiProvider {
 3. 클로징(약 1분):
 - 오늘 뉴스들을 관통하는 총평을 남기고 다음 에피소드를 예고하며 마무리하세요.
 
-4. 포맷:
-- TTS가 읽을 원고이므로, 적절한 지문과 전환 효과음을 포함해도 됩니다.
+4. 포맷 (매우 중요):
+- 순수한 말하기 원고만 작성하세요. TTS가 그대로 읽을 텍스트입니다.
+- 절대 금지: 괄호 안 지문 (예: (박수), (음악), (웃음)), 이모지, 특수기호 (★, ●, ※ 등), 마크다운 기호 (#, *, - 등)
+- 절대 금지: 앞으로의 섹션 안내 제목 (예: [오프닝], [브리핑] 같은 대괄호 레이블)
 - 반드시 아래 형식으로만 답변하세요:
 TITLE: <브리핑 제목>
 SCRIPT: <전체 대본>
@@ -83,13 +85,33 @@ ${articlesText}
     return this.parseResponse(text);
   }
 
+  private cleanScript(script: string): string {
+    return script
+      // 괄호 지문 제거: (박수), (웃음), (음악), (효과음) 등
+      .replace(/[\(（][^\)）]{0,20}[\)）]/g, '')
+      // 대괄호 레이블 제거: [오프닝], [브리핑] 등
+      .replace(/[\[\【][^\]\】]{0,20}[\]\】]/g, '')
+      // 이모지 제거
+      .replace(/[\u{1F300}-\u{1FFFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '')
+      // 특수 기호 제거: ★ ● ◆ ※ ▶ 등
+      .replace(/[★●◆◇▶▷■□※•·]/g, '')
+      // 마크다운 기호 제거: #, **, -- 등
+      .replace(/^#{1,6}\s+/gm, '')
+      .replace(/\*{1,2}([^*]+)\*{1,2}/g, '$1')
+      // 연속 공백/줄바꿈 정리
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+  }
+
   private parseResponse(text: string): PodcastScript {
     const titleMatch = text.match(/^TITLE:\s*(.+)$/im);
     const scriptMatch = text.match(/^SCRIPT:\s*([\s\S]+)$/im);
 
+    const rawScript = scriptMatch?.[1]?.trim() || text;
+
     return {
       title: titleMatch?.[1]?.trim() || 'Podcast Script',
-      script: scriptMatch?.[1]?.trim() || text,
+      script: this.cleanScript(rawScript),
     };
   }
 }
