@@ -44,6 +44,14 @@ export class GeminiProvider implements AiProvider {
       };
     }
 
+    const todayKst = new Date().toLocaleDateString('ko-KR', {
+      timeZone: 'Asia/Seoul',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      weekday: 'long',
+    });
+
     const articlesText = articles
       .map(
         (article, index) =>
@@ -53,11 +61,13 @@ export class GeminiProvider implements AiProvider {
 
     const prompt = `
 당신은 출근길 직장인들을 위한 전문 IT 팟캐스트 '테크 인사이트'의 메인 호스트입니다.
+오늘 날짜는 ${todayKst}입니다.
 아래 제공된 ${articles.length}개의 최신 IT 뉴스 기사들을 바탕으로, 약 10분 분량의 '모닝 뉴스 브리핑' 대본을 작성해 주세요.
 
 [대본 작성 절대 규칙]
 1. 오프닝(약 1분):
 - 활기차고 전문적인 톤으로 인사하세요.
+- 반드시 "오늘은 ${todayKst}입니다." 또는 이와 자연스럽게 녹아드는 방식으로 날짜를 언급하세요.
 - 오늘 다룰 주요 뉴스 키워드 2~3개를 먼저 제시하세요.
 
 2. 메인 브리핑(각 뉴스당 1.5~2분):

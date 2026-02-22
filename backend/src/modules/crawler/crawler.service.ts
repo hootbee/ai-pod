@@ -61,6 +61,18 @@ export class CrawlerService {
       feedUrl: 'https://www.wired.com/feed/rss',
       homepage: 'https://www.wired.com',
     },
+    {
+      id: 'venturebeat',
+      name: 'VentureBeat',
+      feedUrl: 'https://venturebeat.com/feed/',
+      homepage: 'https://venturebeat.com',
+    },
+    {
+      id: 'mit-tech-review',
+      name: 'MIT Technology Review',
+      feedUrl: 'https://www.technologyreview.com/stories.rss',
+      homepage: 'https://www.technologyreview.com',
+    },
   ];
 
   constructor(redisService: RedisService) {
