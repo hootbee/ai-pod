@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
-import '../../main.dart'; // MainScreenShell을 불러오기 위한 import
+import '../podcast/main_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -18,7 +18,7 @@ class _SplashScreenState extends State<SplashScreen> {
       Navigator.of(context).pushReplacement(
         PageRouteBuilder(
           pageBuilder: (context, animation, secondaryAnimation) =>
-              const MainScreenShell(),
+              const MainScreen(),
           transitionsBuilder: (context, animation, secondaryAnimation, child) {
             // 페이드 인(Fade-in) 애니메이션 효과 적용
             return FadeTransition(opacity: animation, child: child);

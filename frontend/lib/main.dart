@@ -23,24 +23,3 @@ class AipodApp extends StatelessWidget {
     );
   }
 }
-
-// 테스트를 위한 임시 메인 화면 껍데기
-class MainScreenShell extends StatelessWidget {
-  const MainScreenShell({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Center(
-        child: Text(
-          'aipod 준비 완료 🚀',
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
-        ),
-      ),
-    );
-  }
-}
