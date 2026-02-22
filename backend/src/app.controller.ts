@@ -96,8 +96,8 @@ export class AppController {
   }
 
   private async collectBriefingArticles(body: PipelinePreviewRequest) {
-    const limitPerSource = Math.max(1, Math.min(10, Number(body?.limitPerSource ?? 3)));
-    const maxArticles = Math.max(1, Math.min(10, Number(body?.maxArticles ?? 7)));
+    const limitPerSource = Math.max(1, Math.min(10, Number(body?.limitPerSource ?? 5)));
+    const maxArticles = Math.max(1, Math.min(20, Number(body?.maxArticles ?? 10)));
 
     const items = await this.crawlerService.fetchLatest(limitPerSource);
     const candidates = items.slice(0, maxArticles);
@@ -111,7 +111,7 @@ export class AppController {
         }
         articles.push({
           title: item.title,
-          content,
+          content: content.slice(0, 1500),
           source: item.source,
         });
         await this.crawlerService.markProcessed(item);
