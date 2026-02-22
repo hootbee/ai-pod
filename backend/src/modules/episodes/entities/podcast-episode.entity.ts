@@ -6,6 +6,8 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 
+export type AudioStatus = 'pending' | 'processing' | 'done' | 'failed';
+
 @Entity({ name: 'podcast_episodes' })
 export class PodcastEpisode {
   @PrimaryGeneratedColumn('uuid')
@@ -19,6 +21,9 @@ export class PodcastEpisode {
 
   @Column({ type: 'varchar', length: 1024, nullable: true })
   audioPath: string | null;
+
+  @Column({ type: 'varchar', length: 20, default: 'pending' })
+  audioStatus: AudioStatus;
 
   @Column({ type: 'int', default: 0 })
   sourceCount: number;

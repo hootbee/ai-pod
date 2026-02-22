@@ -8,6 +8,20 @@ services:
       - redis_data:/data
     command: ["redis-server", "--appendonly", "yes"]
 
+  fish-speech:
+    image: fishaudio/fish-speech:server-cpu
+    container_name: aipod-fish-speech
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./checkpoints:/app/checkpoints
+      - ./references:/app/references
+    environment:
+      - LLAMA_CHECKPOINT_PATH=checkpoints/openaudio-s1-mini
+      - DECODER_CHECKPOINT_PATH=checkpoints/openaudio-s1-mini/codec.pth
+      - DECODER_CONFIG_NAME=modded_dac_vq
+    restart: unless-stopped
+
   postgres:
     image: postgres:15-alpine
     container_name: aipod-postgres
@@ -25,3 +39,4 @@ services:
 volumes:
   redis_data:
   postgres_data:
+  audio_files:

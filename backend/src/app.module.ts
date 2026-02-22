@@ -6,6 +6,7 @@ import { AppService } from './app.service';
 import { CrawlerModule } from './modules/crawler/crawler.module';
 import { AiProcessorModule } from './modules/ai-processor/ai-processor.module';
 import { EpisodesModule } from './modules/episodes/episodes.module';
+import { TtsModule } from './modules/tts/tts.module';
 import { PodcastEpisode } from './modules/episodes/entities/podcast-episode.entity';
 
 @Module({
@@ -27,6 +28,7 @@ import { PodcastEpisode } from './modules/episodes/entities/podcast-episode.enti
     CrawlerModule,
     AiProcessorModule,
     EpisodesModule,
+    TtsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CreateEpisodeDto } from './dto/create-episode.dto';
 import { UpdateAudioPathDto } from './dto/update-audio-path.dto';
-import { PodcastEpisode } from './entities/podcast-episode.entity';
+import { AudioStatus, PodcastEpisode } from './entities/podcast-episode.entity';
 
 @Injectable()
 export class EpisodesService {
@@ -43,6 +43,15 @@ export class EpisodesService {
   ): Promise<PodcastEpisode> {
     const episode = await this.findOne(id);
     episode.audioPath = updateAudioPathDto.audioPath;
+    return this.episodesRepository.save(episode);
+  }
+
+  async updateAudioStatus(
+    id: string,
+    status: AudioStatus,
+  ): Promise<PodcastEpisode> {
+    const episode = await this.findOne(id);
+    episode.audioStatus = status;
     return this.episodesRepository.save(episode);
   }
 }
