@@ -5,6 +5,9 @@ import { CrawlerService } from './modules/crawler/crawler.service';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  app.enableCors({
+    origin: process.env.CORS_ORIGIN ?? '*',
+  });
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,

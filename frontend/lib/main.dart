@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'features/splash/splash_screen.dart'; // 스플래시 스크린 import 추가
+import 'features/splash/splash_screen.dart';
 
 void main() {
   runApp(const AipodApp());
@@ -19,7 +19,7 @@ class AipodApp extends StatelessWidget {
         fontFamily: 'Pretendard',
         useMaterial3: true,
       ),
-      home: const SplashScreen(), // 여기를 SplashScreen으로 변경!
+      home: const SplashScreen(),
     );
   }
 }
