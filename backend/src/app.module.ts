@@ -7,7 +7,11 @@ import { CrawlerModule } from './modules/crawler/crawler.module';
 import { AiProcessorModule } from './modules/ai-processor/ai-processor.module';
 import { EpisodesModule } from './modules/episodes/episodes.module';
 import { TtsModule } from './modules/tts/tts.module';
+import { AuthModule } from './modules/auth/auth.module';
+import { UsersModule } from './modules/users/users.module';
 import { PodcastEpisode } from './modules/episodes/entities/podcast-episode.entity';
+import { User } from './modules/users/entities/user.entity';
+import { RefreshToken } from './modules/auth/entities/refresh-token.entity';
 
 @Module({
   imports: [
@@ -22,13 +26,15 @@ import { PodcastEpisode } from './modules/episodes/entities/podcast-episode.enti
       username: process.env.DB_USER ?? 'myuser',
       password: process.env.DB_PASSWORD ?? 'mypassword',
       database: process.env.DB_NAME ?? 'aipod_db',
-      entities: [PodcastEpisode],
+      entities: [PodcastEpisode, User, RefreshToken],
       synchronize: (process.env.DB_SYNC ?? 'true') === 'true',
     }),
     CrawlerModule,
     AiProcessorModule,
     EpisodesModule,
     TtsModule,
+    AuthModule,
+    UsersModule,
   ],
   controllers: [AppController],
   providers: [AppService],
