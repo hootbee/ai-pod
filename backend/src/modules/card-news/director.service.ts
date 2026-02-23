@@ -29,6 +29,7 @@ export class DirectorService implements IDirectorService {
 - theme: 뉴스 분위기에 따라 'dark'(심각/혁신) 또는 'light'(밝음/긍정)
 - accentColor: 테마에 어울리는 hex 색상 (예: '#4FC3F7', '#66BB6A', '#FF7043')
 - mood: 'serious' | 'bright' | 'urgent'
+- imageKeywords: Unsplash 이미지 검색용 짧은 영어 단어 1개 (예: ["technology"])
 
 반드시 아래 JSON 형식으로만 응답하세요 (마크다운 없이):
 {
@@ -37,7 +38,8 @@ export class DirectorService implements IDirectorService {
   "keyCopy": "AI가 바꾸는 에너지의 미래",
   "subCopy": "빅테크의 전략적 선택, 지속가능성",
   "keyPoints": ["탄소 중립 2030 선언", "신재생 에너지 투자 급증", "핵에너지 재조명"],
-  "mood": "serious"
+  "mood": "serious",
+  "imageKeywords": ["artificial intelligence", "energy"]
 }
 
 [팟캐스트 대본 (앞 1500자)]
@@ -59,6 +61,7 @@ ${script.slice(0, 1500)}
         subCopy: '최신 IT 트렌드를 한눈에',
         keyPoints: ['AI 혁신', '빅테크 전략', '미래 기술'],
         mood: 'serious',
+        imageKeywords: ['technology', 'innovation'],
       };
     }
   }

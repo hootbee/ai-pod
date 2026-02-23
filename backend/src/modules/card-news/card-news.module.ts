@@ -6,11 +6,12 @@ import { CardNewsService } from './card-news.service';
 import { DirectorService } from './director.service';
 import { DesignMakerService } from './design-maker.service';
 import { RendererService } from './renderer.service';
+import { ResearcherService } from './researcher.service';
 import { EpisodesModule } from '../episodes/episodes.module';
 
 @Module({
   imports: [TypeOrmModule.forFeature([CardNews]), EpisodesModule],
   controllers: [CardNewsController],
-  providers: [CardNewsService, DirectorService, DesignMakerService, RendererService],
+  providers: [CardNewsService, DirectorService, ResearcherService, DesignMakerService, RendererService],
 })
 export class CardNewsModule {}

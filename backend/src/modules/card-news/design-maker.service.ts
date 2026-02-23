@@ -15,7 +15,7 @@ export class DesignMakerService implements IDesignMakerService {
     this.model = genAi.getGenerativeModel({ model: 'gemini-2.5-flash' });
   }
 
-  async generateHtml(direction: DesignDirection): Promise<string> {
+  async generateHtml(direction: DesignDirection, imageUrl?: string | null): Promise<string> {
     const bg = direction.theme === 'dark' ? '#1a1a2e' : '#FAFAF7';
     const textColor = direction.theme === 'dark' ? '#FFFFFF' : '#1a1a2e';
     const cardBg = direction.theme === 'dark' ? '#16213e' : '#FFFFFF';
@@ -43,8 +43,18 @@ export class DesignMakerService implements IDesignMakerService {
   (각 포인트를 둥근 태그 형태로, 강조색 배경이나 테두리 활용)
 - 하단: "AiPod" 로고 텍스트 + 날짜 (우측 정렬)
 
+[이미지 설정]
+${imageUrl ? `- 이미지 URL이 있습니다: ${imageUrl}
+  <img> 태그를 절대 사용하지 말고, CSS background-image로만 처리하세요.
+  카드 상단 영역(height: 420px) div에 아래 CSS를 적용하세요:
+    background-image: url('${imageUrl}');
+    background-size: cover;
+    background-position: center center;
+    border-radius: 16px 16px 0 0;
+  그 위에 반투명 오버레이(rgba(0,0,0,0.3)) div를 겹쳐 텍스트 가독성을 높이세요.` : `- 이미지 없음: CSS linear-gradient 배경으로 대체하세요.`}
+
 [절대 규칙]
-- 외부 이미지 사용 금지 (Google Fonts는 허용)
+- Google Fonts는 허용
 - 인라인 스타일 또는 <style> 태그 사용
 - 완전한 HTML 문서 (<!DOCTYPE html> 포함)
 - HTML 코드만 출력 (마크다운, 설명 없이)
