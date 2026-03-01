@@ -20,11 +20,14 @@ export class CardNews {
   @JoinColumn({ name: 'episodeId' })
   episode: PodcastEpisode;
 
-  @Column({ type: 'varchar', length: 1024 })
-  imagePath: string;
+  @Column({ type: 'jsonb' })
+  imagePaths: string[]; // 슬라이드별 PNG 경로 배열 [표지, 주제..., 마무리]
+
+  @Column({ type: 'int', default: 0 })
+  slideCount: number;
 
   @Column({ type: 'jsonb', nullable: true })
-  designDirection: Record<string, unknown> | null;
+  scriptSnapshot: Record<string, unknown> | null; // Director 분석 결과 저장
 
   @CreateDateColumn({ type: 'timestamptz' })
   createdAt: Date;

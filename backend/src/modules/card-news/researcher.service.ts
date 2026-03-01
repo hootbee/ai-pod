@@ -44,6 +44,12 @@ export class ResearcherService implements IResearcherService {
       };
 
       if (!data.results.length) {
+        // 복합어인 경우 첫 단어만으로 재시도
+        const firstWord = query.split(' ')[0];
+        if (firstWord && firstWord !== query) {
+          this.logger.warn(`결과 없음 → 폴백 재시도: "${firstWord}"`);
+          return this.findImage(firstWord);
+        }
         this.logger.warn(`이미지 검색 결과 없음: ${query}`);
         return null;
       }

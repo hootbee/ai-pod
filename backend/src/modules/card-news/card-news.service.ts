@@ -29,30 +29,44 @@ export class CardNewsService {
       throw new NotFoundException('에피소드 또는 대본을 찾을 수 없습니다');
     }
 
-    this.logger.log(`[1/4] 디렉터 분석 시작: episodeId=${episodeId}`);
-    const direction = await this.directorService.analyze(episode.script);
-    this.logger.log(`[1/4] 디렉터 완료: theme=${direction.theme}, mood=${direction.mood}`);
-
-    this.logger.log('[2/4] 리서처 이미지 검색 시작');
-    const imageResult = await this.researcherService.findImage(direction.imageKeywords);
-    this.logger.log(`[2/4] 이미지 ${imageResult ? '획득: ' + imageResult.url : '없음 (CSS 폴백 사용)'}`);
-
-    this.logger.log('[3/4] 디자인 메이커 HTML 생성 시작');
-    const html = await this.designMakerService.generateHtml(direction, imageResult?.url);
-    this.logger.log('[3/4] HTML 생성 완료');
+    // 1단계: Director — 슬라이드 구성 분석
+    this.logger.log(`[1] Director 분석 시작: episodeId=${episodeId}`);
+    const cardNewsScript = await this.directorService.analyze(episode.script);
+    this.logger.log(`[1] Director 완료: 슬라이드 ${cardNewsScript.slides.length}장 구성`);
 
     const outputDir = process.env.CARD_NEWS_OUTPUT_DIR ?? './card-news-images';
-    const filename = `${episodeId}-${Date.now()}.png`;
-    const outputPath = path.join(outputDir, filename);
+    const imagePaths: string[] = [];
 
-    this.logger.log('[4/4] Puppeteer PNG 렌더링 시작');
-    const savedPath = await this.rendererService.renderToFile(html, outputPath);
-    this.logger.log(`[4/4] 렌더링 완료: ${savedPath}`);
+    // 2단계: 각 슬라이드별 이미지 수급 → HTML 생성 → PNG 렌더링
+    for (let i = 0; i < cardNewsScript.slides.length; i++) {
+      const slide = cardNewsScript.slides[i];
+      this.logger.log(`[슬라이드 ${i + 1}/${cardNewsScript.slides.length}] type=${slide.type}`);
+
+      // 이미지 검색 (마무리 슬라이드는 이미지 스킵 가능)
+      const imageResult = slide.type !== 'closing'
+        ? await this.researcherService.findImage(slide.imageKeyword)
+        : null;
+
+      // HTML 생성
+      const html = await this.designMakerService.generateHtml(
+        slide,
+        cardNewsScript.theme,
+        imageResult?.url,
+      );
+
+      // PNG 렌더링
+      const filename = `${episodeId}-slide${i + 1}-${Date.now()}.png`;
+      const outputPath = path.join(outputDir, filename);
+      const savedPath = await this.rendererService.renderToFile(html, outputPath);
+      imagePaths.push(savedPath);
+      this.logger.log(`[슬라이드 ${i + 1}] PNG 저장: ${savedPath}`);
+    }
 
     const cardNews = this.cardNewsRepository.create({
       episodeId,
-      imagePath: savedPath,
-      designDirection: direction as unknown as Record<string, unknown>,
+      imagePaths,
+      slideCount: imagePaths.length,
+      scriptSnapshot: cardNewsScript as unknown as Record<string, unknown>,
     });
 
     return this.cardNewsRepository.save(cardNews);
@@ -63,5 +77,39 @@ export class CardNewsService {
       where: { episodeId },
       order: { createdAt: 'DESC' },
     });
+  }
+
+  /** 테스트용: 에피소드 대본에서 1장만 생성 (Gemini 2번: Director + DesignMaker) */
+  async testGenerate(episodeId: string): Promise<string> {
+    const episode = await this.episodesService.findOne(episodeId);
+    if (!episode?.script) {
+      throw new NotFoundException('에피소드 또는 대본을 찾을 수 없습니다');
+    }
+
+    // Director로 슬라이드 구성 분석 (Gemini 1번)
+    this.logger.log('[TEST] Director 분석 시작');
+    const cardNewsScript = await this.directorService.analyze(episode.script);
+
+    // 첫 번째 topic 슬라이드만 처리
+    const targetSlide =
+      cardNewsScript.slides.find((s) => s.type === 'topic') ??
+      cardNewsScript.slides[0];
+    this.logger.log(`[TEST] 슬라이드 선택: "${targetSlide.title}" (keyword: ${targetSlide.imageKeyword})`);
+
+    // Unsplash 이미지 검색
+    const imageResult = await this.researcherService.findImage(targetSlide.imageKeyword);
+
+    // DesignMaker HTML 생성 (Gemini 1번)
+    const html = await this.designMakerService.generateHtml(
+      targetSlide,
+      cardNewsScript.theme,
+      imageResult?.url,
+    );
+
+    const outputDir = process.env.CARD_NEWS_OUTPUT_DIR ?? './card-news-images';
+    const outputPath = path.join(outputDir, `test-${Date.now()}.png`);
+    const savedPath = await this.rendererService.renderToFile(html, outputPath);
+    this.logger.log(`[TEST] PNG 저장: ${savedPath}`);
+    return savedPath;
   }
 }

@@ -17,7 +17,7 @@ export class GeminiProvider implements AiProvider {
     }
 
     const genAi = new GoogleGenerativeAI(apiKey);
-    this.model = genAi.getGenerativeModel({ model: 'gemini-2.5-flash' });
+    this.model = genAi.getGenerativeModel({ model: 'gemini-3-flash-preview' });
   }
 
   async generatePodcastScript(newsContent: string): Promise<PodcastScript> {

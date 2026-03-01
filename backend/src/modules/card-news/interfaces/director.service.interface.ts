@@ -1,13 +1,20 @@
-export interface DesignDirection {
+export type SlideType = 'cover' | 'topic' | 'closing';
+
+export interface CardSlide {
+  type: SlideType;
+  title: string;
+  body: string;
+  imageKeyword: string;
+  accentColor: string;
+  hashtags?: string[];  // 예: ["#에너지", "#지속가능성", "#원자력"]
+}
+
+export interface CardNewsScript {
   theme: 'dark' | 'light';
-  accentColor: string;    // hex 색상코드 예: '#4CAF50'
-  keyCopy: string;        // 메인 헤드라인 1줄
-  subCopy: string;        // 서브 문구
-  keyPoints: string[];    // 핵심 포인트 2~3개
   mood: 'serious' | 'bright' | 'urgent';
-  imageKeywords: string[]; // Unsplash 검색용 영어 단어 2~3개 예: ["artificial intelligence", "energy"]
+  slides: CardSlide[];   // [표지, 주제1..N, 마무리]
 }
 
 export interface IDirectorService {
-  analyze(script: string): Promise<DesignDirection>;
+  analyze(script: string): Promise<CardNewsScript>;
 }
