@@ -113,6 +113,30 @@ npm run start:dev
 | `POST` | `/episodes/:id/generate-audio` | TTS 오디오 생성 |
 | `PATCH` | `/episodes/:id/audio-path` | 오디오 경로 수동 업데이트 |
 
+### 카드뉴스
+
+| Method | Path | 설명 |
+|--------|------|------|
+| `POST` | `/card-news/test/:episodeId` | 1장만 생성 (디자인 확인용, Gemini 2회) |
+| `POST` | `/card-news/generate/:episodeId` | 전체 슬라이드 생성 (표지+주제N+마무리) |
+| `GET` | `/card-news/:episodeId` | 생성된 카드뉴스 조회 |
+
+**카드뉴스 파이프라인**
+
+```
+DirectorService (Gemini)   → 슬라이드 구성 분석 (제목/본문/해시태그/키워드)
+ResearcherService (Unsplash) → 슬라이드별 이미지 검색
+DesignMakerService (Gemini) → HTML/CSS 카드뉴스 코드 생성
+RendererService (Puppeteer)  → HTML → 1080×1080 PNG 변환
+```
+
+**카드뉴스 전용 환경변수 (`.env`)**
+
+```env
+UNSPLASH_ACCESS_KEY=your_unsplash_access_key   # https://unsplash.com/developers
+CARD_NEWS_OUTPUT_DIR=./card-news-images         # PNG 저장 경로
+```
+
 ---
 
 ## 파이프라인 실행 예시
@@ -174,3 +198,5 @@ docker exec aipod-redis redis-cli --scan --pattern "crawler:processed:*" \
 | `GEMINI_API_KEY` | — | Gemini API 키 (필수) |
 | `FISH_SPEECH_URL` | `http://localhost:8080` | Fish Speech 서버 URL |
 | `AUDIO_OUTPUT_DIR` | `./audio-files` | 생성된 오디오 저장 경로 |
+| `UNSPLASH_ACCESS_KEY` | — | Unsplash API 키 (카드뉴스용, [발급](https://unsplash.com/developers)) |
+| `CARD_NEWS_OUTPUT_DIR` | `./card-news-images` | 카드뉴스 PNG 저장 경로 |
