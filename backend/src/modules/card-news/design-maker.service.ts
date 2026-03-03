@@ -9,8 +9,9 @@ export class DesignMakerService implements IDesignMakerService {
   private readonly model;
 
   constructor() {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) throw new Error('GEMINI_API_KEY is not set');
+    const apiKey = process.env.MINDLOGIC_API_KEY;
+    if (!apiKey) throw new Error('MINDLOGIC_API_KEY is not set');
+
     const genAi = new GoogleGenerativeAI(apiKey);
     this.model = genAi.getGenerativeModel({ model: 'gemini-3-flash-preview' });
   }

@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { BullModule } from '@nestjs/bull';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { CrawlerModule } from './modules/crawler/crawler.module';
@@ -20,6 +21,9 @@ import { RefreshToken } from './modules/auth/entities/refresh-token.entity';
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
+    }),
+    BullModule.forRoot({
+      redis: process.env.REDIS_URL ?? 'redis://localhost:6379',
     }),
     TypeOrmModule.forRoot({
       type: 'postgres',
