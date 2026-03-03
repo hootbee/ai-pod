@@ -1,20 +1,29 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import type {
   CardNewsScript,
   IDirectorService,
 } from './interfaces/director.service.interface';
 
+interface GeminiResponse {
+  candidates: Array<{
+    content: { parts: Array<{ text: string }>; role: string };
+  }>;
+}
+
 @Injectable()
 export class DirectorService implements IDirectorService {
   private readonly logger = new Logger(DirectorService.name);
-  private readonly model;
+  private readonly apiKey: string;
+  private readonly baseUrl: string;
+  private readonly modelName: string;
 
   constructor() {
     const apiKey = process.env.MINDLOGIC_API_KEY;
     if (!apiKey) throw new Error('MINDLOGIC_API_KEY is not set');
-    const genAi = new GoogleGenerativeAI(apiKey);
-    this.model = genAi.getGenerativeModel({ model: 'gemini-3-flash-preview' });
+    
+    this.apiKey = apiKey;
+    this.baseUrl = process.env.MINDLOGIC_BASE_URL ?? 'https://factchat-cloud.mindlogic.ai/v1/api/google/models/generate-content';
+    this.modelName = process.env.MINDLOGIC_MODEL ?? 'gemini-2.5-flash';
   }
 
   async analyze(script: string): Promise<CardNewsScript> {
@@ -90,8 +99,27 @@ export class DirectorService implements IDirectorService {
 ${script.slice(0, 2000)}
 `.trim();
 
-    const result = await this.model.generateContent(prompt);
-    const text = result.response.text().trim();
+    const response = await fetch(this.baseUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${this.apiKey}`,
+      },
+      body: JSON.stringify({
+        model: this.modelName,
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      }),
+    });
+
+    if (!response.ok) {
+      const errBody = await response.text();
+      throw new Error(`Mindlogic API 오류: ${response.status} - ${errBody}`);
+    }
+
+    const data = (await response.json()) as GeminiResponse;
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!text) throw new Error('Mindlogic API 응답에 텍스트 없음');
+
 
     try {
       const cleaned = text.replace(/```json?|```/g, '').trim();

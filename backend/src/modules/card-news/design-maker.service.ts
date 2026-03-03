@@ -20,93 +20,90 @@ export class DesignMakerService implements IDesignMakerService {
     const bg = theme === 'dark' ? '#0f0f1a' : '#FAFAF7';
     const textColor = theme === 'dark' ? '#FFFFFF' : '#0f0f1a';
     const cardBg = theme === 'dark' ? '#1a1a2e' : '#FFFFFF';
+    const accent = slide.accentColor || '#4FC3F7';
 
-    const imageSection = imageUrl
-      ? `이미지 URL: ${imageUrl}
-  - <img> 태그 금지. CSS background-image로만 처리하세요.
-  - 전체 배경 또는 상단 영역(height: 380px)에 아래 CSS 적용:
-    background-image: url('${imageUrl}');
-    background-size: cover;
-    background-position: center center;
-  - 이미지 위에 강조색(${slide.accentColor}) 반투명 오버레이(opacity 0.55)를 덮으세요.
-    background-color: ${slide.accentColor}; opacity: 방식 대신
-    별도 div로: background: ${slide.accentColor}; opacity: 0.55; position: absolute; inset: 0;
-  - 효과: 어떤 이미지가 와도 브랜드 톤으로 통일됨`
-      : `이미지 없음. ${slide.accentColor} 색상의 CSS linear-gradient 배경으로 대체하세요.`;
+    // 단락 분리 처리
+    const paragraphs = (slide.body || '').split('\\n').filter((p) => p.trim());
+    const bodyHtml = slide.type === 'topic' && paragraphs.length >= 3
+      ? `<div style="font-size: 24px; color: ${textColor}; font-weight: 500; margin-bottom: 12px;">${paragraphs[0]}</div>
+         <div style="font-size: 22px; color: ${accent}; font-weight: 400; margin-bottom: 12px;">${paragraphs[1]}</div>
+         <div style="font-size: 20px; color: ${textColor}; opacity: 0.7; font-style: italic;">${paragraphs.slice(2).join('<br>')}</div>`
+      : `<div style="font-size: 26px; color: #888;">${slide.body}</div>`;
 
-    const slideGuide = {
-      cover: `
-[표지 카드 디자인]
-- 전체 배경에 이미지 또는 그라디언트를 꽉 채우세요.
-- 중앙에 상단 레이블 "TECH INSIGHT" (강조색, letter-spacing 넓게)
-- 큰 메인 타이틀: "${slide.title}" (굵게, 최소 72px)
-- 서브 텍스트: "${slide.body}" (작게, 26px, 회색)
-- 하단 우측: "AiPod" 로고 텍스트 (강조색, 소문자)`,
+    const imageHtml = imageUrl
+      ? `<div style="position: absolute; inset: 0; background-image: url('${imageUrl}'); background-size: cover; background-position: center;"></div>
+         <div style="position: absolute; inset: 0; background-color: ${accent}; opacity: 0.55;"></div>`
+      : `<div style="position: absolute; inset: 0; background: linear-gradient(135deg, ${accent}88, ${accent}22);"></div>`;
 
-      topic: `
-[주제 카드 레이아웃 - 위에서 아래 순서]
-1. 헤드라인 영역 (height: 180px, 패딩 50px)
-   - 배경: ${cardBg}
-   - 좌측 상단: "TECH" 태그 (강조색 배경, 흰 글씨, 둥근 모서리, 12px)
-   - 메인 타이틀: "${slide.title}" (굵게, 52px, 기본 텍스트색)
+    const hashtagsHtml = (slide.hashtags ?? []).length > 0
+      ? `<div style="display: flex; gap: 12px; align-items: center; height: 60px; padding: 0 50px; background: ${cardBg};">
+           ${slide.hashtags!.map(tag => `<span style="color: ${accent}; font-size: 18px; font-weight: 600;">${tag}</span>`).join('')}
+         </div>`
+      : '';
 
-2. 이미지 영역 (height: 460px, position: relative)
-   - 배경색: ${slide.accentColor} (이미지 없는 영역을 채움)
-   - 배경 이미지: background-size: contain, background-position: center, background-repeat: no-repeat
-   - 이미지 없으면: ${slide.accentColor} linear-gradient로 대체
-   - 오버레이는 생략 (이미지가 잘리지 않도록)
+    let contentHtml = '';
 
-3. 해시태그 영역 (height: 60px, 패딩 0 50px, 배경: ${cardBg})
-   - 해시태그 목록: ${(slide.hashtags ?? []).join(' ')} (없으면 생략)
-   - 각 태그: 강조색(${slide.accentColor}), 18px, font-weight 600, 태그 사이 간격 12px
-   - 가로로 나열 (display: flex, gap: 12px, align-items: center)
+    if (slide.type === 'cover') {
+      contentHtml = `
+        ${imageHtml}
+        <div style="position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 50px;">
+          <div style="color: ${accent}; font-size: 24px; font-weight: 700; letter-spacing: 4px; margin-bottom: 20px;">TECH INSIGHT</div>
+          <div style="color: #FFF; font-size: 72px; font-weight: 800; line-height: 1.2; margin-bottom: 30px; text-shadow: 0 4px 12px rgba(0,0,0,0.5);">${slide.title}</div>
+          <div style="color: #EEE; font-size: 26px; text-shadow: 0 2px 8px rgba(0,0,0,0.5);">${slide.body}</div>
+        </div>
+        <div style="position: absolute; bottom: 50px; right: 50px; color: ${accent}; font-size: 24px; font-weight: 800; text-transform: lowercase;">AiPod</div>
+      `;
+    } else if (slide.type === 'topic') {
+      contentHtml = `
+        <div style="display: flex; flex-direction: column; height: 100%;">
+          <div style="height: 180px; padding: 50px; background: ${cardBg}; display: flex; flex-direction: column; justify-content: center;">
+            <div style="background: ${accent}; color: #FFF; border-radius: 12px; padding: 4px 12px; font-size: 14px; font-weight: 700; width: fit-content; margin-bottom: 16px;">TECH</div>
+            <div style="font-size: 52px; font-weight: 800; color: ${textColor}; line-height: 1.2;">${slide.title}</div>
+          </div>
+          <div style="height: 460px; position: relative; background: ${accent}; overflow: hidden;">
+            ${imageHtml}
+          </div>
+          ${hashtagsHtml}
+          <div style="flex: 1; padding: 40px 50px; background: ${cardBg}; position: relative;">
+            ${bodyHtml}
+            <div style="position: absolute; bottom: 40px; right: 50px; color: ${accent}; font-size: 24px; font-weight: 800; text-transform: lowercase;">AiPod</div>
+          </div>
+        </div>
+      `;
+    } else {
+      // closing
+      contentHtml = `
+        <div style="height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 50px;">
+          <div style="font-size: 80px; margin-bottom: 30px;">🎙️</div>
+          <div style="font-size: 56px; font-weight: 800; color: ${textColor}; margin-bottom: 20px;">${slide.title}</div>
+          <div style="font-size: 26px; color: #888; margin-bottom: 50px;">${slide.body}</div>
+          <div style="background: ${accent}; color: #FFF; padding: 16px 40px; border-radius: 50px; font-size: 24px; font-weight: 700;">AiPod에서 듣기 &rarr;</div>
+          <div style="margin-top: 80px; color: ${textColor}; font-size: 32px; font-weight: 800; text-transform: lowercase;">AiPod <span style="color: ${accent}">.</span></div>
+        </div>
+      `;
+    }
 
-4. 본문 영역 (나머지 높이, 패딩 40px 50px)
-   - 배경: ${cardBg}
-   - 본문은 3개의 단락으로 구분하세요 (\\n을 <br> 또는 <p> 태그로 처리):
-     · 첫 단락: 24px, 기본 텍스트색, font-weight 500 (팩트)
-     · 둘째 단락: 22px, 강조색, font-weight 400 (수치/근거)
-     · 셋째 단락: 20px, 기본 텍스트색 투명도 0.7, font-style italic (시사점)
-   - 단락 사이 margin-bottom: 12px
-   - 우측 하단: "AiPod" 로고 (강조색, 소문자, 18px)`,
-
-      closing: `
-[마무리 카드 디자인]
-- 중앙 정렬 레이아웃
-- 상단: 팟캐스트 마이크 아이콘 (SVG 또는 이모지 🎙)
-- 메인 타이틀: "${slide.title}" (굵게, 56px)
-- 본문: "${slide.body}" (26px, 회색)
-- 강조색 버튼 모양 박스: "AiPod에서 듣기 →" (클릭 불가, 디자인용)
-- 하단: "AiPod" 로고 + 강조색 점 장식`,
-    };
-
-    const prompt = `
-당신은 HTML/CSS 전문 개발자입니다.
-아래 명세에 따라 1080×1080px 카드뉴스 슬라이드 HTML을 작성하세요.
-
-[공통 디자인 시스템]
-- 크기: width 1080px, height 1080px (고정, overflow: hidden)
-- 배경색: ${bg}
-- 텍스트 기본색: ${textColor}
-- 강조색: ${slide.accentColor}
-- 카드 배경: ${cardBg}
-- 폰트: 'Noto Sans KR' (Google Fonts)
-- 모서리: border-radius 0px (전체 카드는 각지게)
-
-[이미지 설정]
-${imageSection}
-
-${slideGuide[slide.type]}
-
-[절대 규칙]
-- Google Fonts 허용
-- <style> 태그 사용
-- 완전한 HTML 문서 (<!DOCTYPE html> 포함)
-- HTML 코드만 출력 (설명, 마크다운 없이)
-`.trim();
-
-    const result = await this.model.generateContent(prompt);
-    const text = result.response.text().trim();
-    return text.replace(/```html?|```/g, '').trim();
+    return `
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      width: 1080px; height: 1080px;
+      font-family: 'Noto Sans KR', sans-serif;
+      background-color: ${bg};
+      overflow: hidden;
+      position: relative;
+    }
+  </style>
+</head>
+<body>
+  ${contentHtml}
+</body>
+</html>
+    `.trim();
   }
 }
