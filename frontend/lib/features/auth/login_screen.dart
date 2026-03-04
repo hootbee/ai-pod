@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import '../auth/auth_service.dart';
 import '../podcast/main_screen.dart'; // 로그인 성공 시 이동할 메인 화면
 
 class LoginScreen extends StatefulWidget {
@@ -12,16 +13,26 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false; // API 통신 중 로딩 상태를 관리할 변수
 
-  // 1. 구글 로그인 API 연동을 위한 뼈대 함수
+  // 1. 구글 로그인 API 연동
   Future<void> _handleGoogleLogin() async {
     setState(() => _isLoading = true);
 
-    // TODO: 나중에 여기에 실제 구글 OAuth API 통신 코드가 들어갑니다.
-    // 지금은 서버와 통신하는 척 1.5초 대기합니다.
-    await Future.delayed(const Duration(milliseconds: 1500));
-
-    setState(() => _isLoading = false);
-    _navigateToMain();
+    try {
+      final authService = AuthService();
+      await authService.loginWithGoogle(); // 구글 OAuth + 백엔드 JWT 발급
+      if (!mounted) return;
+      _navigateToMain();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('로그인 실패: $e'),
+          backgroundColor: Colors.red.shade700,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   // 2. 애플 로그인 API 연동을 위한 뼈대 함수

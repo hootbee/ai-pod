@@ -1,9 +1,14 @@
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 
 class AuthService {
-  static const String _backendUrl = 'http://192.168.200.140:3000'; // Mac 실제 IP (실기기 테스트용)
+  // 에뮬레이터: 'http://10.0.2.2:3000'  / 실기기: 'http://192.168.200.140:3000'
+  static const String _backendUrl = 'http://10.0.2.2:3000';
+
+  static const _keyAccessToken = 'access_token';
+  static const _keyRefreshToken = 'refresh_token';
 
   static final GoogleSignIn _googleSignIn = GoogleSignIn(
     serverClientId:
@@ -15,6 +20,35 @@ class AuthService {
 
   String? get accessToken => _accessToken;
   bool get isLoggedIn => _accessToken != null;
+
+  /// 앱 시작 시 저장된 토큰 로드 → 유효하면 true, 아니면 false
+  Future<bool> tryAutoLogin() async {
+    final prefs = await SharedPreferences.getInstance();
+    _accessToken = prefs.getString(_keyAccessToken);
+    _refreshToken = prefs.getString(_keyRefreshToken);
+
+    if (_accessToken == null) return false;
+
+    // 토큰 유효성 검사 (GET /auth/me)
+    try {
+      final response = await http.get(
+        Uri.parse('$_backendUrl/auth/me'),
+        headers: {'Authorization': 'Bearer $_accessToken'},
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) return true;
+
+      // Access token 만료 → refresh 시도
+      if (response.statusCode == 401 && _refreshToken != null) {
+        await _refresh();
+        return true;
+      }
+    } catch (_) {}
+
+    // 실패 시 저장된 토큰 삭제
+    await _clearTokens();
+    return false;
+  }
 
   /// Google 로그인 + 백엔드 JWT 발급
   Future<Map<String, dynamic>> loginWithGoogle() async {
@@ -29,7 +63,7 @@ class AuthService {
       Uri.parse('$_backendUrl/auth/google'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'idToken': idToken}),
-    );
+    ).timeout(const Duration(seconds: 15));
 
     if (response.statusCode != 200) {
       throw Exception('백엔드 로그인 실패: ${response.body}');
@@ -38,28 +72,10 @@ class AuthService {
     final data = jsonDecode(response.body) as Map<String, dynamic>;
     _accessToken = data['accessToken'] as String?;
     _refreshToken = data['refreshToken'] as String?;
+
+    // 토큰 로컬 저장
+    await _saveTokens();
     return data;
-  }
-
-  /// 내 정보 조회
-  Future<Map<String, dynamic>> getMe() async {
-    if (_accessToken == null) throw Exception('로그인이 필요합니다');
-
-    final response = await http.get(
-      Uri.parse('$_backendUrl/auth/me'),
-      headers: {'Authorization': 'Bearer $_accessToken'},
-    );
-
-    if (response.statusCode == 401) {
-      await _refresh();
-      return getMe();
-    }
-
-    if (response.statusCode != 200) {
-      throw Exception('내 정보 조회 실패');
-    }
-
-    return jsonDecode(response.body) as Map<String, dynamic>;
   }
 
   /// Access Token 갱신
@@ -70,13 +86,14 @@ class AuthService {
       Uri.parse('$_backendUrl/auth/refresh'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'refreshToken': _refreshToken}),
-    );
+    ).timeout(const Duration(seconds: 10));
 
     if (response.statusCode != 200) throw Exception('토큰 갱신 실패');
 
     final data = jsonDecode(response.body) as Map<String, dynamic>;
     _accessToken = data['accessToken'] as String?;
     _refreshToken = data['refreshToken'] as String?;
+    await _saveTokens();
   }
 
   /// 로그아웃
@@ -92,6 +109,19 @@ class AuthService {
       );
     }
     await _googleSignIn.signOut();
+    await _clearTokens();
+  }
+
+  Future<void> _saveTokens() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (_accessToken != null) await prefs.setString(_keyAccessToken, _accessToken!);
+    if (_refreshToken != null) await prefs.setString(_keyRefreshToken, _refreshToken!);
+  }
+
+  Future<void> _clearTokens() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_keyAccessToken);
+    await prefs.remove(_keyRefreshToken);
     _accessToken = null;
     _refreshToken = null;
   }

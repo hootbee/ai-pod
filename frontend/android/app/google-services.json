@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "826440481147",
+    "project_id": "aipod-7c69b",
+    "storage_bucket": "aipod-7c69b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:826440481147:android:8b1553582f8f8fc9c0e5de",
+        "android_client_info": {
+          "package_name": "com.aipod.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBYuuPkbR56irBHf5XRdHzp_DlXc5-Sg-E"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
