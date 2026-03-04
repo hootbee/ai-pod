@@ -1,14 +1,16 @@
+import { InjectQueue } from '@nestjs/bull';
 import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
+import type { Queue } from 'bull';
 import { CreateEpisodeDto } from './dto/create-episode.dto';
 import { UpdateAudioPathDto } from './dto/update-audio-path.dto';
 import { EpisodesService } from './episodes.service';
-import { TtsService } from '../tts/tts.service';
+import { TTS_JOB, TTS_QUEUE } from '../tts/tts.constants';
 
 @Controller('episodes')
 export class EpisodesController {
   constructor(
     private readonly episodesService: EpisodesService,
-    private readonly ttsService: TtsService,
+    @InjectQueue(TTS_QUEUE) private readonly ttsQueue: Queue,
   ) {}
 
   @Post()
@@ -31,8 +33,10 @@ export class EpisodesController {
     return this.episodesService.updateAudioPath(id, updateAudioPathDto);
   }
 
+  /** TTS 생성 — Bull Queue 비동기 처리 */
   @Post(':id/generate-audio')
-  generateAudio(@Param('id') id: string) {
-    return this.ttsService.generateAudio(id);
+  async generateAudio(@Param('id') id: string) {
+    const job = await this.ttsQueue.add(TTS_JOB.GENERATE, { episodeId: id });
+    return { jobId: job.id, status: 'queued', message: 'TTS 생성이 백그라운드에서 시작됐습니다.' };
   }
 }
