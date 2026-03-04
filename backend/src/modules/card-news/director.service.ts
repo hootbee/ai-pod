@@ -45,7 +45,9 @@ export class DirectorService implements IDirectorService {
    - body: "${today} · 주요 테크 뉴스 N가지" 형식
    - imageKeyword: 전체 주제를 대표하는 영어 단어 1개 (예: "technology")
 
-2. 중간 슬라이드들 (type: "topic") - 대본의 가장 핵심 주제 1개만
+2. 중간 슬라이드들 (type: "topic") - 대본의 핵심 주제를 최대 4개까지 추출
+   - 대본에 다루는 뉴스 주제 수만큼 생성 (최소 1개, 최대 4개)
+   - 각 topic 슬라이드:
    - title: 해당 뉴스의 핵심 헤드라인 (최대 20자)
    - body: 아래 3줄 구조로 작성, 총 공백 포함 100~150자
      · 첫 줄: 해당 주제의 가장 중요한 팩트 (1문장)
@@ -81,9 +83,18 @@ export class DirectorService implements IDirectorService {
     {
       "type": "topic",
       "title": "AI가 바꾸는 에너지",
-      "body": "빅테크 기업들이 AI 데이터센터 전력 문제 해결을 위해 핵에너지에 주목하고 있습니다.",
+      "body": "빅테크 기업들이 AI 데이터센터 전력 문제 해결을 위해 핵에너지에 주목하고 있습니다.\n마이크로소프트·구글 등이 SMR 개발사에 수십억 달러를 투자 중입니다.\nAI 시대의 전력난 해결책으로 핵에너지가 재조명되고 있습니다.",
       "imageKeyword": "nuclear",
+      "hashtags": ["#AI", "#에너지", "#원자력"],
       "accentColor": "#FF7043"
+    },
+    {
+      "type": "topic",
+      "title": "오픈AI, GPT-5 공개",
+      "body": "오픈AI가 차세대 모델 GPT-5 출시 계획을 공식 발표했습니다.\n추론 능력이 기존 대비 2배 이상 향상될 것으로 알려졌습니다.\nAI 업계 패권 경쟁이 더욱 치열해질 전망입니다.",
+      "imageKeyword": "artificial",
+      "hashtags": ["#GPT5", "#오픈AI", "#생성AI"],
+      "accentColor": "#AB47BC"
     },
     {
       "type": "closing",
