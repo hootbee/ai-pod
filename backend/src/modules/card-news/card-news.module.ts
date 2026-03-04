@@ -13,5 +13,6 @@ import { EpisodesModule } from '../episodes/episodes.module';
   imports: [TypeOrmModule.forFeature([CardNews]), EpisodesModule],
   controllers: [CardNewsController],
   providers: [CardNewsService, DirectorService, ResearcherService, DesignMakerService, RendererService],
+  exports: [CardNewsService],
 })
 export class CardNewsModule {}

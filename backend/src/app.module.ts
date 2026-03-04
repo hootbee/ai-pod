@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bull';
+import { ScheduleModule } from '@nestjs/schedule';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { CrawlerModule } from './modules/crawler/crawler.module';
@@ -11,6 +12,7 @@ import { TtsModule } from './modules/tts/tts.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { CardNewsModule } from './modules/card-news/card-news.module';
+import { PipelineModule } from './modules/pipeline/pipeline.module';
 import { CardNews } from './modules/card-news/entities/card-news.entity';
 import { PodcastEpisode } from './modules/episodes/entities/podcast-episode.entity';
 import { User } from './modules/users/entities/user.entity';
@@ -42,6 +44,7 @@ import { RefreshToken } from './modules/auth/entities/refresh-token.entity';
     AuthModule,
     UsersModule,
     CardNewsModule,
+    PipelineModule,
   ],
   controllers: [AppController],
   providers: [AppService],

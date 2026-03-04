@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { MoreThanOrEqual, Repository } from 'typeorm';
 import { CreateEpisodeDto } from './dto/create-episode.dto';
 import { UpdateAudioPathDto } from './dto/update-audio-path.dto';
 import { AudioStatus, PodcastEpisode } from './entities/podcast-episode.entity';
@@ -53,5 +53,19 @@ export class EpisodesService {
     const episode = await this.findOne(id);
     episode.audioStatus = status;
     return this.episodesRepository.save(episode);
+  }
+
+  /** 오늘(KST 00:00 이후) 생성된 에피소드 조회 — 파이프라인 중복 체크용 */
+  async findTodayEpisode(): Promise<PodcastEpisode | null> {
+    // KST = UTC+9, 오늘 KST 00:00 → UTC 어제 15:00
+    const nowMs = Date.now();
+    const kstOffsetMs = 9 * 60 * 60 * 1000;
+    const todayKstMidnight = new Date(
+      Math.floor((nowMs + kstOffsetMs) / 86_400_000) * 86_400_000 - kstOffsetMs,
+    );
+    return this.episodesRepository.findOne({
+      where: { createdAt: MoreThanOrEqual(todayKstMidnight) },
+      order: { createdAt: 'DESC' },
+    });
   }
 }
