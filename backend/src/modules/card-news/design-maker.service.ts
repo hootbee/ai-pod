@@ -25,19 +25,19 @@ export class DesignMakerService implements IDesignMakerService {
     // 단락 분리 처리
     const paragraphs = (slide.body || '').split('\\n').filter((p) => p.trim());
     const bodyHtml = slide.type === 'topic' && paragraphs.length >= 3
-      ? `<div style="font-size: 24px; color: ${textColor}; font-weight: 500; margin-bottom: 12px;">${paragraphs[0]}</div>
-         <div style="font-size: 22px; color: ${accent}; font-weight: 400; margin-bottom: 12px;">${paragraphs[1]}</div>
-         <div style="font-size: 20px; color: ${textColor}; opacity: 0.7; font-style: italic;">${paragraphs.slice(2).join('<br>')}</div>`
-      : `<div style="font-size: 26px; color: #888;">${slide.body}</div>`;
+      ? `<div style="font-size: 32px; color: ${textColor}; font-weight: 500; margin-bottom: 16px;">${paragraphs[0]}</div>
+         <div style="font-size: 28px; color: ${accent}; font-weight: 400; margin-bottom: 16px;">${paragraphs[1]}</div>
+         <div style="font-size: 26px; color: ${textColor}; opacity: 0.7; font-style: italic; line-height: 1.5;">${paragraphs.slice(2).join('<br>')}</div>`
+      : `<div style="font-size: 32px; color: #888; line-height: 1.5;">${slide.body}</div>`;
 
     const imageHtml = imageUrl
       ? `<div style="position: absolute; inset: 0; background-image: url('${imageUrl}'); background-size: cover; background-position: center;"></div>
-         <div style="position: absolute; inset: 0; background-color: ${accent}; opacity: 0.55;"></div>`
+         <div style="position: absolute; inset: 0; background-color: ${accent}; opacity: 0.4;"></div>`
       : `<div style="position: absolute; inset: 0; background: linear-gradient(135deg, ${accent}88, ${accent}22);"></div>`;
 
     const hashtagsHtml = (slide.hashtags ?? []).length > 0
-      ? `<div style="display: flex; gap: 12px; align-items: center; height: 60px; padding: 0 50px; background: ${cardBg};">
-           ${slide.hashtags!.map(tag => `<span style="color: ${accent}; font-size: 18px; font-weight: 600;">${tag}</span>`).join('')}
+      ? `<div style="display: flex; gap: 16px; align-items: center; padding: 24px 50px; background: ${cardBg}; flex-wrap: wrap;">
+           ${slide.hashtags!.map(tag => `<span style="color: ${accent}; font-size: 24px; font-weight: 600;">#${tag}</span>`).join('')}
          </div>`
       : '';
 
@@ -46,39 +46,43 @@ export class DesignMakerService implements IDesignMakerService {
     if (slide.type === 'cover') {
       contentHtml = `
         ${imageHtml}
-        <div style="position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 50px;">
-          <div style="color: ${accent}; font-size: 24px; font-weight: 700; letter-spacing: 4px; margin-bottom: 20px;">TECH INSIGHT</div>
-          <div style="color: #FFF; font-size: 72px; font-weight: 800; line-height: 1.2; margin-bottom: 30px; text-shadow: 0 4px 12px rgba(0,0,0,0.5);">${slide.title}</div>
-          <div style="color: #EEE; font-size: 26px; text-shadow: 0 2px 8px rgba(0,0,0,0.5);">${slide.body}</div>
+        <div style="position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 60px;">
+          <div style="color: ${accent}; font-size: 32px; font-weight: 700; letter-spacing: 6px; margin-bottom: 30px;">TECH INSIGHT</div>
+          <div style="color: #FFF; font-size: 96px; font-weight: 800; line-height: 1.2; margin-bottom: 40px; text-shadow: 0 6px 16px rgba(0,0,0,0.6); word-break: keep-all;">${slide.title}</div>
+          <div style="color: #EEE; font-size: 36px; line-height: 1.5; text-shadow: 0 4px 12px rgba(0,0,0,0.6); word-break: keep-all;">${slide.body}</div>
         </div>
-        <div style="position: absolute; bottom: 50px; right: 50px; color: ${accent}; font-size: 24px; font-weight: 800; text-transform: lowercase;">AiPod</div>
+        <div style="position: absolute; bottom: 60px; right: 60px; color: ${accent}; font-size: 36px; font-weight: 800; text-transform: lowercase; text-shadow: 0 4px 8px rgba(0,0,0,0.5);">aipod</div>
       `;
     } else if (slide.type === 'topic') {
+      // 비율 기반(Flex) 분할로 모바일 세로 화면에 꽉 차게 변경
       contentHtml = `
         <div style="display: flex; flex-direction: column; height: 100%;">
-          <div style="height: 180px; padding: 50px; background: ${cardBg}; display: flex; flex-direction: column; justify-content: center;">
-            <div style="background: ${accent}; color: #FFF; border-radius: 12px; padding: 4px 12px; font-size: 14px; font-weight: 700; width: fit-content; margin-bottom: 16px;">TECH</div>
-            <div style="font-size: 52px; font-weight: 800; color: ${textColor}; line-height: 1.2;">${slide.title}</div>
+          <div style="padding: 60px 50px 40px; background: ${cardBg};">
+            <div style="background: ${accent}; color: #FFF; border-radius: 16px; padding: 8px 20px; font-size: 20px; font-weight: 700; width: fit-content; margin-bottom: 24px;">TECH</div>
+            <div style="font-size: 64px; font-weight: 800; color: ${textColor}; line-height: 1.25; word-break: keep-all;">${slide.title}</div>
           </div>
-          <div style="height: 460px; position: relative; background: ${accent}; overflow: hidden;">
+          
+          <div style="flex: 4; position: relative; background: ${accent}; overflow: hidden;">
             ${imageHtml}
           </div>
+          
           ${hashtagsHtml}
-          <div style="flex: 1; padding: 40px 50px; background: ${cardBg}; position: relative;">
+          
+          <div style="flex: 3; padding: 50px; background: ${cardBg}; position: relative;">
             ${bodyHtml}
-            <div style="position: absolute; bottom: 40px; right: 50px; color: ${accent}; font-size: 24px; font-weight: 800; text-transform: lowercase;">AiPod</div>
+            <div style="position: absolute; bottom: 50px; right: 50px; color: ${accent}; font-size: 32px; font-weight: 800; text-transform: lowercase;">aipod</div>
           </div>
         </div>
       `;
     } else {
       // closing
       contentHtml = `
-        <div style="height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 50px;">
-          <div style="font-size: 80px; margin-bottom: 30px;">🎙️</div>
-          <div style="font-size: 56px; font-weight: 800; color: ${textColor}; margin-bottom: 20px;">${slide.title}</div>
-          <div style="font-size: 26px; color: #888; margin-bottom: 50px;">${slide.body}</div>
-          <div style="background: ${accent}; color: #FFF; padding: 16px 40px; border-radius: 50px; font-size: 24px; font-weight: 700;">AiPod에서 듣기 &rarr;</div>
-          <div style="margin-top: 80px; color: ${textColor}; font-size: 32px; font-weight: 800; text-transform: lowercase;">AiPod <span style="color: ${accent}">.</span></div>
+        <div style="height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 60px;">
+          <div style="font-size: 120px; margin-bottom: 40px;">🎙️</div>
+          <div style="font-size: 72px; font-weight: 800; color: ${textColor}; margin-bottom: 30px; word-break: keep-all;">${slide.title}</div>
+          <div style="font-size: 36px; color: #888; line-height: 1.5; margin-bottom: 80px; word-break: keep-all;">${slide.body}</div>
+          <div style="background: ${accent}; color: #FFF; padding: 24px 60px; border-radius: 60px; font-size: 36px; font-weight: 700;">aipod에서 듣기 &rarr;</div>
+          <div style="margin-top: 120px; color: ${textColor}; font-size: 48px; font-weight: 800; text-transform: lowercase;">aipod <span style="color: ${accent}">.</span></div>
         </div>
       `;
     }
@@ -88,12 +92,13 @@ export class DesignMakerService implements IDesignMakerService {
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      width: 1080px; height: 1080px;
-      font-family: 'Noto Sans KR', sans-serif;
+      width: 1080px; 
+      height: 1920px; /* 9:16 모바일 세로 비율로 수정! */
+      font-family: 'Pretendard', sans-serif; /* Noto Sans 대신 트렌디한 Pretendard로 변경 */
       background-color: ${bg};
       overflow: hidden;
       position: relative;
