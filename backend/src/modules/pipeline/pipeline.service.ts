@@ -4,6 +4,7 @@ import type { Queue } from 'bull';
 import { CrawlerService } from '../crawler/crawler.service';
 import { AiProcessorService } from '../ai-processor/ai-processor.service';
 import { EpisodesService } from '../episodes/episodes.service';
+import { HeadlineService } from '../episodes/headline.service';
 import { CardNewsService } from '../card-news/card-news.service';
 import { TTS_JOB, TTS_QUEUE } from '../tts/tts.constants';
 import type { BriefingArticle } from '../ai-processor/interfaces/ai-provider.interface';
@@ -28,6 +29,7 @@ export class PipelineService {
     private readonly crawlerService: CrawlerService,
     private readonly aiProcessorService: AiProcessorService,
     private readonly episodesService: EpisodesService,
+    private readonly headlineService: HeadlineService,
     private readonly cardNewsService: CardNewsService,
     @InjectQueue(TTS_QUEUE) private readonly ttsQueue: Queue,
   ) {}
@@ -75,6 +77,16 @@ export class PipelineService {
     this.logger.log(`[Pipeline] 에피소드 저장 완료: ${episode.id}`);
 
     const result: PipelineResult = { episodeId: episode.id, warnings };
+
+    // ── 3.5. 헤드라인 + 부제 생성 (실패해도 에피소드 유지) ────────────────
+    try {
+      await this.headlineService.generateAndSave(episode.id);
+      this.logger.log(`[Pipeline] 헤드라인 생성 완료`);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      warnings.push(`헤드라인 생성 실패: ${msg}`);
+      this.logger.warn(`[Pipeline] 헤드라인 실패 (에피소드 유지) → ${msg}`);
+    }
 
     // ── 4. 카드뉴스 생성 (실패해도 에피소드 유지) ─────────────────────────
     try {

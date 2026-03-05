@@ -4,12 +4,14 @@ import type { Queue } from 'bull';
 import { CreateEpisodeDto } from './dto/create-episode.dto';
 import { UpdateAudioPathDto } from './dto/update-audio-path.dto';
 import { EpisodesService } from './episodes.service';
+import { HeadlineService } from './headline.service';
 import { TTS_JOB, TTS_QUEUE } from '../tts/tts.constants';
 
 @Controller('episodes')
 export class EpisodesController {
   constructor(
     private readonly episodesService: EpisodesService,
+    private readonly headlineService: HeadlineService,
     @InjectQueue(TTS_QUEUE) private readonly ttsQueue: Queue,
   ) {}
 
@@ -38,5 +40,11 @@ export class EpisodesController {
   async generateAudio(@Param('id') id: string) {
     const job = await this.ttsQueue.add(TTS_JOB.GENERATE, { episodeId: id });
     return { jobId: job.id, status: 'queued', message: 'TTS 생성이 백그라운드에서 시작됐습니다.' };
+  }
+
+  /** 클릭베이트 헤드라인 + 부제 생성 */
+  @Post(':id/generate-headline')
+  generateHeadline(@Param('id') id: string) {
+    return this.headlineService.generateAndSave(id);
   }
 }

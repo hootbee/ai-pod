@@ -28,6 +28,14 @@ export class PodcastEpisode {
   @Column({ type: 'int', default: 0 })
   sourceCount: number;
 
+  /** 클릭베이트 헤드라인 제목 (예: "GPT-5 나온다는데 하루 안에 CEO가 도망?!") */
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  headline: string | null;
+
+  /** 헤드라인 부제 (예: "정말 도망치는 걸수도 있어요. 하지만 움직임을 확인해보세요.") */
+  @Column({ type: 'text', nullable: true })
+  headlineSubtitle: string | null;
+
   @CreateDateColumn({ type: 'timestamptz' })
   createdAt: Date;
 

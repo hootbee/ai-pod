@@ -6,7 +6,7 @@ import { PipelineScheduler } from './pipeline.scheduler';
 import { PipelineController } from './pipeline.controller';
 import { CrawlerModule } from '../crawler/crawler.module';
 import { AiProcessorModule } from '../ai-processor/ai-processor.module';
-import { EpisodesModule } from '../episodes/episodes.module';
+import { EpisodesModule } from '../episodes/episodes.module'; // HeadlineService 포함
 import { CardNewsModule } from '../card-news/card-news.module';
 import { TTS_QUEUE } from '../tts/tts.constants';
 
