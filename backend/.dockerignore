@@ -1,0 +1,16 @@
+node_modules
+dist
+.env
+.env.*
+!.env.example
+*.log
+coverage
+test
+**/*.spec.ts
+**/*.e2e-spec.ts
+.git
+.gitignore
+README.md
+audio-files
+card-news-images
+checkpoints

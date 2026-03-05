@@ -2,14 +2,11 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
-import 'dart:io';
+import '../../core/app_config.dart';
 
 class AuthService {
-  // iOS 시뮬레이터: localhost / Android 에뮬레이터: 10.0.2.2 / 실기기: 192.168.x.x
-  static String get _backendUrl {
-    if (Platform.isIOS) return 'http://localhost:3000';
-    return 'http://10.0.2.2:3000'; // Android 에뮬레이터
-  }
+  // URL은 AppConfig에서 환경별로 자동 결정됨
+  static String get _backendUrl => AppConfig.apiBaseUrl;
 
   static const _keyAccessToken = 'access_token';
   static const _keyRefreshToken = 'refresh_token';
