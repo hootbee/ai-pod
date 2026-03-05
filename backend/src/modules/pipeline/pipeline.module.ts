@@ -6,8 +6,9 @@ import { PipelineScheduler } from './pipeline.scheduler';
 import { PipelineController } from './pipeline.controller';
 import { CrawlerModule } from '../crawler/crawler.module';
 import { AiProcessorModule } from '../ai-processor/ai-processor.module';
-import { EpisodesModule } from '../episodes/episodes.module'; // HeadlineService 포함
+import { EpisodesModule } from '../episodes/episodes.module';
 import { CardNewsModule } from '../card-news/card-news.module';
+import { ThumbnailModule } from '../thumbnail/thumbnail.module';
 import { TTS_QUEUE } from '../tts/tts.constants';
 
 @Module({
@@ -18,6 +19,7 @@ import { TTS_QUEUE } from '../tts/tts.constants';
     AiProcessorModule,
     EpisodesModule,
     CardNewsModule,
+    ThumbnailModule,
   ],
   controllers: [PipelineController],
   providers: [PipelineService, PipelineScheduler],

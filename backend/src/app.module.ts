@@ -13,8 +13,10 @@ import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { CardNewsModule } from './modules/card-news/card-news.module';
 import { PipelineModule } from './modules/pipeline/pipeline.module';
+import { ThumbnailModule } from './modules/thumbnail/thumbnail.module';
 import { CardNews } from './modules/card-news/entities/card-news.entity';
 import { PodcastEpisode } from './modules/episodes/entities/podcast-episode.entity';
+import { EpisodeThumbnail } from './modules/thumbnail/entities/episode-thumbnail.entity';
 import { User } from './modules/users/entities/user.entity';
 import { RefreshToken } from './modules/auth/entities/refresh-token.entity';
 
@@ -34,7 +36,7 @@ import { RefreshToken } from './modules/auth/entities/refresh-token.entity';
       username: process.env.DB_USER ?? 'myuser',
       password: process.env.DB_PASSWORD ?? 'mypassword',
       database: process.env.DB_NAME ?? 'aipod_db',
-      entities: [PodcastEpisode, User, RefreshToken, CardNews],
+      entities: [PodcastEpisode, User, RefreshToken, CardNews, EpisodeThumbnail],
       synchronize: (process.env.DB_SYNC ?? 'true') === 'true',
     }),
     CrawlerModule,
@@ -45,6 +47,7 @@ import { RefreshToken } from './modules/auth/entities/refresh-token.entity';
     UsersModule,
     CardNewsModule,
     PipelineModule,
+    ThumbnailModule,
   ],
   controllers: [AppController],
   providers: [AppService],

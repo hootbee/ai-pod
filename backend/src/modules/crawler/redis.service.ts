@@ -9,6 +9,14 @@ export class RedisService implements OnModuleDestroy {
   constructor() {
     const redisUrl = process.env.REDIS_URL;
     this.client = redisUrl ? new Redis(redisUrl) : new Redis();
+
+    this.client.on('connect', () => {
+      this.logger.log('Redis connected');
+    });
+
+    this.client.on('error', (error) => {
+      this.logger.error(`Redis error: ${error.message}`);
+    });
   }
 
   getClient(): Redis {

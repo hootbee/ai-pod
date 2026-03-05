@@ -6,6 +6,7 @@ import { AiProcessorService } from '../ai-processor/ai-processor.service';
 import { EpisodesService } from '../episodes/episodes.service';
 import { HeadlineService } from '../episodes/headline.service';
 import { CardNewsService } from '../card-news/card-news.service';
+import { ThumbnailService } from '../thumbnail/thumbnail.service';
 import { TTS_JOB, TTS_QUEUE } from '../tts/tts.constants';
 import type { BriefingArticle } from '../ai-processor/interfaces/ai-provider.interface';
 
@@ -31,6 +32,7 @@ export class PipelineService {
     private readonly episodesService: EpisodesService,
     private readonly headlineService: HeadlineService,
     private readonly cardNewsService: CardNewsService,
+    private readonly thumbnailService: ThumbnailService,
     @InjectQueue(TTS_QUEUE) private readonly ttsQueue: Queue,
   ) {}
 
@@ -86,6 +88,16 @@ export class PipelineService {
       const msg = err instanceof Error ? err.message : String(err);
       warnings.push(`헤드라인 생성 실패: ${msg}`);
       this.logger.warn(`[Pipeline] 헤드라인 실패 (에피소드 유지) → ${msg}`);
+    }
+
+    // ── 3.6. 썸네일 생성 (실패해도 에피소드 유지) ──────────────────────────
+    try {
+      const thumbnail = await this.thumbnailService.generateAndSave(episode.id);
+      this.logger.log(`[Pipeline] 썸네일 생성 완료: ${thumbnail.imagePath}`);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      warnings.push(`썸네일 생성 실패: ${msg}`);
+      this.logger.warn(`[Pipeline] 썸네일 실패 (에피소드 유지) → ${msg}`);
     }
 
     // ── 4. 카드뉴스 생성 (실패해도 에피소드 유지) ─────────────────────────
