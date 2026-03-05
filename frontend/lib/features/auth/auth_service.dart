@@ -2,17 +2,21 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
+import 'dart:io';
 
 class AuthService {
-  // 에뮬레이터: 'http://10.0.2.2:3000'  / 실기기: 'http://192.168.200.140:3000'
-  static const String _backendUrl = 'http://10.0.2.2:3000';
+  // iOS 시뮬레이터: localhost / Android 에뮬레이터: 10.0.2.2 / 실기기: 192.168.x.x
+  static String get _backendUrl {
+    if (Platform.isIOS) return 'http://localhost:3000';
+    return 'http://10.0.2.2:3000'; // Android 에뮬레이터
+  }
 
   static const _keyAccessToken = 'access_token';
   static const _keyRefreshToken = 'refresh_token';
 
   static final GoogleSignIn _googleSignIn = GoogleSignIn(
     serverClientId:
-        '711427859481-ishgmphcatvfecfio6pqat1tfnbc7rl7.apps.googleusercontent.com',
+        '826440481147-effr7vmiuqh5d0tujtne4e726ft14ttr.apps.googleusercontent.com',
   );
 
   String? _accessToken;

@@ -18,9 +18,15 @@ export class GoogleAuthService implements IGoogleAuthService {
   }
 
   async verify(idToken: string): Promise<GoogleUserInfo> {
+    // iOS/Android 앱마다 audience가 다를 수 있으므로 허용할 Client ID 목록 지정
+    const allowedAudiences = [
+      process.env.GOOGLE_CLIENT_ID!,                   // Web Client ID
+      process.env.GOOGLE_IOS_CLIENT_ID,               // iOS Client ID (옵션)
+    ].filter(Boolean) as string[];
+
     const ticket = await this.client.verifyIdToken({
       idToken,
-      audience: process.env.GOOGLE_CLIENT_ID,
+      audience: allowedAudiences,
     });
 
     const payload = ticket.getPayload();
