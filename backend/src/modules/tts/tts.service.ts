@@ -55,8 +55,10 @@ export class TtsService {
         ? await this.generateWithPauses(segments)
         : await this.generateChunked(episode.script);
 
-      const wavPath = path.join(this.outputDir, `${episodeId}.wav`);
-      const mp3Path = path.join(this.outputDir, `${episodeId}.mp3`);
+      const dateStr = new Date(episode.createdAt).toISOString().slice(0, 10).replace(/-/g, '');
+      const baseName = `${dateStr}-${episodeId.slice(0, 8)}`;
+      const wavPath = path.join(this.outputDir, `${baseName}.wav`);
+      const mp3Path = path.join(this.outputDir, `${baseName}.mp3`);
       fs.writeFileSync(wavPath, audioBuffer);
       this.convertToMp3(wavPath, mp3Path);
 

@@ -1,6 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bull';
 import type { Queue } from 'bull';
+import Redis from 'ioredis';
+import * as fs from 'fs/promises';
+import * as path from 'path';
+import { DataSource } from 'typeorm';
 import { CrawlerService } from '../crawler/crawler.service';
 import { AiProcessorService } from '../ai-processor/ai-processor.service';
 import { EpisodesService } from '../episodes/episodes.service';
@@ -33,6 +37,7 @@ export class PipelineService {
     private readonly headlineService: HeadlineService,
     private readonly cardNewsService: CardNewsService,
     private readonly thumbnailService: ThumbnailService,
+    private readonly dataSource: DataSource,
     @InjectQueue(TTS_QUEUE) private readonly ttsQueue: Queue,
   ) {}
 
@@ -142,6 +147,14 @@ export class PipelineService {
     return { jobId: job.id, episodeId, status: 'queued' };
   }
 
+  /** DB/캐시/생성 파일 전체 초기화 후 파이프라인 실행 */
+  async resetAndRun(force = true): Promise<PipelineResult & { reset: { ok: true } }> {
+    this.logger.warn('[Pipeline] reset-and-run 시작: DB/Redis/파일 초기화 수행');
+    await this.resetRuntimeState();
+    const result = await this.runDailyPipeline(force);
+    return { ...result, reset: { ok: true } };
+  }
+
   // ── private helpers ───────────────────────────────────────────────────
 
   /** 개별 기사 fetch 실패 시 skip, 성공한 것만 반환 */
@@ -216,5 +229,65 @@ export class PipelineService {
     } catch (err) {
       this.logger.warn(`[Pipeline] 웹훅 발송 실패: ${err instanceof Error ? err.message : err}`);
     }
+  }
+
+  private async resetRuntimeState(): Promise<void> {
+    await this.resetDatabase();
+    await this.resetRedis();
+    await this.resetGeneratedFiles();
+  }
+
+  private async resetDatabase(): Promise<void> {
+    // 참조 제약(FK) 고려해 CASCADE TRUNCATE 사용
+    await this.dataSource.query(`
+      TRUNCATE TABLE
+        card_news,
+        episode_thumbnails,
+        podcast_episodes,
+        refresh_tokens,
+        users
+      RESTART IDENTITY CASCADE
+    `);
+    this.logger.warn('[Pipeline] DB 테이블 초기화 완료');
+  }
+
+  private async resetRedis(): Promise<void> {
+    await this.ttsQueue.obliterate({ force: true });
+
+    const redisUrl = process.env.REDIS_URL;
+    const client = redisUrl ? new Redis(redisUrl) : new Redis();
+    try {
+      const pattern = 'crawler:processed:*';
+      let cursor = '0';
+      do {
+        const [nextCursor, keys] = await client.scan(cursor, 'MATCH', pattern, 'COUNT', 100);
+        cursor = nextCursor;
+        if (keys.length > 0) {
+          await client.del(...keys);
+        }
+      } while (cursor !== '0');
+    } finally {
+      await client.quit();
+    }
+
+    this.logger.warn('[Pipeline] Redis 큐/캐시 초기화 완료');
+  }
+
+  private async resetGeneratedFiles(): Promise<void> {
+    const dirs = [
+      path.resolve(process.env.AUDIO_OUTPUT_DIR ?? './audio-files'),
+      path.resolve(process.env.CARD_NEWS_OUTPUT_DIR ?? './card-news-images'),
+      path.resolve(process.env.THUMBNAIL_OUTPUT_DIR ?? './thumbnails'),
+    ];
+
+    for (const dir of dirs) {
+      await fs.mkdir(dir, { recursive: true });
+      const entries = await fs.readdir(dir);
+      for (const entry of entries) {
+        await fs.rm(path.join(dir, entry), { recursive: true, force: true });
+      }
+    }
+
+    this.logger.warn('[Pipeline] 생성 파일 초기화 완료');
   }
 }

@@ -15,7 +15,13 @@ export class RedisService implements OnModuleDestroy {
     });
 
     this.client.on('error', (error) => {
-      this.logger.error(`Redis error: ${error.message}`);
+      const message = error instanceof Error
+        ? (error.message || error.name || 'unknown error')
+        : String(error);
+      this.logger.error(`Redis error: ${message}`);
+      if (error instanceof Error && error.stack) {
+        this.logger.debug(error.stack);
+      }
     });
   }
 

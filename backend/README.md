@@ -108,6 +108,9 @@ curl -X POST http://localhost:3000/pipeline/run
 # 오늘 에피소드가 있어도 강제 재실행
 curl -X POST "http://localhost:3000/pipeline/run?force=true"
 
+# DB/캐시/생성 파일 초기화 후 전체 실행
+curl -X POST http://localhost:3000/pipeline/reset-and-run
+
 # 카드뉴스만 재생성
 curl -X POST http://localhost:3000/pipeline/retry-cardnews/<episodeId>
 
@@ -145,6 +148,16 @@ curl -X POST http://localhost:3000/pipeline/retry-tts/<episodeId>
 | `POST` | `/card-news/test/:episodeId` | 1장만 생성 (디자인 확인용) |
 | `POST` | `/card-news/generate/:episodeId` | 전체 슬라이드 생성 |
 | `GET` | `/card-news/:episodeId` | 생성된 카드뉴스 조회 |
+
+### 파이프라인
+
+| Method | Path | 설명 |
+|--------|------|------|
+| `POST` | `/pipeline/run` | 전체 파이프라인 즉시 실행 |
+| `POST` | `/pipeline/run?force=true` | 오늘 데이터가 있어도 강제 실행 |
+| `POST` | `/pipeline/reset-and-run` | DB/Redis/생성 파일 초기화 후 전체 파이프라인 실행 |
+| `POST` | `/pipeline/retry-cardnews/:episodeId` | 카드뉴스만 재생성 |
+| `POST` | `/pipeline/retry-tts/:episodeId` | TTS만 재큐 등록 |
 
 ---
 

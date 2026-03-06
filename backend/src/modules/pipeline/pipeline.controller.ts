@@ -14,6 +14,15 @@ export class PipelineController {
     return this.pipelineService.runDailyPipeline(force === 'true');
   }
 
+  /**
+   * DB/캐시/생성 파일 초기화 후 전체 파이프라인 실행
+   * 기본값으로 force=true 적용 (초기화 직후 강제 실행)
+   */
+  @Post('reset-and-run')
+  resetAndRun(@Query('force') force?: string) {
+    return this.pipelineService.resetAndRun(force !== 'false');
+  }
+
   /** 카드뉴스만 재생성 (부분 실패 복구) */
   @Post('retry-cardnews/:episodeId')
   retryCardNews(@Param('episodeId') episodeId: string) {
