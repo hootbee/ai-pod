@@ -8,6 +8,8 @@
 ///   flutter run --dart-define=ENV=production --dart-define=API_URL=https://api.aipod.com
 library;
 
+import 'package:flutter/foundation.dart';
+
 enum AppEnv { dev, production }
 
 class AppConfig {
@@ -36,9 +38,10 @@ class AppConfig {
   }
 
   static String get _devUrl {
-    // dart:io Platform은 web에서 동작 안 하므로 String.fromEnvironment 활용
-    const isIos = bool.fromEnvironment('IS_IOS', defaultValue: false);
-    return isIos ? 'http://localhost:3000' : 'http://10.0.2.2:3000';
+    if (kIsWeb) return 'http://localhost:3000';
+    return defaultTargetPlatform == TargetPlatform.android
+        ? 'http://10.0.2.2:3000'
+        : 'http://localhost:3000';
   }
 
   static String get envLabel =>

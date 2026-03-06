@@ -32,6 +32,11 @@
 	</array>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>핫 리로드 및 디버깅을 위해 로컬 네트워크 권한이 필요합니다.</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+	</dict>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
