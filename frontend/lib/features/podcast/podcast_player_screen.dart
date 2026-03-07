@@ -17,9 +17,23 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
 
   List<String> get _transcript => widget.episode.script
       .split('\n')
-      .map((line) => line.replaceFirst(RegExp(r'^narrator:\s*'), '').trim())
-      .where((line) => line.isNotEmpty && line != '---TOPIC_CHANGE---')
+      .map(_sanitizeTranscriptLine)
+      .where((line) => line.isNotEmpty)
       .toList();
+
+  String _sanitizeTranscriptLine(String rawLine) {
+    var line = rawLine.replaceFirst(RegExp(r'^narrator:\s*'), '').trim();
+    if (line == '---TOPIC_CHANGE---') return '';
+
+    // HTML entity를 먼저 복원한 뒤 SSML/HTML 태그 제거
+    line = line
+        .replaceAll('&lt;', '<')
+        .replaceAll('&gt;', '>')
+        .replaceAll('&amp;', '&');
+    line = line.replaceAll(RegExp(r'<[^>]+>'), ' ');
+
+    return line.replaceAll(RegExp(r'\s+'), ' ').trim();
+  }
 
   @override
   void initState() {
