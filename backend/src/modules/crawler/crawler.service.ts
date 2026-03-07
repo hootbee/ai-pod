@@ -84,11 +84,23 @@ export class CrawlerService {
   }
 
   async fetchLatest(limitPerSource = 10): Promise<CrawlerItem[]> {
-    const results = await Promise.all(
+    const results = await Promise.allSettled(
       this.sources.map((source) => this.fetchSource(source, limitPerSource)),
     );
 
-    return results.flat().sort((a, b) => {
+    const items: CrawlerItem[] = [];
+    results.forEach((result, index) => {
+      const source = this.sources[index];
+      if (result.status === 'fulfilled') {
+        items.push(...result.value);
+        return;
+      }
+
+      const message = result.reason instanceof Error ? result.reason.message : String(result.reason);
+      this.logger.warn(`[Crawler] RSS 수집 실패 (${source.id}): ${message}`);
+    });
+
+    return items.sort((a, b) => {
       const aTime = a.publishedAt ? Date.parse(a.publishedAt) : 0;
       const bTime = b.publishedAt ? Date.parse(b.publishedAt) : 0;
       return bTime - aTime;
@@ -96,7 +108,13 @@ export class CrawlerService {
   }
 
   async fetchSource(source: FeedSource, limit = 10): Promise<CrawlerItem[]> {
-    const feed = await this.parser.parseURL(source.feedUrl);
+    let feed: Parser.Output<any>;
+    try {
+      feed = await this.parser.parseURL(source.feedUrl);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`feedUrl=${source.feedUrl} ${message}`);
+    }
 
     const items = (feed.items ?? [])
       .slice(0, limit)

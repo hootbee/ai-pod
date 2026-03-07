@@ -6,6 +6,7 @@ import { EpisodeThumbnail } from './entities/episode-thumbnail.entity';
 import { ThumbnailPromptService } from './thumbnail-prompt.service';
 import { ThumbnailGeneratorService } from './thumbnail-generator.service';
 import { PodcastEpisode } from '../episodes/entities/podcast-episode.entity';
+import { toPublicMediaPath } from '../../common/media-path.util';
 
 /**
  * 책임: 썸네일 생성 오케스트레이션 + DB CRUD (SRP)
@@ -63,11 +64,19 @@ export class ThumbnailService {
 
     const saved = await this.thumbnailRepository.findOneOrFail({ where: { episodeId } });
     this.logger.log(`[Thumbnail] DB 저장 완료: ${saved.id}`);
-    return saved;
+    return this.withPublicPath(saved);
   }
 
   /** 에피소드 썸네일 조회 */
   async findByEpisodeId(episodeId: string): Promise<EpisodeThumbnail | null> {
-    return this.thumbnailRepository.findOne({ where: { episodeId } });
+    const thumbnail = await this.thumbnailRepository.findOne({ where: { episodeId } });
+    return thumbnail ? this.withPublicPath(thumbnail) : null;
+  }
+
+  private withPublicPath(thumbnail: EpisodeThumbnail): EpisodeThumbnail {
+    return {
+      ...thumbnail,
+      imagePath: toPublicMediaPath(thumbnail.imagePath, '/thumbnails') ?? thumbnail.imagePath,
+    };
   }
 }

@@ -20,6 +20,7 @@ services:
       TZ: Asia/Seoul
     volumes:
       - audio_files:/app/audio-files                # 오디오 파일 영구 저장
+      - thumbnails:/app/thumbnails                  # 썸네일 파일 영구 저장
       - card_news_images:/app/card-news-images      # 카드뉴스 이미지 영구 저장
     depends_on:
       postgres:
@@ -58,4 +59,5 @@ volumes:
   postgres_data:
   redis_data:
   audio_files:
+  thumbnails:
   card_news_images:

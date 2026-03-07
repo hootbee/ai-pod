@@ -42,8 +42,8 @@ RUN npm ci --omit=dev
 # 빌드 결과물 복사
 COPY --from=builder /app/dist ./dist
 
-# 오디오/카드뉴스 저장 디렉터리 생성
-RUN mkdir -p ./audio-files ./card-news-images
+# 오디오/썸네일/카드뉴스 저장 디렉터리 생성
+RUN mkdir -p ./audio-files ./thumbnails ./card-news-images
 
 EXPOSE 3000
 

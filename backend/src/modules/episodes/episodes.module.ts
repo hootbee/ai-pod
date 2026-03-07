@@ -6,10 +6,11 @@ import { EpisodesService } from './episodes.service';
 import { HeadlineService } from './headline.service';
 import { PodcastEpisode } from './entities/podcast-episode.entity';
 import { TTS_QUEUE } from '../tts/tts.constants';
+import { EpisodeThumbnail } from '../thumbnail/entities/episode-thumbnail.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([PodcastEpisode]),
+    TypeOrmModule.forFeature([PodcastEpisode, EpisodeThumbnail]),
     BullModule.registerQueue({ name: TTS_QUEUE }),
   ],
   controllers: [EpisodesController],
