@@ -33,7 +33,7 @@ flutter run --dart-define=ENV=dev --dart-define=DEV_HOST=<맥IP>
 ```bash
 flutter run \
   --dart-define=ENV=production \
-  --dart-define=API_URL=http://<서버IP또는도메인>:3000
+  --dart-define=API_URL=http://98.91.26.217:3001
 ```
 
 예시:
@@ -41,5 +41,5 @@ flutter run \
 ```bash
 flutter run \
   --dart-define=ENV=production \
-  --dart-define=API_URL=https://api.aipod.com
+  --dart-define=API_URL=http://98.91.26.217:3001
 ```
