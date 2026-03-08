@@ -12,8 +12,10 @@ class PodcastPlayerScreen extends StatefulWidget {
 }
 
 class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
-  final AudioPlayer _audioPlayer = AudioPlayer();
+  late AudioPlayer _audioPlayer;
   String? _audioError;
+  bool _audioReady = false;
+  bool _audioInitializing = false;
 
   List<String> get _transcript => widget.episode.script
       .split('\n')
@@ -38,20 +40,120 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
   @override
   void initState() {
     super.initState();
+    _audioPlayer = AudioPlayer();
     _initAudio();
   }
 
   Future<void> _initAudio() async {
-    if (widget.episode.audioUrl == null) {
-      setState(() => _audioError = '오디오 파일이 아직 생성되지 않았습니다.');
+    if (_audioInitializing) return;
+    _audioInitializing = true;
+
+    try {
+      final candidates = <String>{};
+      final rawCandidates = <String>[
+        widget.episode.streamUrl,
+        if (widget.episode.audioUrl != null &&
+            widget.episode.audioUrl!.isNotEmpty)
+          widget.episode.audioUrl!,
+      ];
+
+      for (final raw in rawCandidates) {
+        final normalized = raw.replaceAll(RegExp(r'\s+'), '').trim();
+        if (normalized.isEmpty) continue;
+        candidates.add(normalized);
+
+        for (final alternate in _alternateStreamUrls(normalized)) {
+          candidates.add(alternate);
+        }
+
+        final hinted = _appendExtHintIfMissing(normalized);
+        candidates.add(hinted);
+      }
+
+      Object? lastError;
+      for (final url in candidates) {
+        try {
+          await _audioPlayer.setUrl(url);
+          if (!mounted) return;
+          setState(() {
+            _audioReady = true;
+            _audioError = null;
+          });
+          return;
+        } catch (e) {
+          lastError = e;
+          await _audioPlayer.dispose();
+          _audioPlayer = AudioPlayer();
+        }
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _audioReady = false;
+        _audioError =
+            '오디오 연결 실패 (${candidates.join(" | ")}): ${lastError ?? "unknown"}';
+      });
+    } finally {
+      _audioInitializing = false;
+    }
+  }
+
+  String _appendExtHintIfMissing(String url) {
+    final uri = Uri.tryParse(url);
+    if (uri == null) return url;
+    final path = uri.path.toLowerCase();
+    final hasKnownExt =
+        path.endsWith('.mp3') ||
+        path.endsWith('.m4a') ||
+        path.endsWith('.wav') ||
+        path.endsWith('.aac');
+    if (hasKnownExt || uri.queryParameters.containsKey('ext')) return url;
+
+    final query = Map<String, String>.from(uri.queryParameters);
+    query['ext'] = '.mp3';
+    return uri.replace(queryParameters: query).toString();
+  }
+
+  Iterable<String> _alternateStreamUrls(String url) sync* {
+    final uri = Uri.tryParse(url);
+    if (uri == null) return;
+
+    final path = uri.path;
+    if (path.endsWith('.m4a')) {
+      yield uri
+          .replace(path: path.substring(0, path.length - 4) + '.mp3')
+          .toString();
       return;
     }
 
-    try {
-      await _audioPlayer.setUrl(widget.episode.audioUrl!);
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _audioError = '오디오 로드 실패');
+    if (path.endsWith('.mp3')) {
+      yield uri
+          .replace(path: path.substring(0, path.length - 4) + '.m4a')
+          .toString();
+    }
+  }
+
+  Future<void> _seekRelative(int deltaSeconds) async {
+    if (!_audioReady) return;
+    final position = _audioPlayer.position;
+    final duration = _audioPlayer.duration;
+    var target = position.inSeconds + deltaSeconds;
+    if (target < 0) target = 0;
+    if (duration != null && target > duration.inSeconds) {
+      target = duration.inSeconds;
+    }
+    await _audioPlayer.seek(Duration(seconds: target));
+  }
+
+  Future<void> _togglePlayPause(bool playing) async {
+    if (!_audioReady) {
+      await _initAudio();
+      if (!_audioReady) return;
+    }
+    if (playing) {
+      await _audioPlayer.pause();
+    } else {
+      await _audioPlayer.play();
     }
   }
 
@@ -72,10 +174,7 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
           icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: const Text(
-          '',
-          style: TextStyle(color: Colors.white),
-        ),
+        title: const Text('', style: TextStyle(color: Colors.white)),
         titleTextStyle: const TextStyle(
           color: Colors.white,
           fontSize: 18,
@@ -113,10 +212,14 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
             ),
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 24.0,
+                vertical: 16.0,
+              ),
               child: ListView.separated(
                 itemCount: _transcript.length,
-                separatorBuilder: (context, index) => const SizedBox(height: 16),
+                separatorBuilder: (context, index) =>
+                    const SizedBox(height: 16),
                 itemBuilder: (context, index) {
                   return Text(
                     _transcript[index],
@@ -142,13 +245,12 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
                   onPressed: () {},
                 ),
                 IconButton(
-                  icon: const Icon(Icons.replay_10, color: Colors.white, size: 36),
-                  onPressed: () async {
-                    final position = _audioPlayer.position;
-                    await _audioPlayer.seek(
-                      Duration(seconds: (position.inSeconds - 10).clamp(0, position.inSeconds)),
-                    );
-                  },
+                  icon: const Icon(
+                    Icons.replay_10,
+                    color: Colors.white,
+                    size: 36,
+                  ),
+                  onPressed: () => _seekRelative(-10),
                 ),
                 StreamBuilder<PlayerState>(
                   stream: _audioPlayer.playerStateStream,
@@ -156,28 +258,23 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
                     final playing = snapshot.data?.playing ?? false;
                     return IconButton(
                       icon: Icon(
-                        playing ? Icons.pause_circle_filled : Icons.play_circle_fill,
+                        playing
+                            ? Icons.pause_circle_filled
+                            : Icons.play_circle_fill,
                       ),
                       iconSize: 64,
                       color: Colors.white,
-                      onPressed: widget.episode.audioUrl == null
-                          ? null
-                          : () {
-                              if (playing) {
-                                _audioPlayer.pause();
-                              } else {
-                                _audioPlayer.play();
-                              }
-                            },
+                      onPressed: () => _togglePlayPause(playing),
                     );
                   },
                 ),
                 IconButton(
-                  icon: const Icon(Icons.forward_10, color: Colors.white, size: 36),
-                  onPressed: () async {
-                    final position = _audioPlayer.position;
-                    await _audioPlayer.seek(Duration(seconds: position.inSeconds + 10));
-                  },
+                  icon: const Icon(
+                    Icons.forward_10,
+                    color: Colors.white,
+                    size: 36,
+                  ),
+                  onPressed: () => _seekRelative(10),
                 ),
                 IconButton(
                   icon: const Icon(Icons.nights_stay, color: Colors.white70),

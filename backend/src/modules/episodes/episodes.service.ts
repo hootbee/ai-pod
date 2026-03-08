@@ -1,6 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, MoreThanOrEqual, Repository } from 'typeorm';
+import * as fs from 'fs';
+import * as path from 'path';
 import { CreateEpisodeDto } from './dto/create-episode.dto';
 import { UpdateAudioPathDto } from './dto/update-audio-path.dto';
 import { AudioStatus, PodcastEpisode } from './entities/podcast-episode.entity';
@@ -101,5 +103,75 @@ export class EpisodesService {
       throw new NotFoundException(`Episode not found: ${id}`);
     }
     return episode;
+  }
+
+  async resolveAudioFilePath(id: string, preferredExtHint?: string): Promise<string> {
+    const episode = await this.findOneEntity(id);
+    if (!episode.audioPath) {
+      throw new NotFoundException(`Audio path not found for episode: ${id}`);
+    }
+
+    const raw = episode.audioPath.trim();
+    const primaryAudioDirs = [
+      path.resolve(process.env.AUDIO_OUTPUT_DIR ?? './audio-files'),
+      path.resolve('./backend/audio-files'),
+    ];
+    const fallbackAudioDirs = [
+      path.resolve(process.env.AUDIO_OUTPUT_FALLBACK_DIR ?? './audio-files_from_docker'),
+      path.resolve('./backend/audio-files_from_docker'),
+    ];
+    const audioDirs = [...new Set([...primaryAudioDirs, ...fallbackAudioDirs])];
+
+    const basename = path.basename(raw);
+    const requestedExt = path.extname(basename).toLowerCase();
+    const stem = requestedExt ? basename.slice(0, -requestedExt.length) : basename;
+    const normalizedHint = preferredExtHint
+      ? `.${preferredExtHint.replace(/^\./, '').toLowerCase()}`
+      : '';
+    const fallbackExts = [normalizedHint, requestedExt, '.m4a', '.mp3', '.wav', '.aac'].filter(Boolean);
+    const orderedExts = [...new Set(fallbackExts)];
+
+    const candidates = new Set<string>();
+
+    // 1) extHint가 있으면 같은 stem의 힌트 확장자를 최우선으로 탐색
+    if (normalizedHint && stem) {
+      const hintedBasename = `${stem}${normalizedHint}`;
+      for (const dir of audioDirs) {
+        candidates.add(path.join(dir, hintedBasename));
+      }
+      const rawDir = path.dirname(path.resolve(raw));
+      candidates.add(path.join(rawDir, hintedBasename));
+    }
+
+    // 2) 현재 값이 절대/상대 경로일 때 그대로
+    candidates.add(path.resolve(raw));
+
+    // 3) basename 기준으로 기본/폴백 오디오 디렉터리 탐색
+    for (const dir of audioDirs) {
+      candidates.add(path.join(dir, basename));
+    }
+
+    // 4) 확장자가 DB 값과 다를 때 같은 stem으로 다른 확장자 탐색
+    for (const dir of audioDirs) {
+      for (const ext of orderedExts) {
+        if (!stem) continue;
+        candidates.add(path.join(dir, `${stem}${ext}`));
+      }
+    }
+
+    // 5) Docker 내부 경로(/app/audio-files/...)를 로컬 디렉터리로 재매핑
+    if (raw.includes('/audio-files/')) {
+      for (const dir of audioDirs) {
+        candidates.add(path.join(dir, basename));
+      }
+    }
+
+    const candidateList = [...candidates];
+    const resolved = candidateList.find((candidate) => fs.existsSync(candidate));
+    if (!resolved) {
+      throw new NotFoundException(`Audio file not found. tried: ${candidateList.join(', ')}`);
+    }
+
+    return resolved;
   }
 }

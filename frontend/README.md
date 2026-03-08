@@ -20,6 +20,11 @@ flutter run -d chrome --dart-define=ENV=dev
 - `ENV=dev`일 때 API 기본값은 플랫폼별로 자동 분기됩니다.
 - Android 에뮬레이터는 `http://10.0.2.2:3000`으로 연결됩니다.
 - iOS 시뮬레이터/웹/데스크톱은 `http://localhost:3000`으로 연결됩니다.
+- iOS 실기기는 `localhost`가 폰 자신을 가리키므로 `DEV_HOST`를 같이 지정하세요.
+
+```bash
+flutter run --dart-define=ENV=dev --dart-define=DEV_HOST=<맥IP>
+```
 
 ### 2) 서버 백엔드 붙여서 실행
 

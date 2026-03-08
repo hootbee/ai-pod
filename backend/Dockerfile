@@ -24,6 +24,7 @@ RUN apk add --no-cache \
     freetype \
     harfbuzz \
     ca-certificates \
+    ffmpeg \
     ttf-freefont \
     font-noto-cjk
 

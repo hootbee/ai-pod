@@ -38,7 +38,9 @@ class _MainScreenState extends State<MainScreen> {
 
       final decoded = jsonDecode(response.body) as List<dynamic>;
       final episodes = decoded
-          .map((item) => PodcastEpisodeItem.fromJson(item as Map<String, dynamic>))
+          .map(
+            (item) => PodcastEpisodeItem.fromJson(item as Map<String, dynamic>),
+          )
           .toList();
 
       if (!mounted) return;
@@ -100,7 +102,8 @@ class _MainScreenState extends State<MainScreen> {
     if (_episodes.isEmpty) return;
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (context) => PodcastPlayerScreen(episode: _episodes[_currentIndex]),
+        builder: (context) =>
+            PodcastPlayerScreen(episode: _episodes[_currentIndex]),
       ),
     );
   }
@@ -119,9 +122,7 @@ class _MainScreenState extends State<MainScreen> {
           children: [
             const SizedBox(height: 20),
             // 상단: 팟캐스트 커버 영역 (PageView)
-            Expanded(
-              child: _buildEpisodeSection(),
-            ),
+            Expanded(child: _buildEpisodeSection()),
 
             // 하단: 우리가 만든 다이얼(Click Wheel)
             Padding(
@@ -148,10 +149,7 @@ class _MainScreenState extends State<MainScreen> {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(20),
-          child: Text(
-            '에피소드 로드 실패\n$_error',
-            textAlign: TextAlign.center,
-          ),
+          child: Text('에피소드 로드 실패\n$_error', textAlign: TextAlign.center),
         ),
       );
     }
@@ -205,7 +203,10 @@ class _MainScreenState extends State<MainScreen> {
                 if (hasHeadline) ...[
                   Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.black.withOpacity(0.42),
                       borderRadius: BorderRadius.circular(12),
@@ -226,7 +227,10 @@ class _MainScreenState extends State<MainScreen> {
                   SizedBox(height: hasHeadline ? 10 : 0),
                   Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.black.withOpacity(0.3),
                       borderRadius: BorderRadius.circular(12),
@@ -258,7 +262,9 @@ class PodcastEpisodeItem {
   final String? headline;
   final String? subtitle;
   final String script;
+  final String? audioStatus;
   final String? audioUrl;
+  final String streamUrl;
   final String? thumbnailUrl;
 
   PodcastEpisodeItem({
@@ -267,27 +273,62 @@ class PodcastEpisodeItem {
     required this.headline,
     required this.subtitle,
     required this.script,
+    required this.audioStatus,
     required this.audioUrl,
+    required this.streamUrl,
     required this.thumbnailUrl,
   });
 
   factory PodcastEpisodeItem.fromJson(Map<String, dynamic> json) {
     final audioPath = json['audioPath'] as String?;
     final thumbnailPath = json['thumbnailPath'] as String?;
+    final streamExt = _extractStreamExt(audioPath);
     return PodcastEpisodeItem(
       id: json['id'] as String,
       title: json['title'] as String? ?? '제목 없음',
       headline: json['headline'] as String?,
       subtitle: json['headlineSubtitle'] as String?,
       script: json['script'] as String? ?? '',
+      audioStatus: json['audioStatus'] as String?,
       audioUrl: _toAbsoluteUrl(audioPath),
+      streamUrl:
+          '${AppConfig.apiBaseUrl}/episodes/${json['id']}/audio/stream.$streamExt'
+              .trim(),
       thumbnailUrl: _toAbsoluteUrl(thumbnailPath),
     );
   }
 
   static String? _toAbsoluteUrl(String? rawPath) {
     if (rawPath == null || rawPath.isEmpty) return null;
-    if (rawPath.startsWith('http://') || rawPath.startsWith('https://')) return rawPath;
-    return '${AppConfig.apiBaseUrl}$rawPath';
+    final normalized = rawPath.replaceAll(RegExp(r'\s+'), '').trim();
+    if (normalized.startsWith('http://') || normalized.startsWith('https://')) {
+      return normalized;
+    }
+    return '${AppConfig.apiBaseUrl}$normalized';
+  }
+
+  static String _extractStreamExt(String? rawPath) {
+    if (rawPath == null || rawPath.isEmpty) return 'mp3';
+
+    final normalized = rawPath
+        .replaceAll(RegExp(r'\s+'), '')
+        .trim()
+        .split('?')
+        .first;
+    final dotIndex = normalized.lastIndexOf('.');
+    if (dotIndex <= -1 || dotIndex >= normalized.length - 1) return 'mp3';
+
+    final ext = normalized.substring(dotIndex + 1).toLowerCase();
+    switch (ext) {
+      case 'm4a':
+      case 'mp4a':
+        return 'm4a';
+      case 'mp3':
+      case 'wav':
+      case 'aac':
+        return ext;
+      default:
+        return 'mp3';
+    }
   }
 }

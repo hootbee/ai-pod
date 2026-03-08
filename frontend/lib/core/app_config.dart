@@ -16,8 +16,10 @@ class AppConfig {
   AppConfig._();
 
   /// 현재 환경 (기본값: dev)
-  static const String _envStr =
-      String.fromEnvironment('ENV', defaultValue: 'dev');
+  static const String _envStr = String.fromEnvironment(
+    'ENV',
+    defaultValue: 'dev',
+  );
 
   static AppEnv get env =>
       _envStr == 'production' ? AppEnv.production : AppEnv.dev;
@@ -38,12 +40,18 @@ class AppConfig {
   }
 
   static String get _devUrl {
-    if (kIsWeb) return 'http://localhost:3000';
+    if (kIsWeb) return 'http://192.168.0.18:3000';
+    const devHost = String.fromEnvironment('DEV_HOST', defaultValue: '');
+
+    // Android emulator localhost 우회
     return defaultTargetPlatform == TargetPlatform.android
         ? 'http://10.0.2.2:3000'
-        : 'http://localhost:3000';
+        // iOS 실기기 연결용: --dart-define=DEV_HOST=192.168.x.x
+        // iOS 시뮬레이터는 기본값 127.0.0.1 사용
+        : (devHost.isNotEmpty
+              ? 'http://$devHost:3000'
+              : 'http://192.168.0.18:3000');
   }
 
-  static String get envLabel =>
-      isProd ? '🚀 Production' : '🛠 Development';
+  static String get envLabel => isProd ? '🚀 Production' : '🛠 Development';
 }
