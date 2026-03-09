@@ -49,50 +49,22 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
     _audioInitializing = true;
 
     try {
-      final candidates = <String>{};
-      final rawCandidates = <String>[
-        widget.episode.streamUrl,
-        if (widget.episode.audioUrl != null &&
-            widget.episode.audioUrl!.isNotEmpty)
-          widget.episode.audioUrl!,
-      ];
-
-      for (final raw in rawCandidates) {
-        final normalized = raw.replaceAll(RegExp(r'\s+'), '').trim();
-        if (normalized.isEmpty) continue;
-        candidates.add(normalized);
-
-        for (final alternate in _alternateStreamUrls(normalized)) {
-          candidates.add(alternate);
-        }
-
-        final hinted = _appendExtHintIfMissing(normalized);
-        candidates.add(hinted);
+      final String targetUrl = widget.episode.audioUrl ?? widget.episode.streamUrl;
+      try {
+        await _audioPlayer.setUrl(targetUrl);
+        if (!mounted) return;
+        setState(() {
+          _audioReady = true;
+          _audioError = null;
+        });
+        return;
+      } catch (e) {
+        if (!mounted) return;
+        setState(() {
+          _audioReady = false;
+          _audioError = '오디오 연결 실패 ($targetUrl): $e';
+        });
       }
-
-      Object? lastError;
-      for (final url in candidates) {
-        try {
-          await _audioPlayer.setUrl(url);
-          if (!mounted) return;
-          setState(() {
-            _audioReady = true;
-            _audioError = null;
-          });
-          return;
-        } catch (e) {
-          lastError = e;
-          await _audioPlayer.dispose();
-          _audioPlayer = AudioPlayer();
-        }
-      }
-
-      if (!mounted) return;
-      setState(() {
-        _audioReady = false;
-        _audioError =
-            '오디오 연결 실패 (${candidates.join(" | ")}): ${lastError ?? "unknown"}';
-      });
     } finally {
       _audioInitializing = false;
     }
@@ -112,6 +84,23 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
     final query = Map<String, String>.from(uri.queryParameters);
     query['ext'] = '.mp3';
     return uri.replace(queryParameters: query).toString();
+  }
+
+  Iterable<String> _splitAndNormalizeUrls(String raw) sync* {
+    final compact = raw.replaceAll(RegExp(r'\s+'), '');
+    for (var part in compact.split('|')) {
+      if (part.isEmpty) continue;
+      while (part.endsWith(')') ||
+          part.endsWith(']') ||
+          part.endsWith('>') ||
+          part.endsWith(',') ||
+          part.endsWith('.')) {
+        part = part.substring(0, part.length - 1);
+      }
+      if (part.startsWith('http://') || part.startsWith('https://')) {
+        yield part;
+      }
+    }
   }
 
   Iterable<String> _alternateStreamUrls(String url) sync* {

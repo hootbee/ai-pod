@@ -44,8 +44,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    ports:
-      - "5432:5432"                                  # 외부 접속 필요 없으면 제거
+    # ports:
+    #   - "5432:5432"                                  # 외부 접속 필요 없으면 제거
 
   redis:
     image: redis:7-alpine
