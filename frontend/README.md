@@ -33,6 +33,6 @@ flutter run --dart-define=ENV=dev --dart-define=DEV_HOST=<맥IP>
 ```bash
 flutter run \
   --dart-define=ENV=production \
-  --dart-define=API_URL=http://34.228.113.254:3000
+  --dart-define=API_URL=http://3.35.231.250:3000
 ```
 
