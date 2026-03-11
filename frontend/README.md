@@ -28,11 +28,11 @@ flutter run --dart-define=ENV=dev --dart-define=DEV_HOST=<맥IP>
 
 ### 2) 서버 백엔드 붙여서 실행
 
-아래처럼 `ENV=production`과 서버 API 주소를 같이 지정해서 실행하세요.
+아래처럼 `ENV=production`과 서버 API 주소(`API_URL`)를 **반드시** 같이 지정해서 실행하세요.
+(`production` 모드에서 `API_URL` 누락 시 앱이 시작 단계에서 에러를 발생시킵니다.)
 
 ```bash
 flutter run \
   --dart-define=ENV=production \
-  --dart-define=API_URL=http://3.35.231.250:3000
+  --dart-define=API_URL=http://your-server:3000
 ```
-

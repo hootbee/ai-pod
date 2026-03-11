@@ -5,7 +5,7 @@
 ///   flutter run --dart-define=ENV=dev
 ///
 /// 서버 모드 실행:
-///   flutter run --dart-define=ENV=production --dart-define=API_URL=http://3.35.231.250:3000
+///   flutter run --dart-define=ENV=production --dart-define=API_URL=http://your-server:3000
 library;
 
 import 'package:flutter/foundation.dart';
@@ -34,7 +34,12 @@ class AppConfig {
     if (custom.isNotEmpty) return custom;
 
     // 기본값: 환경에 따라 자동 선택
-    if (isProd) return 'http://3.35.231.250:3000';
+    if (isProd) {
+      throw StateError(
+        'API_URL is required in production. '
+        'Run with --dart-define=API_URL=http://your-server:3000',
+      );
+    }
     // dev: 플랫폼에 따라 자동 분기
     return _devUrl;
   }
