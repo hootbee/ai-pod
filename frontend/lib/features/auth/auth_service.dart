@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -7,14 +8,18 @@ import '../../core/app_config.dart';
 class AuthService {
   // URL은 AppConfig에서 환경별로 자동 결정됨
   static String get _backendUrl => AppConfig.apiBaseUrl;
+  static const _googleClientId = String.fromEnvironment(
+    'GOOGLE_CLIENT_ID',
+    defaultValue:
+        '826440481147-effr7vmiuqh5d0tujtne4e726ft14ttr.apps.googleusercontent.com',
+  );
 
   static const _keyAccessToken = 'access_token';
   static const _keyRefreshToken = 'refresh_token';
 
-  static final GoogleSignIn _googleSignIn = GoogleSignIn(
-    serverClientId:
-        '826440481147-effr7vmiuqh5d0tujtne4e726ft14ttr.apps.googleusercontent.com',
-  );
+  static final GoogleSignIn _googleSignIn = kIsWeb
+      ? GoogleSignIn(clientId: _googleClientId)
+      : GoogleSignIn(serverClientId: _googleClientId);
 
   String? _accessToken;
   String? _refreshToken;
@@ -32,10 +37,12 @@ class AuthService {
 
     // 토큰 유효성 검사 (GET /auth/me)
     try {
-      final response = await http.get(
-        Uri.parse('$_backendUrl/auth/me'),
-        headers: {'Authorization': 'Bearer $_accessToken'},
-      ).timeout(const Duration(seconds: 10));
+      final response = await http
+          .get(
+            Uri.parse('$_backendUrl/auth/me'),
+            headers: {'Authorization': 'Bearer $_accessToken'},
+          )
+          .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) return true;
 
@@ -58,13 +65,22 @@ class AuthService {
 
     final auth = await account.authentication;
     final idToken = auth.idToken;
-    if (idToken == null) throw Exception('ID Token 획득 실패');
+    final accessToken = auth.accessToken;
+    if (idToken == null && accessToken == null) {
+      throw Exception('Google 토큰 획득 실패');
+    }
 
-    final response = await http.post(
-      Uri.parse('$_backendUrl/auth/google'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'idToken': idToken}),
-    ).timeout(const Duration(seconds: 15));
+    final payload = <String, String>{};
+    if (idToken != null) payload['idToken'] = idToken;
+    if (accessToken != null) payload['accessToken'] = accessToken;
+
+    final response = await http
+        .post(
+          Uri.parse('$_backendUrl/auth/google'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode(payload),
+        )
+        .timeout(const Duration(seconds: 15));
 
     if (response.statusCode != 200) {
       throw Exception('백엔드 로그인 실패: ${response.body}');
@@ -83,11 +99,13 @@ class AuthService {
   Future<void> _refresh() async {
     if (_refreshToken == null) throw Exception('로그인이 필요합니다');
 
-    final response = await http.post(
-      Uri.parse('$_backendUrl/auth/refresh'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'refreshToken': _refreshToken}),
-    ).timeout(const Duration(seconds: 10));
+    final response = await http
+        .post(
+          Uri.parse('$_backendUrl/auth/refresh'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({'refreshToken': _refreshToken}),
+        )
+        .timeout(const Duration(seconds: 10));
 
     if (response.statusCode != 200) throw Exception('토큰 갱신 실패');
 
@@ -115,8 +133,12 @@ class AuthService {
 
   Future<void> _saveTokens() async {
     final prefs = await SharedPreferences.getInstance();
-    if (_accessToken != null) await prefs.setString(_keyAccessToken, _accessToken!);
-    if (_refreshToken != null) await prefs.setString(_keyRefreshToken, _refreshToken!);
+    if (_accessToken != null) {
+      await prefs.setString(_keyAccessToken, _accessToken!);
+    }
+    if (_refreshToken != null) {
+      await prefs.setString(_keyRefreshToken, _refreshToken!);
+    }
   }
 
   Future<void> _clearTokens() async {

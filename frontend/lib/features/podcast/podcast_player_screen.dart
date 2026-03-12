@@ -49,7 +49,8 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
     _audioInitializing = true;
 
     try {
-      final String targetUrl = widget.episode.audioUrl ?? widget.episode.streamUrl;
+      final String targetUrl =
+          widget.episode.audioUrl ?? widget.episode.streamUrl;
       try {
         await _audioPlayer.setUrl(targetUrl);
         if (!mounted) return;
@@ -67,58 +68,6 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
       }
     } finally {
       _audioInitializing = false;
-    }
-  }
-
-  String _appendExtHintIfMissing(String url) {
-    final uri = Uri.tryParse(url);
-    if (uri == null) return url;
-    final path = uri.path.toLowerCase();
-    final hasKnownExt =
-        path.endsWith('.mp3') ||
-        path.endsWith('.m4a') ||
-        path.endsWith('.wav') ||
-        path.endsWith('.aac');
-    if (hasKnownExt || uri.queryParameters.containsKey('ext')) return url;
-
-    final query = Map<String, String>.from(uri.queryParameters);
-    query['ext'] = '.mp3';
-    return uri.replace(queryParameters: query).toString();
-  }
-
-  Iterable<String> _splitAndNormalizeUrls(String raw) sync* {
-    final compact = raw.replaceAll(RegExp(r'\s+'), '');
-    for (var part in compact.split('|')) {
-      if (part.isEmpty) continue;
-      while (part.endsWith(')') ||
-          part.endsWith(']') ||
-          part.endsWith('>') ||
-          part.endsWith(',') ||
-          part.endsWith('.')) {
-        part = part.substring(0, part.length - 1);
-      }
-      if (part.startsWith('http://') || part.startsWith('https://')) {
-        yield part;
-      }
-    }
-  }
-
-  Iterable<String> _alternateStreamUrls(String url) sync* {
-    final uri = Uri.tryParse(url);
-    if (uri == null) return;
-
-    final path = uri.path;
-    if (path.endsWith('.m4a')) {
-      yield uri
-          .replace(path: path.substring(0, path.length - 4) + '.mp3')
-          .toString();
-      return;
-    }
-
-    if (path.endsWith('.mp3')) {
-      yield uri
-          .replace(path: path.substring(0, path.length - 4) + '.m4a')
-          .toString();
     }
   }
 
@@ -216,7 +165,7 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
                       fontSize: 20,
                       height: 1.5,
                       fontWeight: FontWeight.w500,
-                      color: Colors.white.withOpacity(0.8),
+                      color: Colors.white.withValues(alpha: 0.8),
                     ),
                   );
                 },

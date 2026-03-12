@@ -16,11 +16,20 @@ class _CardNewsScreenState extends State<CardNewsScreen> {
   bool _loading = true;
   String? _error;
   List<DayCardNews> _days = [];
+  final Map<int, PageController> _slideControllers = {};
 
   @override
   void initState() {
     super.initState();
     _loadCardNewsBody();
+  }
+
+  @override
+  void dispose() {
+    for (final controller in _slideControllers.values) {
+      controller.dispose();
+    }
+    super.dispose();
   }
 
   Future<void> _loadCardNewsBody() async {
@@ -100,6 +109,7 @@ class _CardNewsScreenState extends State<CardNewsScreen> {
       if (!mounted) return;
       setState(() {
         _days = days;
+        _disposeUnusedSlideControllers(keepLength: _days.length);
         _loading = false;
       });
     } catch (e) {
@@ -108,6 +118,22 @@ class _CardNewsScreenState extends State<CardNewsScreen> {
         _error = e.toString();
         _loading = false;
       });
+    }
+  }
+
+  PageController _slideControllerForDay(int dayIndex) {
+    return _slideControllers.putIfAbsent(
+      dayIndex,
+      () => PageController(viewportFraction: 0.86),
+    );
+  }
+
+  void _disposeUnusedSlideControllers({required int keepLength}) {
+    final staleKeys = _slideControllers.keys
+        .where((index) => index >= keepLength)
+        .toList();
+    for (final key in staleKeys) {
+      _slideControllers.remove(key)?.dispose();
     }
   }
 
@@ -191,7 +217,7 @@ class _CardNewsScreenState extends State<CardNewsScreen> {
             Expanded(
               child: PageView.builder(
                 scrollDirection: Axis.horizontal,
-                controller: PageController(viewportFraction: 0.86),
+                controller: _slideControllerForDay(dayIndex),
                 itemCount: day.cards.length,
                 itemBuilder: (context, slideIndex) {
                   final card = day.cards[slideIndex];

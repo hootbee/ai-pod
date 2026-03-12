@@ -41,4 +41,34 @@ export class GoogleAuthService implements IGoogleAuthService {
       profileImageUrl: payload.picture ?? null,
     };
   }
+
+  async verifyAccessToken(accessToken: string): Promise<GoogleUserInfo> {
+    const response = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to verify Google access token: ${response.status}`);
+    }
+
+    const payload = await response.json() as {
+      sub?: string;
+      email?: string;
+      name?: string;
+      picture?: string;
+    };
+
+    if (!payload.sub || !payload.email) {
+      throw new Error('Invalid Google userinfo payload');
+    }
+
+    return {
+      googleId: payload.sub,
+      email: payload.email,
+      name: payload.name ?? payload.email,
+      profileImageUrl: payload.picture ?? null,
+    };
+  }
 }

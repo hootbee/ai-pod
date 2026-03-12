@@ -13,17 +13,23 @@ export class AuthService implements IAuthService {
     private readonly tokenService: TokenService,
   ) {}
 
-  async loginWithGoogle(idToken: string): Promise<TokenPair> {
-    const googleUser = await this.googleAuthService.verify(idToken);
+  async loginWithGoogle(idToken?: string, googleAccessToken?: string): Promise<TokenPair> {
+    if (!idToken && !googleAccessToken) {
+      throw new UnauthorizedException('idToken or accessToken is required');
+    }
+
+    const googleUser = idToken
+      ? await this.googleAuthService.verify(idToken)
+      : await this.googleAuthService.verifyAccessToken(googleAccessToken!);
     const user = await this.usersService.findOrCreate(googleUser);
 
-    const accessToken = this.tokenService.generateAccessToken({
+    const issuedAccessToken = this.tokenService.generateAccessToken({
       sub: user.id,
       email: user.email,
     });
     const refreshToken = await this.tokenService.generateRefreshToken(user.id);
 
-    return { accessToken, refreshToken };
+    return { accessToken: issuedAccessToken, refreshToken };
   }
 
   async refresh(refreshToken: string): Promise<TokenPair> {

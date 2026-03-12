@@ -1,7 +1,13 @@
-import { IsString, IsNotEmpty } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional } from 'class-validator';
 
 export class GoogleLoginDto {
+  @IsOptional()
   @IsString()
   @IsNotEmpty()
-  idToken: string;
+  idToken?: string;
+
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  accessToken?: string;
 }
