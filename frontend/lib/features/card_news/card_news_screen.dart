@@ -124,7 +124,7 @@ class _CardNewsScreenState extends State<CardNewsScreen> {
   PageController _slideControllerForDay(int dayIndex) {
     return _slideControllers.putIfAbsent(
       dayIndex,
-      () => PageController(viewportFraction: 0.86),
+      () => PageController(viewportFraction: 0.88),
     );
   }
 
@@ -221,105 +221,12 @@ class _CardNewsScreenState extends State<CardNewsScreen> {
                 itemCount: day.cards.length,
                 itemBuilder: (context, slideIndex) {
                   final card = day.cards[slideIndex];
-                  return Container(
-                    margin: const EdgeInsets.symmetric(
-                      horizontal: 12.0,
-                      vertical: 24.0,
-                    ),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF2B3025),
-                        borderRadius: BorderRadius.circular(24),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.25),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Stack(
-                        children: [
-                          Positioned.fill(
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(24),
-                              child: ColoredBox(
-                                color: const Color(0xFF111111),
-                                child: Image.network(
-                                  card.imageUrl,
-                                  fit: BoxFit.contain,
-                                  alignment: Alignment.center,
-                                  filterQuality: FilterQuality.high,
-                                  errorBuilder: (context, error, stackTrace) {
-                                    return const Center(
-                                      child: Text(
-                                        '이미지를 불러오지 못했습니다.',
-                                        style: TextStyle(color: Colors.white70),
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ),
-                            ),
-                          ),
-                          Positioned.fill(
-                            child: DecoratedBox(
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(24),
-                                gradient: const LinearGradient(
-                                  begin: Alignment.topCenter,
-                                  end: Alignment.bottomCenter,
-                                  colors: [
-                                    Colors.transparent,
-                                    Color(0xCC000000),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                          Positioned(
-                            left: 16,
-                            right: 16,
-                            bottom: 16,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                if (card.meta != null) ...[
-                                  Text(
-                                    card.meta!.typeLabel,
-                                    style: const TextStyle(
-                                      color: Color(0xFFE0E6D4),
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    card.meta!.title,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.w800,
-                                      height: 1.2,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                ],
-                                Text(
-                                  '${slideIndex + 1} / ${day.cards.length}',
-                                  style: const TextStyle(
-                                    color: Color(0xFFE0E6D4),
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
+                  return Padding(
+                    padding: const EdgeInsets.fromLTRB(8, 24, 10, 24),
+                    child: _CardNewsSlideView(
+                      card: card,
+                      slideIndex: slideIndex,
+                      totalSlides: day.cards.length,
                     ),
                   );
                 },
@@ -349,8 +256,15 @@ class CardNewsCard {
 class CardSlideMeta {
   final String type;
   final String title;
+  final String body;
+  final List<String> hashtags;
 
-  const CardSlideMeta({required this.type, required this.title});
+  const CardSlideMeta({
+    required this.type,
+    required this.title,
+    required this.body,
+    required this.hashtags,
+  });
 
   String get typeLabel {
     switch (type) {
@@ -364,9 +278,203 @@ class CardSlideMeta {
   }
 
   factory CardSlideMeta.fromJson(Map<String, dynamic> json) {
+    final hashtagsJson = json['hashtags'] as List<dynamic>? ?? const [];
     return CardSlideMeta(
       type: (json['type'] as String? ?? 'topic').trim(),
       title: (json['title'] as String? ?? '제목 없음').trim(),
+      body: (json['body'] as String? ?? '').trim(),
+      hashtags: hashtagsJson
+          .map((item) => (item as String? ?? '').trim())
+          .where((tag) => tag.isNotEmpty)
+          .toList(),
+    );
+  }
+}
+
+class _CardNewsSlideView extends StatelessWidget {
+  final CardNewsCard card;
+  final int slideIndex;
+  final int totalSlides;
+
+  const _CardNewsSlideView({
+    required this.card,
+    required this.slideIndex,
+    required this.totalSlides,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final meta = card.meta;
+    final summary = meta?.body.replaceAll('\n', ' ').trim() ?? '';
+
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFFEAE4D6),
+        borderRadius: BorderRadius.circular(30),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.22),
+            blurRadius: 18,
+            offset: const Offset(0, 12),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(30),
+        child: Column(
+          children: [
+            Expanded(
+              flex: 45,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  ColoredBox(
+                    color: const Color(0xFF171B15),
+                    child: Image.network(
+                      card.imageUrl,
+                      fit: BoxFit.cover,
+                      alignment: Alignment.topCenter,
+                      filterQuality: FilterQuality.high,
+                      errorBuilder: (context, error, stackTrace) {
+                        return const Center(
+                          child: Text(
+                            '이미지를 불러오지 못했습니다.',
+                            style: TextStyle(color: Colors.white70),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  const DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Color(0x0D000000),
+                          Color(0x66000000),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              flex: 55,
+              child: Container(
+                width: double.infinity,
+                color: const Color(0xFFEAE4D6),
+                padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        _CardBadge(label: meta?.typeLabel ?? 'CARD'),
+                        const Spacer(),
+                        _CardBadge(label: '${slideIndex + 1} / $totalSlides'),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      meta?.title ?? '카드뉴스',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Color(0xFF141710),
+                        fontSize: 24,
+                        fontWeight: FontWeight.w800,
+                        height: 1.18,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Expanded(
+                      child: Text(
+                        summary.isNotEmpty ? summary : '요약 본문이 없습니다.',
+                        maxLines: 8,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Color(0xFF3D4335),
+                          fontSize: 15,
+                          fontWeight: FontWeight.w500,
+                          height: 1.58,
+                        ),
+                      ),
+                    ),
+                    if ((meta?.hashtags ?? const []).isNotEmpty) ...[
+                      const SizedBox(height: 14),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: meta!.hashtags
+                            .take(3)
+                            .map(
+                              (tag) => _HashTagChip(
+                                label: tag.startsWith('#') ? tag : '#$tag',
+                              ),
+                            )
+                            .toList(),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CardBadge extends StatelessWidget {
+  final String label;
+
+  const _CardBadge({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2D3426),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: Color(0xFFF3F0E8),
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0.6,
+        ),
+      ),
+    );
+  }
+}
+
+class _HashTagChip extends StatelessWidget {
+  final String label;
+
+  const _HashTagChip({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: const Color(0xFFDAD2BE),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: Color(0xFF4E5641),
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
     );
   }
 }

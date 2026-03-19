@@ -13,17 +13,17 @@ flutter run --dart-define=ENV=dev
 - Web:
 
 ```bash
-flutter run -d chrome --dart-define=ENV=dev
+flutter run -d chrome --web-port 7357 --dart-define=ENV=dev
 ```
 
 참고:
 - `ENV=dev`일 때 API 기본값은 플랫폼별로 자동 분기됩니다.
 - Android 에뮬레이터는 `http://10.0.2.2:3000`으로 연결됩니다.
-- iOS 시뮬레이터/웹/데스크톱은 `http://localhost:3000`으로 연결됩니다.
-- iOS 실기기는 `localhost`가 폰 자신을 가리키므로 `DEV_HOST`를 같이 지정하세요.
+- Web/iOS/macOS 기본값은 현재 `http://192.168.0.18:3000`입니다.
+- iOS 실기기는 로컬 개발 서버에 붙일 때 `DEV_HOST`로 개발 PC IP를 명시하는 편이 안전합니다.
 
 ```bash
-flutter run --dart-define=ENV=dev --dart-define=DEV_HOST=<맥IP>
+flutter run -d <IOS_DEVICE_ID> --dart-define=ENV=dev --dart-define=DEV_HOST=<맥IP>
 ```
 
 ### 2) 서버 백엔드 붙여서 실행
@@ -35,4 +35,39 @@ flutter run --dart-define=ENV=dev --dart-define=DEV_HOST=<맥IP>
 flutter run \
   --dart-define=ENV=production \
   --dart-define=API_URL=http://your-server:3000
+```
+
+- iOS 실기기 예시:
+
+```bash
+flutter run -d <IOS_DEVICE_ID> \
+  --dart-define=ENV=production \
+  --dart-define=API_URL=http://your-server:3000 \
+  --dart-define=GOOGLE_CLIENT_ID=<google-web-client-id>
+```
+
+- Chrome 예시:
+
+```bash
+flutter run -d chrome --web-port 7357 \
+  --dart-define=ENV=production \
+  --dart-define=API_URL=http://your-server:3000 \
+  --dart-define=GOOGLE_CLIENT_ID=<google-web-client-id>
+```
+
+### 3) Chrome 웹 테스트용 실행
+
+- 운영 서버 붙여서 테스트:
+
+```bash
+flutter run -d chrome --web-port 7357 \
+  --dart-define=ENV=production \
+  --dart-define=API_URL=http://54.180.201.105:3000 \
+  --dart-define=GOOGLE_CLIENT_ID=826440481147-effr7vmiuqh5d0tujtne4e726ft14ttr.apps.googleusercontent.com
+```
+
+- 로컬 개발 서버 붙여서 테스트:
+
+```bash
+flutter run -d chrome --web-port 7357 --dart-define=ENV=dev
 ```

@@ -3,6 +3,7 @@ import * as puppeteer from 'puppeteer';
 import * as fs from 'fs';
 import * as path from 'path';
 import type { IRendererService } from './interfaces/renderer.service.interface';
+import { CARD_NEWS_HEIGHT, CARD_NEWS_WIDTH } from './card-news.constants';
 
 @Injectable()
 export class RendererService implements IRendererService {
@@ -21,7 +22,11 @@ export class RendererService implements IRendererService {
 
     try {
       const page = await browser.newPage();
-      await page.setViewport({ width: 1080, height: 1080, deviceScaleFactor: 2 });
+      await page.setViewport({
+        width: CARD_NEWS_WIDTH,
+        height: CARD_NEWS_HEIGHT,
+        deviceScaleFactor: 2,
+      });
       await page.setContent(html, { waitUntil: 'networkidle0' });
       await page.screenshot({ path: outputPath as `${string}.png`, type: 'png', fullPage: false });
       this.logger.log(`카드뉴스 PNG 저장: ${outputPath}`);
