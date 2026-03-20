@@ -105,6 +105,29 @@ export class CardNewsService {
     });
   }
 
+  async incrementViewCount(id: string): Promise<CardNews> {
+    await this.cardNewsRepository.increment({ id }, 'viewCount', 1);
+    const updated = await this.cardNewsRepository.findOne({ where: { id } });
+    if (!updated) {
+      throw new NotFoundException(`CardNews not found: ${id}`);
+    }
+    return updated;
+  }
+
+  async getViewCount(id: string): Promise<{ cardNewsId: string; viewCount: number }> {
+    const cardNews = await this.cardNewsRepository.findOne({
+      where: { id },
+      select: ['id', 'viewCount'],
+    });
+    if (!cardNews) {
+      throw new NotFoundException(`CardNews not found: ${id}`);
+    }
+    return {
+      cardNewsId: cardNews.id,
+      viewCount: cardNews.viewCount,
+    };
+  }
+
   /** 첫 번째 topic 슬라이드 1장 테스트 생성 (LLM 1회 호출) */
   async testGenerate(episodeId: string): Promise<string> {
     const episode = await this.episodesService.findOne(episodeId);

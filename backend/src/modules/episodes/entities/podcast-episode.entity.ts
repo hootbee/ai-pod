@@ -28,6 +28,9 @@ export class PodcastEpisode {
   @Column({ type: 'int', default: 0 })
   sourceCount: number;
 
+  @Column({ type: 'int', default: 0 })
+  audioPlayCount: number;
+
   /** 클릭베이트 헤드라인 제목 (예: "GPT-5 나온다는데 하루 안에 CEO가 도망?!") */
   @Column({ type: 'varchar', length: 255, nullable: true })
   headline: string | null;
