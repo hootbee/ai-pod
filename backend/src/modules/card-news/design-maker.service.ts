@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import type { CardSlide } from './interfaces/director.service.interface';
 import type { IDesignMakerService } from './interfaces/design-maker.service.interface';
+import { CARD_NEWS_HEIGHT, CARD_NEWS_WIDTH } from './card-news.constants';
 
 @Injectable()
 export class DesignMakerService implements IDesignMakerService {
@@ -25,10 +26,10 @@ export class DesignMakerService implements IDesignMakerService {
     // 단락 분리 처리
     const paragraphs = (slide.body || '').split('\\n').filter((p) => p.trim());
     const bodyHtml = slide.type === 'topic' && paragraphs.length >= 3
-      ? `<div style="font-size: 32px; color: ${textColor}; font-weight: 500; margin-bottom: 16px;">${paragraphs[0]}</div>
-         <div style="font-size: 28px; color: ${accent}; font-weight: 400; margin-bottom: 16px;">${paragraphs[1]}</div>
-         <div style="font-size: 26px; color: ${textColor}; opacity: 0.7; font-style: italic; line-height: 1.5;">${paragraphs.slice(2).join('<br>')}</div>`
-      : `<div style="font-size: 32px; color: #888; line-height: 1.5;">${slide.body}</div>`;
+      ? `<div style="font-size: 30px; color: ${textColor}; font-weight: 700; line-height: 1.38; margin-bottom: 14px; word-break: keep-all;">${paragraphs[0]}</div>
+         <div style="font-size: 24px; color: ${accent}; font-weight: 700; line-height: 1.4; margin-bottom: 14px; word-break: keep-all;">${paragraphs[1]}</div>
+         <div style="font-size: 22px; color: ${textColor}; opacity: 0.76; line-height: 1.55; word-break: keep-all;">${paragraphs.slice(2).join('<br>')}</div>`
+      : `<div style="font-size: 24px; color: ${textColor}; opacity: 0.82; line-height: 1.55; word-break: keep-all;">${slide.body}</div>`;
 
     const imageHtml = imageUrl
       ? `<div style="position: absolute; inset: 0; background-image: url('${imageUrl}'); background-size: cover; background-position: center;"></div>
@@ -46,43 +47,53 @@ export class DesignMakerService implements IDesignMakerService {
     if (slide.type === 'cover') {
       contentHtml = `
         ${imageHtml}
-        <div style="position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 60px;">
-          <div style="color: ${accent}; font-size: 32px; font-weight: 700; letter-spacing: 6px; margin-bottom: 30px;">TECH INSIGHT</div>
-          <div style="color: #FFF; font-size: 96px; font-weight: 800; line-height: 1.2; margin-bottom: 40px; text-shadow: 0 6px 16px rgba(0,0,0,0.6); word-break: keep-all;">${slide.title}</div>
-          <div style="color: #EEE; font-size: 36px; line-height: 1.5; text-shadow: 0 4px 12px rgba(0,0,0,0.6); word-break: keep-all;">${slide.body}</div>
+        <div style="position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 80px;">
+          <div style="color: ${accent}; font-size: 26px; font-weight: 700; letter-spacing: 5px; margin-bottom: 24px;">TECH INSIGHT</div>
+          <div style="color: #FFF; font-size: 72px; font-weight: 800; line-height: 1.16; margin-bottom: 28px; text-shadow: 0 6px 16px rgba(0,0,0,0.6); word-break: keep-all;">${slide.title}</div>
+          <div style="color: #EEE; font-size: 28px; line-height: 1.5; text-shadow: 0 4px 12px rgba(0,0,0,0.6); word-break: keep-all; max-width: 820px;">${slide.body}</div>
         </div>
-        <div style="position: absolute; bottom: 60px; right: 60px; color: ${accent}; font-size: 36px; font-weight: 800; text-transform: lowercase; text-shadow: 0 4px 8px rgba(0,0,0,0.5);">aipod</div>
+        <div style="position: absolute; bottom: 44px; right: 48px; color: ${accent}; font-size: 28px; font-weight: 800; text-transform: lowercase; text-shadow: 0 4px 8px rgba(0,0,0,0.5);">aipod</div>
       `;
     } else if (slide.type === 'topic') {
-      // 비율 기반(Flex) 분할로 모바일 세로 화면에 꽉 차게 변경
       contentHtml = `
-        <div style="display: flex; flex-direction: column; height: 100%;">
-          <div style="padding: 60px 50px 40px; background: ${cardBg};">
-            <div style="background: ${accent}; color: #FFF; border-radius: 16px; padding: 8px 20px; font-size: 20px; font-weight: 700; width: fit-content; margin-bottom: 24px;">TECH</div>
-            <div style="font-size: 64px; font-weight: 800; color: ${textColor}; line-height: 1.25; word-break: keep-all;">${slide.title}</div>
+        <div style="position: relative; display: flex; flex-direction: column; height: 100%; padding: 42px; background: ${bg}; gap: 22px;">
+          <div style="padding: 34px 36px; background: ${cardBg}; border-radius: 34px;">
+            <div style="background: ${accent}; color: #FFF; border-radius: 999px; padding: 10px 18px; font-size: 18px; font-weight: 700; width: fit-content; margin-bottom: 18px;">TECH</div>
+            <div style="font-size: 50px; font-weight: 800; color: ${textColor}; line-height: 1.2; letter-spacing: -0.02em; word-break: keep-all; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;">${slide.title}</div>
           </div>
-          
-          <div style="flex: 4; position: relative; background: ${accent}; overflow: hidden;">
-            ${imageHtml}
+
+          <div style="display: grid; grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr); gap: 22px; flex: 1; min-height: 0;">
+            <div style="position: relative; overflow: hidden; border-radius: 34px; min-height: 0;">
+              ${imageHtml}
+            </div>
+
+            <div style="display: flex; flex-direction: column; min-height: 0;">
+              <div style="flex: 1; min-height: 0; padding: 32px 30px 24px; background: ${cardBg}; border-radius: 34px; box-shadow: 0 18px 36px rgba(0,0,0,0.08);">
+                <div style="height: 100%; overflow: hidden;">
+                  ${bodyHtml}
+                </div>
+              </div>
+
+              ${hashtagsHtml
+                ? `<div style="display: flex; gap: 10px; align-items: center; padding: 18px 22px; background: ${cardBg}; border-radius: 28px; flex-wrap: wrap; margin-top: 16px;">
+                     ${slide.hashtags!.map(tag => `<span style="color: ${accent}; font-size: 18px; font-weight: 700;">#${tag}</span>`).join('')}
+                   </div>`
+                : ''}
+            </div>
           </div>
-          
-          ${hashtagsHtml}
-          
-          <div style="flex: 3; padding: 50px; background: ${cardBg}; position: relative;">
-            ${bodyHtml}
-            <div style="position: absolute; bottom: 50px; right: 50px; color: ${accent}; font-size: 32px; font-weight: 800; text-transform: lowercase;">aipod</div>
-          </div>
+
+          <div style="position: absolute; right: 62px; bottom: 52px; color: ${accent}; font-size: 26px; font-weight: 800; text-transform: lowercase;">aipod</div>
         </div>
       `;
     } else {
       // closing
       contentHtml = `
-        <div style="height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 60px;">
-          <div style="font-size: 120px; margin-bottom: 40px;">🎙️</div>
-          <div style="font-size: 72px; font-weight: 800; color: ${textColor}; margin-bottom: 30px; word-break: keep-all;">${slide.title}</div>
-          <div style="font-size: 36px; color: #888; line-height: 1.5; margin-bottom: 80px; word-break: keep-all;">${slide.body}</div>
-          <div style="background: ${accent}; color: #FFF; padding: 24px 60px; border-radius: 60px; font-size: 36px; font-weight: 700;">aipod에서 듣기 &rarr;</div>
-          <div style="margin-top: 120px; color: ${textColor}; font-size: 48px; font-weight: 800; text-transform: lowercase;">aipod <span style="color: ${accent}">.</span></div>
+        <div style="height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 80px;">
+          <div style="font-size: 96px; margin-bottom: 28px;">🎙️</div>
+          <div style="font-size: 58px; font-weight: 800; color: ${textColor}; margin-bottom: 22px; line-height: 1.18; word-break: keep-all;">${slide.title}</div>
+          <div style="font-size: 26px; color: #888; line-height: 1.5; margin-bottom: 56px; word-break: keep-all; max-width: 760px;">${slide.body}</div>
+          <div style="background: ${accent}; color: #FFF; padding: 18px 42px; border-radius: 999px; font-size: 28px; font-weight: 700;">aipod에서 듣기 &rarr;</div>
+          <div style="margin-top: 72px; color: ${textColor}; font-size: 36px; font-weight: 800; text-transform: lowercase;">aipod <span style="color: ${accent}">.</span></div>
         </div>
       `;
     }
@@ -96,8 +107,8 @@ export class DesignMakerService implements IDesignMakerService {
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      width: 1080px; 
-      height: 1920px; /* 9:16 모바일 세로 비율로 수정! */
+      width: ${CARD_NEWS_WIDTH}px;
+      height: ${CARD_NEWS_HEIGHT}px;
       font-family: 'Pretendard', sans-serif; /* Noto Sans 대신 트렌디한 Pretendard로 변경 */
       background-color: ${bg};
       overflow: hidden;

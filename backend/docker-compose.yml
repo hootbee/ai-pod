@@ -26,3 +26,4 @@ volumes:
   redis_data:
   postgres_data:
   audio_files:
+  thumbnails:

@@ -1,10 +1,13 @@
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import { NestExpressApplication } from '@nestjs/platform-express';
+import * as fs from 'fs';
+import * as path from 'path';
 import { AppModule } from './app.module';
 import { CrawlerService } from './modules/crawler/crawler.service';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
   app.enableCors({
     origin: process.env.CORS_ORIGIN ?? '*',
   });
@@ -15,6 +18,20 @@ async function bootstrap() {
       forbidNonWhitelisted: true,
     }),
   );
+
+  const mediaDirs = [
+    { prefix: '/audio-files', dir: path.resolve(process.env.AUDIO_OUTPUT_DIR ?? './audio-files') },
+    { prefix: '/thumbnails', dir: path.resolve(process.env.THUMBNAIL_OUTPUT_DIR ?? './thumbnails') },
+    {
+      prefix: '/card-news-images',
+      dir: path.resolve(process.env.CARD_NEWS_OUTPUT_DIR ?? './card-news-images'),
+    },
+  ];
+
+  for (const media of mediaDirs) {
+    fs.mkdirSync(media.dir, { recursive: true });
+    app.useStaticAssets(media.dir, { prefix: media.prefix });
+  }
 
   if (process.env.CRAWLER_PREVIEW === '1') {
     const crawler = app.get(CrawlerService);

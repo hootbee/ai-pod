@@ -1,6 +1,10 @@
-import 'package:flutter/material.dart';
+import 'dart:convert';
 
-// 1. 전체 화면 (세로 방향 릴스 스크롤 담당)
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+
+import '../../core/app_config.dart';
+
 class CardNewsScreen extends StatefulWidget {
   const CardNewsScreen({super.key});
 
@@ -9,12 +13,148 @@ class CardNewsScreen extends StatefulWidget {
 }
 
 class _CardNewsScreenState extends State<CardNewsScreen> {
-  // 더미 데이터: 3개의 뉴스 주제, 각각 3장의 카드
-  final List<List<Color>> _newsTopics = [
-    [Colors.red.shade400, Colors.red.shade700, Colors.red.shade900],
-    [Colors.blue.shade400, Colors.blue.shade700, Colors.blue.shade900],
-    [Colors.green.shade400, Colors.green.shade700, Colors.green.shade900],
-  ];
+  bool _loading = true;
+  String? _error;
+  List<DayCardNews> _days = [];
+  final Map<int, PageController> _slideControllers = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCardNewsBody();
+  }
+
+  @override
+  void dispose() {
+    for (final controller in _slideControllers.values) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  Future<void> _loadCardNewsBody() async {
+    try {
+      final episodesRes = await http
+          .get(Uri.parse('${AppConfig.apiBaseUrl}/episodes'))
+          .timeout(const Duration(seconds: 10));
+
+      if (episodesRes.statusCode != 200) {
+        throw Exception('episodes API 실패: ${episodesRes.statusCode}');
+      }
+
+      final episodes = jsonDecode(episodesRes.body) as List<dynamic>;
+      if (episodes.isEmpty) {
+        throw Exception('에피소드가 없습니다.');
+      }
+
+      final days = <DayCardNews>[];
+      for (final rawEpisode in episodes) {
+        final episode = Map<String, dynamic>.from(rawEpisode as Map);
+        final episodeId = episode['id'] as String?;
+        if (episodeId == null || episodeId.isEmpty) continue;
+
+        final cardNewsRes = await http
+            .get(Uri.parse('${AppConfig.apiBaseUrl}/card-news/$episodeId'))
+            .timeout(const Duration(seconds: 10));
+
+        if (cardNewsRes.statusCode != 200) {
+          continue;
+        }
+
+        final cardNewsList = jsonDecode(cardNewsRes.body) as List<dynamic>;
+        if (cardNewsList.isEmpty) {
+          continue;
+        }
+
+        final latestCardNews = Map<String, dynamic>.from(
+          cardNewsList.first as Map,
+        );
+        final imagePathsJson = latestCardNews['imagePaths'] as List<dynamic>?;
+        if (imagePathsJson == null || imagePathsJson.isEmpty) {
+          continue;
+        }
+
+        final scriptSnapshot =
+            latestCardNews['scriptSnapshot'] as Map<String, dynamic>?;
+        final slidesJson =
+            scriptSnapshot?['slides'] as List<dynamic>? ?? const [];
+        final slideMetas = slidesJson
+            .map((item) => Map<String, dynamic>.from(item as Map))
+            .map(CardSlideMeta.fromJson)
+            .toList();
+        final imageUrls = imagePathsJson
+            .map((item) => _toAbsoluteCardNewsImageUrl((item as String?) ?? ''))
+            .where((url) => url.isNotEmpty)
+            .toList();
+
+        if (imageUrls.isEmpty) continue;
+
+        final cards = <CardNewsCard>[];
+        for (var i = 0; i < imageUrls.length; i++) {
+          final meta = i < slideMetas.length ? slideMetas[i] : null;
+          cards.add(CardNewsCard(imageUrl: imageUrls[i], meta: meta));
+        }
+
+        final createdAt =
+            (episode['createdAt'] as String?) ??
+            (latestCardNews['createdAt'] as String?) ??
+            '';
+        days.add(DayCardNews(dayLabel: _toDayLabel(createdAt), cards: cards));
+      }
+
+      if (days.isEmpty) {
+        throw Exception('카드뉴스 이미지가 없습니다.');
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _days = days;
+        _disposeUnusedSlideControllers(keepLength: _days.length);
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.toString();
+        _loading = false;
+      });
+    }
+  }
+
+  PageController _slideControllerForDay(int dayIndex) {
+    return _slideControllers.putIfAbsent(
+      dayIndex,
+      () => PageController(viewportFraction: 0.88),
+    );
+  }
+
+  void _disposeUnusedSlideControllers({required int keepLength}) {
+    final staleKeys = _slideControllers.keys
+        .where((index) => index >= keepLength)
+        .toList();
+    for (final key in staleKeys) {
+      _slideControllers.remove(key)?.dispose();
+    }
+  }
+
+  String _toDayLabel(String raw) {
+    if (raw.length < 10) return '날짜 미상';
+    return raw.substring(0, 10);
+  }
+
+  String _toAbsoluteCardNewsImageUrl(String rawPath) {
+    final normalized = rawPath.trim().replaceAll('\\', '/');
+    if (normalized.isEmpty) return '';
+    if (normalized.startsWith('http://') || normalized.startsWith('https://')) {
+      return normalized;
+    }
+    if (normalized.startsWith('/card-news-images/')) {
+      return '${AppConfig.apiBaseUrl}$normalized';
+    }
+    final fileName = normalized.split('/').last;
+    if (fileName.isEmpty) return '';
+    return '${AppConfig.apiBaseUrl}/card-news-images/$fileName';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -29,67 +169,312 @@ class _CardNewsScreenState extends State<CardNewsScreen> {
         ),
         title: const Text('오늘의 AI 뉴스', style: TextStyle(color: Colors.white)),
       ),
-      // 바깥쪽: 위아래로 내리는 릴스 스타일 (세로 방향)
-      body: PageView.builder(
-        scrollDirection: Axis.vertical,
-        itemCount: _newsTopics.length,
-        itemBuilder: (context, verticalIndex) {
-          // 안쪽: 좌우로 넘기는 캐러셀 스타일 (가로 방향)
-          return HorizontalCardSlider(
-            topicIndex: verticalIndex,
-            cards: _newsTopics[verticalIndex],
-          );
-        },
+      body: _buildBody(),
+    );
+  }
+
+  Widget _buildBody() {
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_error != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Text(
+            '카드뉴스 로드 실패\n$_error',
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Colors.white),
+          ),
+        ),
+      );
+    }
+    if (_days.isEmpty) {
+      return const Center(
+        child: Text('카드뉴스 이미지가 없습니다.', style: TextStyle(color: Colors.white)),
+      );
+    }
+
+    return PageView.builder(
+      scrollDirection: Axis.vertical,
+      itemCount: _days.length,
+      itemBuilder: (context, dayIndex) {
+        final day = _days[dayIndex];
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+              child: Text(
+                '${day.dayLabel} (${dayIndex + 1}/${_days.length})',
+                style: const TextStyle(
+                  color: Color(0xFFB8C0A6),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            Expanded(
+              child: PageView.builder(
+                scrollDirection: Axis.horizontal,
+                controller: _slideControllerForDay(dayIndex),
+                itemCount: day.cards.length,
+                itemBuilder: (context, slideIndex) {
+                  final card = day.cards[slideIndex];
+                  return Padding(
+                    padding: const EdgeInsets.fromLTRB(8, 24, 10, 24),
+                    child: _CardNewsSlideView(
+                      card: card,
+                      slideIndex: slideIndex,
+                      totalSlides: day.cards.length,
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class DayCardNews {
+  final String dayLabel;
+  final List<CardNewsCard> cards;
+
+  const DayCardNews({required this.dayLabel, required this.cards});
+}
+
+class CardNewsCard {
+  final String imageUrl;
+  final CardSlideMeta? meta;
+
+  const CardNewsCard({required this.imageUrl, required this.meta});
+}
+
+class CardSlideMeta {
+  final String type;
+  final String title;
+  final String body;
+  final List<String> hashtags;
+
+  const CardSlideMeta({
+    required this.type,
+    required this.title,
+    required this.body,
+    required this.hashtags,
+  });
+
+  String get typeLabel {
+    switch (type) {
+      case 'cover':
+        return 'COVER';
+      case 'closing':
+        return 'CLOSING';
+      default:
+        return 'TOPIC';
+    }
+  }
+
+  factory CardSlideMeta.fromJson(Map<String, dynamic> json) {
+    final hashtagsJson = json['hashtags'] as List<dynamic>? ?? const [];
+    return CardSlideMeta(
+      type: (json['type'] as String? ?? 'topic').trim(),
+      title: (json['title'] as String? ?? '제목 없음').trim(),
+      body: (json['body'] as String? ?? '').trim(),
+      hashtags: hashtagsJson
+          .map((item) => (item as String? ?? '').trim())
+          .where((tag) => tag.isNotEmpty)
+          .toList(),
+    );
+  }
+}
+
+class _CardNewsSlideView extends StatelessWidget {
+  final CardNewsCard card;
+  final int slideIndex;
+  final int totalSlides;
+
+  const _CardNewsSlideView({
+    required this.card,
+    required this.slideIndex,
+    required this.totalSlides,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final meta = card.meta;
+    final summary = meta?.body.replaceAll('\n', ' ').trim() ?? '';
+
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFFEAE4D6),
+        borderRadius: BorderRadius.circular(30),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.22),
+            blurRadius: 18,
+            offset: const Offset(0, 12),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(30),
+        child: Column(
+          children: [
+            Expanded(
+              flex: 45,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  ColoredBox(
+                    color: const Color(0xFF171B15),
+                    child: Image.network(
+                      card.imageUrl,
+                      fit: BoxFit.cover,
+                      alignment: Alignment.topCenter,
+                      filterQuality: FilterQuality.high,
+                      errorBuilder: (context, error, stackTrace) {
+                        return const Center(
+                          child: Text(
+                            '이미지를 불러오지 못했습니다.',
+                            style: TextStyle(color: Colors.white70),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  const DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Color(0x0D000000),
+                          Color(0x66000000),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              flex: 55,
+              child: Container(
+                width: double.infinity,
+                color: const Color(0xFFEAE4D6),
+                padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        _CardBadge(label: meta?.typeLabel ?? 'CARD'),
+                        const Spacer(),
+                        _CardBadge(label: '${slideIndex + 1} / $totalSlides'),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      meta?.title ?? '카드뉴스',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Color(0xFF141710),
+                        fontSize: 24,
+                        fontWeight: FontWeight.w800,
+                        height: 1.18,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Expanded(
+                      child: Text(
+                        summary.isNotEmpty ? summary : '요약 본문이 없습니다.',
+                        maxLines: 8,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Color(0xFF3D4335),
+                          fontSize: 15,
+                          fontWeight: FontWeight.w500,
+                          height: 1.58,
+                        ),
+                      ),
+                    ),
+                    if ((meta?.hashtags ?? const []).isNotEmpty) ...[
+                      const SizedBox(height: 14),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: meta!.hashtags
+                            .take(3)
+                            .map(
+                              (tag) => _HashTagChip(
+                                label: tag.startsWith('#') ? tag : '#$tag',
+                              ),
+                            )
+                            .toList(),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-// 2. 개별 뉴스 화면 (가로 방향 스크롤 담당)
-class HorizontalCardSlider extends StatelessWidget {
-  final int topicIndex;
-  final List<Color> cards;
+class _CardBadge extends StatelessWidget {
+  final String label;
 
-  const HorizontalCardSlider({
-    super.key,
-    required this.topicIndex,
-    required this.cards,
-  });
+  const _CardBadge({required this.label});
 
   @override
   Widget build(BuildContext context) {
-    return PageView.builder(
-      scrollDirection: Axis.horizontal, // 좌우로 스크롤!
-      itemCount: cards.length,
-      // 카드가 화면에 꽉 차지 않고 살짝 여백이 보이도록 viewportFraction 설정
-      controller: PageController(viewportFraction: 0.9),
-      itemBuilder: (context, horizontalIndex) {
-        return Container(
-          margin: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 20.0),
-          decoration: BoxDecoration(
-            color: cards[horizontalIndex],
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.3),
-                blurRadius: 10,
-                offset: const Offset(0, 5),
-              ),
-            ],
-          ),
-          child: Center(
-            child: Text(
-              '뉴스 ${topicIndex + 1}\n카드 ${horizontalIndex + 1}',
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 32,
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        );
-      },
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2D3426),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: Color(0xFFF3F0E8),
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0.6,
+        ),
+      ),
+    );
+  }
+}
+
+class _HashTagChip extends StatelessWidget {
+  final String label;
+
+  const _HashTagChip({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: const Color(0xFFDAD2BE),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: Color(0xFF4E5641),
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
     );
   }
 }

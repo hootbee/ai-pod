@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
+import '../auth/auth_service.dart';
 import '../auth/login_screen.dart';
+import '../podcast/main_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -13,31 +15,40 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    // 2.5초 대기 후 메인 화면으로 부드럽게 전환
-    Timer(const Duration(milliseconds: 2500), () {
-      Navigator.of(context).pushReplacement(
-        PageRouteBuilder(
-          pageBuilder: (context, animation, secondaryAnimation) =>
-              const LoginScreen(),
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            // 페이드 인(Fade-in) 애니메이션 효과 적용
-            return FadeTransition(opacity: animation, child: child);
-          },
-        ),
-      );
-    });
+    _init();
+  }
+
+  Future<void> _init() async {
+    // 스플래시 최소 노출(2.5초)과 자동 로그인 체크를 동시에 실행
+    final results = await Future.wait([
+      Future.delayed(const Duration(milliseconds: 2500)),
+      AuthService().tryAutoLogin(),
+    ]);
+
+    if (!mounted) return;
+
+    final isLoggedIn = results[1] as bool;
+
+    Navigator.of(context).pushReplacement(
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) =>
+            isLoggedIn ? const MainScreen() : const LoginScreen(),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) =>
+            FadeTransition(opacity: animation, child: child),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1E211A), // 이미지가 로딩되기 전이나 여백에 보일 배경색
+      backgroundColor: const Color(0xFF1E211A),
       body: SizedBox(
         width: double.infinity,
         height: double.infinity,
         child: Image.asset(
           'assets/images/splash.png',
-          fit: BoxFit.cover, // 이미지가 화면 비율에 맞춰 꽉 차도록 설정
+          fit: BoxFit.cover,
         ),
       ),
     );

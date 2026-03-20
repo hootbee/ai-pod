@@ -55,14 +55,17 @@ export class TtsService {
         ? await this.generateWithPauses(segments)
         : await this.generateChunked(episode.script);
 
-      const wavPath = path.join(this.outputDir, `${episodeId}.wav`);
-      const mp3Path = path.join(this.outputDir, `${episodeId}.mp3`);
+      const dateStr = new Date(episode.createdAt).toISOString().slice(0, 10).replace(/-/g, '');
+      const baseName = `${dateStr}-${episodeId.slice(0, 8)}`;
+      const wavPath = path.join(this.outputDir, `${baseName}.wav`);
+      const m4aPath = path.join(this.outputDir, `${baseName}.m4a`);
+      const mp3Path = path.join(this.outputDir, `${baseName}.mp3`);
       fs.writeFileSync(wavPath, audioBuffer);
-      this.convertToMp3(wavPath, mp3Path);
+      const finalAudioPath = this.convertToPlayableAudio(wavPath, m4aPath, mp3Path);
 
-      await this.episodesService.updateAudioPath(episodeId, { audioPath: mp3Path });
+      await this.episodesService.updateAudioPath(episodeId, { audioPath: finalAudioPath });
       await this.episodesService.updateAudioStatus(episodeId, 'done');
-      return { audioPath: mp3Path };
+      return { audioPath: finalAudioPath };
     } catch (error) {
       await this.episodesService.updateAudioStatus(episodeId, 'failed');
       this.logger.error(`TTS 실패: ${(error as Error).message}`);
@@ -94,11 +97,12 @@ export class TtsService {
       : await this.generateChunked(rawText);
 
     const wavPath = path.join(this.outputDir, 'test.wav');
+    const m4aPath = path.join(this.outputDir, 'test.m4a');
     const mp3Path = path.join(this.outputDir, 'test.mp3');
     fs.writeFileSync(wavPath, audioBuffer);
-    this.convertToMp3(wavPath, mp3Path);
-    this.logger.log(`[TEST] 저장 완료: ${mp3Path}`);
-    return mp3Path;
+    const finalAudioPath = this.convertToPlayableAudio(wavPath, m4aPath, mp3Path);
+    this.logger.log(`[TEST] 저장 완료: ${finalAudioPath}`);
+    return finalAudioPath;
   }
 
   // ──────────────────────────────────────────────
@@ -311,17 +315,33 @@ export class TtsService {
     return chunks;
   }
 
-  /** WAV → MP3 + loudnorm 볼륨 정규화 */
-  private convertToMp3(wavPath: string, mp3Path: string): void {
+  /** WAV → iOS 우선 호환 포맷(m4a) 변환, 실패 시 mp3, 모두 실패 시 wav 유지 */
+  private convertToPlayableAudio(
+    wavPath: string,
+    m4aPath: string,
+    mp3Path: string,
+  ): string {
     try {
       execSync(
-        `ffmpeg -y -i "${wavPath}" -af "loudnorm=I=-16:TP=-1.5:LRA=11" -q:a 2 "${mp3Path}"`,
+        `ffmpeg -y -i "${wavPath}" -af "loudnorm=I=-16:TP=-1.5:LRA=11" -c:a aac -b:a 128k -ar 44100 -ac 2 -movflags +faststart "${m4aPath}"`,
         { stdio: 'pipe' },
       );
       fs.unlinkSync(wavPath);
-      this.logger.log('MP3 변환 완료 (loudnorm 적용)');
+      this.logger.log('M4A 변환 완료 (AAC + loudnorm 적용)');
+      return m4aPath;
     } catch {
-      this.logger.warn('ffmpeg 변환 실패 - WAV 파일 유지');
+      try {
+        execSync(
+          `ffmpeg -y -i "${wavPath}" -af "loudnorm=I=-16:TP=-1.5:LRA=11" -c:a libmp3lame -b:a 128k -ar 44100 -ac 2 -id3v2_version 3 -write_xing 0 "${mp3Path}"`,
+          { stdio: 'pipe' },
+        );
+        fs.unlinkSync(wavPath);
+        this.logger.warn('M4A 변환 실패, MP3 변환으로 fallback');
+        return mp3Path;
+      } catch {
+        this.logger.warn('ffmpeg 변환 실패 - WAV 파일 유지');
+        return wavPath;
+      }
     }
   }
 

@@ -55,13 +55,14 @@ pids
 # Diagnostic reports (https://nodejs.org/api/report.html)
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
-# Fish Speech model checkpoints (large binary files, download separately)
+# AI model checkpoints (large binary, download separately)
 /checkpoints/
 
 # Generated audio files
 /audio-files/
 
-# Fish Speech reference audio
-/references/
+# Generated card news images
+/card-news-images/
 
-/card-news-images
+# Generated thumbnail images
+/thumbnails/

@@ -13,7 +13,7 @@ export class AuthController {
   @Post('google')
   @HttpCode(HttpStatus.OK)
   loginWithGoogle(@Body() dto: GoogleLoginDto) {
-    return this.authService.loginWithGoogle(dto.idToken);
+    return this.authService.loginWithGoogle(dto.idToken, dto.accessToken);
   }
 
   @Post('refresh')

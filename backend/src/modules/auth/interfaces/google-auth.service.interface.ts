@@ -7,4 +7,5 @@ export interface GoogleUserInfo {
 
 export interface IGoogleAuthService {
   verify(idToken: string): Promise<GoogleUserInfo>;
+  verifyAccessToken(accessToken: string): Promise<GoogleUserInfo>;
 }

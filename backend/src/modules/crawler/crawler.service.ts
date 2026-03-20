@@ -25,6 +25,8 @@ type FeedSource = {
 @Injectable()
 export class CrawlerService {
   private readonly logger = new Logger(CrawlerService.name);
+  private readonly networkRetries = Number(process.env.CRAWLER_NETWORK_RETRIES ?? 3);
+  private readonly networkBaseBackoffMs = Number(process.env.CRAWLER_NETWORK_BACKOFF_MS ?? 600);
   private readonly parser = new Parser({
     timeout: 10000,
     requestOptions: {
@@ -84,11 +86,23 @@ export class CrawlerService {
   }
 
   async fetchLatest(limitPerSource = 10): Promise<CrawlerItem[]> {
-    const results = await Promise.all(
+    const results = await Promise.allSettled(
       this.sources.map((source) => this.fetchSource(source, limitPerSource)),
     );
 
-    return results.flat().sort((a, b) => {
+    const items: CrawlerItem[] = [];
+    results.forEach((result, index) => {
+      const source = this.sources[index];
+      if (result.status === 'fulfilled') {
+        items.push(...result.value);
+        return;
+      }
+
+      const message = result.reason instanceof Error ? result.reason.message : String(result.reason);
+      this.logger.warn(`[Crawler] RSS 수집 실패 (${source.id}): ${message}`);
+    });
+
+    return items.sort((a, b) => {
       const aTime = a.publishedAt ? Date.parse(a.publishedAt) : 0;
       const bTime = b.publishedAt ? Date.parse(b.publishedAt) : 0;
       return bTime - aTime;
@@ -96,7 +110,16 @@ export class CrawlerService {
   }
 
   async fetchSource(source: FeedSource, limit = 10): Promise<CrawlerItem[]> {
-    const feed = await this.parser.parseURL(source.feedUrl);
+    let feed: Parser.Output<any>;
+    try {
+      feed = await this.withRetry(
+        `RSS(${source.id})`,
+        () => this.parser.parseURL(source.feedUrl),
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`feedUrl=${source.feedUrl} ${message}`);
+    }
 
     const items = (feed.items ?? [])
       .slice(0, limit)
@@ -128,12 +151,33 @@ export class CrawlerService {
   }
 
   async fetchArticleContent(url: string, sourceId?: string): Promise<string> {
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; aipod-crawler/1.0; +https://example.com)',
-        Accept: 'text/html,application/xhtml+xml',
+    const response = await this.withRetry(
+      `ARTICLE(${sourceId ?? 'unknown'})`,
+      async () => {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 15_000);
+        try {
+          const res = await fetch(url, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (compatible; aipod-crawler/1.0; +https://example.com)',
+              Accept: 'text/html,application/xhtml+xml',
+            },
+            signal: controller.signal,
+          });
+          if ([408, 425, 429, 500, 502, 503, 504].includes(res.status)) {
+            const retryableError = new Error(`Retryable HTTP ${res.status}: ${url}`) as Error & {
+              status?: number;
+            };
+            retryableError.status = res.status;
+            throw retryableError;
+          }
+          return res;
+        } finally {
+          clearTimeout(timer);
+        }
       },
-    });
+      (error) => this.isRetryableHttpOrNetworkError(error),
+    );
 
     if (!response.ok) {
       throw new Error(`Failed to fetch article: ${response.status} ${url}`);
@@ -200,5 +244,61 @@ export class CrawlerService {
     const $ = cheerio.load(html);
     const text = $.text().replace(/\s+/g, ' ').trim();
     return text;
+  }
+
+  private async withRetry<T>(
+    label: string,
+    fn: () => Promise<T>,
+    shouldRetry: (error: unknown) => boolean = (error) => this.isRetryableNetworkError(error),
+  ): Promise<T> {
+    let lastError: unknown;
+    for (let attempt = 1; attempt <= this.networkRetries; attempt++) {
+      try {
+        return await fn();
+      } catch (error) {
+        lastError = error;
+        const retryable = shouldRetry(error);
+        const message = error instanceof Error ? error.message : String(error);
+        if (!retryable || attempt >= this.networkRetries) {
+          break;
+        }
+
+        const delayMs = this.networkBaseBackoffMs * 2 ** (attempt - 1);
+        this.logger.warn(
+          `[Crawler] ${label} 네트워크 실패 (${attempt}/${this.networkRetries}) → ${message}; ${delayMs}ms 후 재시도`,
+        );
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+      }
+    }
+
+    throw lastError;
+  }
+
+  private isRetryableHttpOrNetworkError(error: unknown): boolean {
+    const status = this.extractStatusCode(error);
+    if (status && [408, 425, 429, 500, 502, 503, 504].includes(status)) {
+      return true;
+    }
+    return this.isRetryableNetworkError(error);
+  }
+
+  private extractStatusCode(error: unknown): number | null {
+    if (!error || typeof error !== 'object') return null;
+    const status = (error as { status?: unknown }).status;
+    return typeof status === 'number' ? status : null;
+  }
+
+  private isRetryableNetworkError(error: unknown): boolean {
+    const message = error instanceof Error ? error.message : String(error);
+    const lower = message.toLowerCase();
+    return (
+      lower.includes('econnreset') ||
+      lower.includes('etimedout') ||
+      lower.includes('eai_again') ||
+      lower.includes('enotfound') ||
+      lower.includes('socket hang up') ||
+      lower.includes('aborted') ||
+      lower.includes('timeout')
+    );
   }
 }

@@ -79,27 +79,22 @@ export class CardNewsService {
     });
   }
 
-  /** 테스트용: 에피소드 대본에서 1장만 생성 (Gemini 2번: Director + DesignMaker) */
+  /** 첫 번째 topic 슬라이드 1장 테스트 생성 (LLM 1회 호출) */
   async testGenerate(episodeId: string): Promise<string> {
     const episode = await this.episodesService.findOne(episodeId);
     if (!episode?.script) {
       throw new NotFoundException('에피소드 또는 대본을 찾을 수 없습니다');
     }
 
-    // Director로 슬라이드 구성 분석 (Gemini 1번)
     this.logger.log('[TEST] Director 분석 시작');
     const cardNewsScript = await this.directorService.analyze(episode.script);
 
-    // 첫 번째 topic 슬라이드만 처리
     const targetSlide =
       cardNewsScript.slides.find((s) => s.type === 'topic') ??
       cardNewsScript.slides[0];
     this.logger.log(`[TEST] 슬라이드 선택: "${targetSlide.title}" (keyword: ${targetSlide.imageKeyword})`);
 
-    // Unsplash 이미지 검색
     const imageResult = await this.researcherService.findImage(targetSlide.imageKeyword);
-
-    // DesignMaker HTML 생성 (Gemini 1번)
     const html = await this.designMakerService.generateHtml(
       targetSlide,
       cardNewsScript.theme,
@@ -107,9 +102,77 @@ export class CardNewsService {
     );
 
     const outputDir = process.env.CARD_NEWS_OUTPUT_DIR ?? './card-news-images';
-    const outputPath = path.join(outputDir, `test-${Date.now()}.png`);
+    // 파일명: {YYYYMMDD}-{episodeId 앞 8자}-topic1-{imageKeyword}.png (날짜는 에피소드 생성일 기준)
+    const dateStr = new Date(episode.createdAt).toISOString().slice(0, 10).replace(/-/g, ''); // YYYYMMDD
+    const keyword = targetSlide.imageKeyword.replace(/\s+/g, '-').toLowerCase();
+    const outputPath = path.join(outputDir, `${dateStr}-${episodeId.slice(0, 8)}-topic1-${keyword}.png`);
     const savedPath = await this.rendererService.renderToFile(html, outputPath);
     this.logger.log(`[TEST] PNG 저장: ${savedPath}`);
     return savedPath;
+  }
+
+  /**
+   * 첫 번째~네 번째 토픽 슬라이드를 순차적으로 1장씩 생성 (총 최대 4장).
+   * - LLM 1회 호출(Director)로 전체 구성을 분석 후
+   * - topic 슬라이드 최대 4개를 순차 렌더링하여 DB에 저장
+   * 파일명 규칙: {episodeId}-topic{N}-{제목slug}.png
+   */
+  async generateTopics(episodeId: string): Promise<CardNews> {
+    const episode = await this.episodesService.findOne(episodeId);
+    if (!episode?.script) {
+      throw new NotFoundException('에피소드 또는 대본을 찾을 수 없습니다');
+    }
+
+    this.logger.log(`[TOPICS] Director 분석 시작: episodeId=${episodeId}`);
+    const cardNewsScript = await this.directorService.analyze(episode.script);
+
+    // topic 타입 슬라이드만 추출, 최대 4개
+    const topicSlides = cardNewsScript.slides
+      .filter((s) => s.type === 'topic')
+      .slice(0, 4);
+
+    if (topicSlides.length === 0) {
+      throw new NotFoundException('대본에서 topic 슬라이드를 찾을 수 없습니다');
+    }
+
+    this.logger.log(`[TOPICS] 처리할 토픽 수: ${topicSlides.length}장`);
+
+    const outputDir = process.env.CARD_NEWS_OUTPUT_DIR ?? './card-news-images';
+    const imagePaths: string[] = [];
+
+    for (let i = 0; i < topicSlides.length; i++) {
+      const slide = topicSlides[i];
+      const topicNumber = i + 1;
+      this.logger.log(`[TOPICS] 토픽 ${topicNumber}/${topicSlides.length} 처리 중: "${slide.title}"`);
+
+      // Unsplash 이미지 검색
+      const imageResult = await this.researcherService.findImage(slide.imageKeyword);
+
+      // HTML 생성 (정적 템플릿, LLM 호출 없음)
+      const html = await this.designMakerService.generateHtml(
+        slide,
+        cardNewsScript.theme,
+        imageResult?.url,
+      );
+
+      // 파일명: {YYYYMMDD}-{episodeId 앞 8자}-topic{N}-{imageKeyword}.png (날짜는 에피소드 생성일 기준)
+      const dateStr = new Date(episode.createdAt).toISOString().slice(0, 10).replace(/-/g, ''); // YYYYMMDD
+      const keyword = slide.imageKeyword.replace(/\s+/g, '-').toLowerCase();
+      const filename = `${dateStr}-${episodeId.slice(0, 8)}-topic${topicNumber}-${keyword}.png`;
+      const outputPath = path.join(outputDir, filename);
+      const savedPath = await this.rendererService.renderToFile(html, outputPath);
+      imagePaths.push(savedPath);
+      this.logger.log(`[TOPICS] 토픽 ${topicNumber} PNG 저장: ${savedPath}`);
+    }
+
+    // DB에 저장: imagePaths 배열에 4장(또는 그 이하) 경로 저장
+    const cardNews = this.cardNewsRepository.create({
+      episodeId,
+      imagePaths,
+      slideCount: imagePaths.length,
+      scriptSnapshot: cardNewsScript as unknown as Record<string, unknown>,
+    });
+
+    return this.cardNewsRepository.save(cardNews);
   }
 }

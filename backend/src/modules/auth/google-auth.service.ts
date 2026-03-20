@@ -18,14 +18,50 @@ export class GoogleAuthService implements IGoogleAuthService {
   }
 
   async verify(idToken: string): Promise<GoogleUserInfo> {
+    // iOS/Android 앱마다 audience가 다를 수 있으므로 허용할 Client ID 목록 지정
+    const allowedAudiences = [
+      process.env.GOOGLE_CLIENT_ID!,                   // Web Client ID
+      process.env.GOOGLE_IOS_CLIENT_ID,               // iOS Client ID (옵션)
+    ].filter(Boolean) as string[];
+
     const ticket = await this.client.verifyIdToken({
       idToken,
-      audience: process.env.GOOGLE_CLIENT_ID,
+      audience: allowedAudiences,
     });
 
     const payload = ticket.getPayload();
     if (!payload || !payload.sub || !payload.email) {
       throw new Error('Invalid Google ID token payload');
+    }
+
+    return {
+      googleId: payload.sub,
+      email: payload.email,
+      name: payload.name ?? payload.email,
+      profileImageUrl: payload.picture ?? null,
+    };
+  }
+
+  async verifyAccessToken(accessToken: string): Promise<GoogleUserInfo> {
+    const response = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to verify Google access token: ${response.status}`);
+    }
+
+    const payload = await response.json() as {
+      sub?: string;
+      email?: string;
+      name?: string;
+      picture?: string;
+    };
+
+    if (!payload.sub || !payload.email) {
+      throw new Error('Invalid Google userinfo payload');
     }
 
     return {
