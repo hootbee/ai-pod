@@ -26,6 +26,9 @@ export class CardNews {
   @Column({ type: 'int', default: 0 })
   slideCount: number;
 
+  @Column({ type: 'int', default: 0 })
+  viewCount: number;
+
   @Column({ type: 'jsonb', nullable: true })
   scriptSnapshot: Record<string, unknown> | null; // Director 분석 결과 저장
 

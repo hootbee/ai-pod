@@ -31,6 +31,16 @@ export class CardNewsController {
     return this.cardNewsService.findLatestByEpisode();
   }
 
+  @Get(':id/view-count')
+  getViewCount(@Param('id') id: string) {
+    return this.cardNewsService.getViewCount(id);
+  }
+
+  @Post(':id/view-count')
+  incrementViewCount(@Param('id') id: string) {
+    return this.cardNewsService.incrementViewCount(id);
+  }
+
   @Get(':episodeId')
   findByEpisodeId(@Param('episodeId') episodeId: string) {
     return this.cardNewsService.findByEpisodeId(episodeId);

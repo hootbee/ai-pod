@@ -69,6 +69,19 @@ export class EpisodesService {
     return this.episodesRepository.save(episode);
   }
 
+  async incrementAudioPlayCount(id: string): Promise<PodcastEpisodeWithMedia> {
+    await this.episodesRepository.increment({ id }, 'audioPlayCount', 1);
+    return this.findOne(id);
+  }
+
+  async getAudioPlayCount(id: string): Promise<{ episodeId: string; audioPlayCount: number }> {
+    const episode = await this.findOneEntity(id);
+    return {
+      episodeId: episode.id,
+      audioPlayCount: episode.audioPlayCount,
+    };
+  }
+
   /** 오늘(KST 00:00 이후) 생성된 에피소드 조회 — 파이프라인 중복 체크용 */
   async findTodayEpisode(): Promise<PodcastEpisode | null> {
     // KST = UTC+9, 오늘 KST 00:00 → UTC 어제 15:00

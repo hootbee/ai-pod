@@ -38,6 +38,16 @@ export class EpisodesController {
     return this.episodesService.updateAudioPath(id, updateAudioPathDto);
   }
 
+  @Get(':id/audio-play-count')
+  getAudioPlayCount(@Param('id') id: string) {
+    return this.episodesService.getAudioPlayCount(id);
+  }
+
+  @Post(':id/audio-play-count')
+  incrementAudioPlayCount(@Param('id') id: string) {
+    return this.episodesService.incrementAudioPlayCount(id);
+  }
+
   /** 오디오 스트리밍 HEAD (확장자 힌트 URL 포함) */
   @Head(':id/audio/stream')
   async streamAudioHead(@Param('id') id: string, @Res() res: Response) {
