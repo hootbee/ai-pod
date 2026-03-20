@@ -34,41 +34,25 @@ class _CardNewsScreenState extends State<CardNewsScreen> {
 
   Future<void> _loadCardNewsBody() async {
     try {
-      final episodesRes = await http
-          .get(Uri.parse('${AppConfig.apiBaseUrl}/episodes'))
+      final latestCardNewsRes = await http
+          .get(Uri.parse('${AppConfig.apiBaseUrl}/card-news/latest'))
           .timeout(const Duration(seconds: 10));
 
-      if (episodesRes.statusCode != 200) {
-        throw Exception('episodes API 실패: ${episodesRes.statusCode}');
+      if (latestCardNewsRes.statusCode != 200) {
+        throw Exception(
+          'latest card-news API 실패: ${latestCardNewsRes.statusCode}',
+        );
       }
 
-      final episodes = jsonDecode(episodesRes.body) as List<dynamic>;
-      if (episodes.isEmpty) {
-        throw Exception('에피소드가 없습니다.');
+      final latestCardNewsList =
+          jsonDecode(latestCardNewsRes.body) as List<dynamic>;
+      if (latestCardNewsList.isEmpty) {
+        throw Exception('카드뉴스가 없습니다.');
       }
 
       final days = <DayCardNews>[];
-      for (final rawEpisode in episodes) {
-        final episode = Map<String, dynamic>.from(rawEpisode as Map);
-        final episodeId = episode['id'] as String?;
-        if (episodeId == null || episodeId.isEmpty) continue;
-
-        final cardNewsRes = await http
-            .get(Uri.parse('${AppConfig.apiBaseUrl}/card-news/$episodeId'))
-            .timeout(const Duration(seconds: 10));
-
-        if (cardNewsRes.statusCode != 200) {
-          continue;
-        }
-
-        final cardNewsList = jsonDecode(cardNewsRes.body) as List<dynamic>;
-        if (cardNewsList.isEmpty) {
-          continue;
-        }
-
-        final latestCardNews = Map<String, dynamic>.from(
-          cardNewsList.first as Map,
-        );
+      for (final rawCardNews in latestCardNewsList) {
+        final latestCardNews = Map<String, dynamic>.from(rawCardNews as Map);
         final imagePathsJson = latestCardNews['imagePaths'] as List<dynamic>?;
         if (imagePathsJson == null || imagePathsJson.isEmpty) {
           continue;
@@ -95,6 +79,8 @@ class _CardNewsScreenState extends State<CardNewsScreen> {
           cards.add(CardNewsCard(imageUrl: imageUrls[i], meta: meta));
         }
 
+        final episode =
+            latestCardNews['episode'] as Map<String, dynamic>? ?? const {};
         final createdAt =
             (episode['createdAt'] as String?) ??
             (latestCardNews['createdAt'] as String?) ??

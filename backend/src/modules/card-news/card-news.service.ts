@@ -79,6 +79,32 @@ export class CardNewsService {
     });
   }
 
+  async findLatestByEpisode(): Promise<CardNews[]> {
+    const rows = await this.cardNewsRepository
+      .createQueryBuilder('cardNews')
+      .leftJoinAndSelect('cardNews.episode', 'episode')
+      .select([
+        'cardNews.id',
+        'cardNews.episodeId',
+        'cardNews.imagePaths',
+        'cardNews.slideCount',
+        'cardNews.scriptSnapshot',
+        'cardNews.createdAt',
+        'episode.id',
+        'episode.createdAt',
+      ])
+      .distinctOn(['cardNews.episodeId'])
+      .orderBy('cardNews.episodeId', 'ASC')
+      .addOrderBy('cardNews.createdAt', 'DESC')
+      .getMany();
+
+    return rows.sort((a, b) => {
+      const aTime = a.episode?.createdAt?.getTime() ?? a.createdAt.getTime();
+      const bTime = b.episode?.createdAt?.getTime() ?? b.createdAt.getTime();
+      return bTime - aTime;
+    });
+  }
+
   /** 첫 번째 topic 슬라이드 1장 테스트 생성 (LLM 1회 호출) */
   async testGenerate(episodeId: string): Promise<string> {
     const episode = await this.episodesService.findOne(episodeId);

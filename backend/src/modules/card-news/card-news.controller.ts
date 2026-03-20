@@ -26,6 +26,11 @@ export class CardNewsController {
     return this.cardNewsService.generateTopics(episodeId);
   }
 
+  @Get('latest')
+  findLatestByEpisode() {
+    return this.cardNewsService.findLatestByEpisode();
+  }
+
   @Get(':episodeId')
   findByEpisodeId(@Param('episodeId') episodeId: string) {
     return this.cardNewsService.findByEpisodeId(episodeId);
