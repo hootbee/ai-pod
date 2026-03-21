@@ -172,7 +172,7 @@ class _MainScreenState extends State<MainScreen> {
             borderRadius: BorderRadius.circular(24),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.3),
+                color: Colors.black.withValues(alpha: 0.3),
                 blurRadius: 10,
                 offset: const Offset(0, 5),
               ),
@@ -191,7 +191,7 @@ class _MainScreenState extends State<MainScreen> {
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [Colors.transparent, Colors.black.withOpacity(0.72)],
+                colors: [Colors.transparent, Colors.black.withValues(alpha: 0.72)],
               ),
             ),
             alignment: Alignment.bottomLeft,
@@ -208,7 +208,7 @@ class _MainScreenState extends State<MainScreen> {
                       vertical: 12,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.42),
+                      color: Colors.black.withValues(alpha: 0.42),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
@@ -232,7 +232,7 @@ class _MainScreenState extends State<MainScreen> {
                       vertical: 12,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.3),
+                      color: Colors.black.withValues(alpha: 0.3),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
@@ -265,6 +265,7 @@ class PodcastEpisodeItem {
   final String? audioStatus;
   final String? audioUrl;
   final String streamUrl;
+  final String? subtitleCuesUrl;
   final String? thumbnailUrl;
 
   PodcastEpisodeItem({
@@ -276,6 +277,7 @@ class PodcastEpisodeItem {
     required this.audioStatus,
     required this.audioUrl,
     required this.streamUrl,
+    required this.subtitleCuesUrl,
     required this.thumbnailUrl,
   });
 
@@ -294,6 +296,7 @@ class PodcastEpisodeItem {
       streamUrl:
           '${AppConfig.apiBaseUrl}/episodes/${json['id']}/audio/stream.$streamExt'
               .trim(),
+      subtitleCuesUrl: _toAbsoluteUrl(json['subtitleCuesPath'] as String?),
       thumbnailUrl: _toAbsoluteUrl(thumbnailPath),
     );
   }

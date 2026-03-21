@@ -1,5 +1,10 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:just_audio/just_audio.dart';
+import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'main_screen.dart';
 
 class PodcastPlayerScreen extends StatefulWidget {
@@ -15,16 +20,20 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
   static const List<double> _playbackSpeeds = [1.0, 1.2, 1.5, 2.0];
 
   late AudioPlayer _audioPlayer;
+  StreamSubscription<Duration>? _positionSubscription;
   String? _audioError;
   bool _audioReady = false;
   bool _audioInitializing = false;
-  double _playbackSpeed = 1.0;
 
   List<String> get _transcript => widget.episode.script
       .split('\n')
       .map(_sanitizeTranscriptLine)
       .where((line) => line.isNotEmpty)
       .toList();
+
+  List<String> get _displayLines => _subtitleCues.isNotEmpty
+      ? _subtitleCues.map((cue) => cue.text).toList()
+      : _transcript;
 
   String _sanitizeTranscriptLine(String rawLine) {
     var line = rawLine.replaceFirst(RegExp(r'^narrator:\s*'), '').trim();
@@ -44,7 +53,47 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
   void initState() {
     super.initState();
     _audioPlayer = AudioPlayer();
+    _positionSubscription = _audioPlayer.positionStream.listen(
+      _handlePlaybackPositionChanged,
+    );
+    _loadSubtitleCues();
     _initAudio();
+  }
+
+  Future<void> _loadSubtitleCues() async {
+    final subtitleCuesUrl = widget.episode.subtitleCuesUrl;
+    if (subtitleCuesUrl == null || subtitleCuesUrl.isEmpty) return;
+
+    setState(() {
+      _subtitleCuesLoading = true;
+    });
+
+    try {
+      final response = await http
+          .get(Uri.parse(subtitleCuesUrl))
+          .timeout(const Duration(seconds: 10));
+
+      if (response.statusCode != 200) {
+        throw Exception('subtitle cues API 실패: ${response.statusCode}');
+      }
+
+      final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+      final cues = (decoded['cues'] as List<dynamic>? ?? const [])
+          .map((item) => SubtitleCue.fromJson(item as Map<String, dynamic>))
+          .where((cue) => cue.text.isNotEmpty)
+          .toList();
+
+      if (!mounted) return;
+      setState(() {
+        _subtitleCues = cues;
+        _subtitleCuesLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _subtitleCuesLoading = false;
+      });
+    }
   }
 
   Future<void> _initAudio() async {
@@ -98,67 +147,9 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
     }
   }
 
-  Future<void> _showPlaybackSpeedSheet() async {
-    final selectedSpeed = await showModalBottomSheet<double>(
-      context: context,
-      backgroundColor: const Color(0xFF2A2E24),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (context) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  '재생 속도',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
-                  children: _playbackSpeeds.map((speed) {
-                    final isSelected = speed == _playbackSpeed;
-                    return ChoiceChip(
-                      label: Text('${speed.toStringAsFixed(1)}x'),
-                      selected: isSelected,
-                      onSelected: (_) => Navigator.of(context).pop(speed),
-                      selectedColor: const Color(0xFFD6E36F),
-                      backgroundColor: const Color(0xFF3A4034),
-                      labelStyle: TextStyle(
-                        color: isSelected ? const Color(0xFF1E211A) : Colors.white,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      side: BorderSide.none,
-                    );
-                  }).toList(),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-
-    if (selectedSpeed == null || selectedSpeed == _playbackSpeed) return;
-
-    await _audioPlayer.setSpeed(selectedSpeed);
-    if (!mounted) return;
-    setState(() {
-      _playbackSpeed = selectedSpeed;
-    });
-  }
-
   @override
   void dispose() {
+    _positionSubscription?.cancel();
     _audioPlayer.dispose();
     super.dispose();
   }
@@ -216,24 +207,40 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
                 horizontal: 24.0,
                 vertical: 16.0,
               ),
-              child: ListView.separated(
-                itemCount: _transcript.length,
+              child: ScrollablePositionedList.separated(
+                itemScrollController: _itemScrollController,
+                itemPositionsListener: _itemPositionsListener,
+                itemCount: _displayLines.length,
                 separatorBuilder: (context, index) =>
                     const SizedBox(height: 16),
                 itemBuilder: (context, index) {
+                  final isActive = index == _currentCueIndex;
                   return Text(
-                    _transcript[index],
+                    _displayLines[index],
                     style: TextStyle(
                       fontSize: 20,
                       height: 1.5,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.white.withValues(alpha: 0.8),
+                      fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                      color: isActive
+                          ? const Color(0xFFD6E36F)
+                          : Colors.white.withValues(alpha: 0.8),
                     ),
                   );
                 },
               ),
             ),
           ),
+          if (_subtitleCuesLoading)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Text(
+                '자막 싱크 로딩 중...',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.65),
+                  fontSize: 13,
+                ),
+              ),
+            ),
 
           Padding(
             padding: const EdgeInsets.only(bottom: 50.0, top: 20.0),
@@ -296,6 +303,32 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class SubtitleCue {
+  final int index;
+  final String text;
+  final int startMs;
+  final int endMs;
+  final bool isTopicChange;
+
+  const SubtitleCue({
+    required this.index,
+    required this.text,
+    required this.startMs,
+    required this.endMs,
+    required this.isTopicChange,
+  });
+
+  factory SubtitleCue.fromJson(Map<String, dynamic> json) {
+    return SubtitleCue(
+      index: json['index'] as int? ?? 0,
+      text: json['text'] as String? ?? '',
+      startMs: json['startMs'] as int? ?? 0,
+      endMs: json['endMs'] as int? ?? 0,
+      isTopicChange: json['isTopicChange'] as bool? ?? false,
     );
   }
 }
