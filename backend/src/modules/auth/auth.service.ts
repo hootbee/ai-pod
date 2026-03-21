@@ -71,4 +71,26 @@ export class AuthService implements IAuthService {
   async logout(userId: string, refreshToken: string): Promise<void> {
     await this.tokenService.revokeRefreshToken(refreshToken);
   }
+
+  async me(userId: string) {
+    const user = await this.usersService.findById(userId);
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    return {
+      userId: user.id,
+      email: user.email,
+      nickname: user.nickname,
+      profileImageUrl: user.profileImageUrl,
+      provider: user.provider,
+      providerId: user.providerId,
+      role: user.role,
+      isActive: user.isActive,
+      timezone: user.timezone,
+      lastLoginAt: user.lastLoginAt,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    };
+  }
 }

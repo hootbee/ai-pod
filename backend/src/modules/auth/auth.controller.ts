@@ -35,6 +35,6 @@ export class AuthController {
   @Get('me')
   @UseGuards(JwtAuthGuard)
   me(@CurrentUser() user: TokenPayload) {
-    return { userId: user.sub, email: user.email };
+    return this.authService.me(user.sub);
   }
 }
