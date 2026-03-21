@@ -12,10 +12,13 @@ class PodcastPlayerScreen extends StatefulWidget {
 }
 
 class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
+  static const List<double> _playbackSpeeds = [1.0, 1.2, 1.5, 2.0];
+
   late AudioPlayer _audioPlayer;
   String? _audioError;
   bool _audioReady = false;
   bool _audioInitializing = false;
+  double _playbackSpeed = 1.0;
 
   List<String> get _transcript => widget.episode.script
       .split('\n')
@@ -93,6 +96,65 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
     } else {
       await _audioPlayer.play();
     }
+  }
+
+  Future<void> _showPlaybackSpeedSheet() async {
+    final selectedSpeed = await showModalBottomSheet<double>(
+      context: context,
+      backgroundColor: const Color(0xFF2A2E24),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  '재생 속도',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: _playbackSpeeds.map((speed) {
+                    final isSelected = speed == _playbackSpeed;
+                    return ChoiceChip(
+                      label: Text('${speed.toStringAsFixed(1)}x'),
+                      selected: isSelected,
+                      onSelected: (_) => Navigator.of(context).pop(speed),
+                      selectedColor: const Color(0xFFD6E36F),
+                      backgroundColor: const Color(0xFF3A4034),
+                      labelStyle: TextStyle(
+                        color: isSelected ? const Color(0xFF1E211A) : Colors.white,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      side: BorderSide.none,
+                    );
+                  }).toList(),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (selectedSpeed == null || selectedSpeed == _playbackSpeed) return;
+
+    await _audioPlayer.setSpeed(selectedSpeed);
+    if (!mounted) return;
+    setState(() {
+      _playbackSpeed = selectedSpeed;
+    });
   }
 
   @override
@@ -180,7 +242,7 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
               children: [
                 IconButton(
                   icon: const Icon(Icons.speed, color: Colors.white70),
-                  onPressed: () {},
+                  onPressed: _showPlaybackSpeedSheet,
                 ),
                 IconButton(
                   icon: const Icon(
@@ -219,6 +281,17 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
                   onPressed: () {},
                 ),
               ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 24),
+            child: Text(
+              '현재 재생 속도 ${_playbackSpeed.toStringAsFixed(1)}x',
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.7),
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
         ],
