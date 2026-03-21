@@ -9,6 +9,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { EpisodesService } from '../episodes/episodes.service';
 import type { ScriptSegment } from '../ai-processor/interfaces/ai-provider.interface';
+import type { SubtitleCue, SubtitleCueDocument } from './interfaces/subtitle-cue.interface';
 
 
 @Injectable()
@@ -51,17 +52,19 @@ export class TtsService {
       const segments = this.parseScriptToSegments(episode.script);
       this.logger.log(`TTS 시작: episodeId=${episodeId}, segments=${segments.length}`);
 
-      const audioBuffer = segments.length > 0
-        ? await this.generateWithPauses(segments)
-        : await this.generateChunked(episode.script);
+      const { audioBuffer, cues } = segments.length > 0
+        ? await this.generateWithSubtitleCues(segments)
+        : { audioBuffer: await this.generateChunked(episode.script), cues: [] };
 
       const dateStr = new Date(episode.createdAt).toISOString().slice(0, 10).replace(/-/g, '');
       const baseName = `${dateStr}-${episodeId.slice(0, 8)}`;
       const wavPath = path.join(this.outputDir, `${baseName}.wav`);
       const m4aPath = path.join(this.outputDir, `${baseName}.m4a`);
       const mp3Path = path.join(this.outputDir, `${baseName}.mp3`);
+      const cuesPath = path.join(this.outputDir, `${baseName}.cues.json`);
       fs.writeFileSync(wavPath, audioBuffer);
       const finalAudioPath = this.convertToPlayableAudio(wavPath, m4aPath, mp3Path);
+      this.writeSubtitleCues(cuesPath, cues);
 
       await this.episodesService.updateAudioPath(episodeId, { audioPath: finalAudioPath });
       await this.episodesService.updateAudioStatus(episodeId, 'done');
@@ -92,15 +95,17 @@ export class TtsService {
     this.logger.log('[TEST] TTS 테스트 시작');
 
     const segments = this.parseScriptToSegments(rawText);
-    const audioBuffer = segments.length > 0
-      ? await this.generateWithPauses(segments)
-      : await this.generateChunked(rawText);
+    const { audioBuffer, cues } = segments.length > 0
+      ? await this.generateWithSubtitleCues(segments)
+      : { audioBuffer: await this.generateChunked(rawText), cues: [] };
 
     const wavPath = path.join(this.outputDir, 'test.wav');
     const m4aPath = path.join(this.outputDir, 'test.m4a');
     const mp3Path = path.join(this.outputDir, 'test.mp3');
+    const cuesPath = path.join(this.outputDir, 'test.cues.json');
     fs.writeFileSync(wavPath, audioBuffer);
     const finalAudioPath = this.convertToPlayableAudio(wavPath, m4aPath, mp3Path);
+    this.writeSubtitleCues(cuesPath, cues);
     this.logger.log(`[TEST] 저장 완료: ${finalAudioPath}`);
     return finalAudioPath;
   }
@@ -137,41 +142,60 @@ export class TtsService {
    * - 4000바이트 초과: 토픽 변경(isTopicChange) 기준으로 청크 분할 후 각각 호출
    */
   private async generateWithPauses(segments: ScriptSegment[]): Promise<Buffer> {
+    const { audioBuffer } = await this.generateWithSubtitleCues(segments);
+    return audioBuffer;
+  }
+
+  private async generateWithSubtitleCues(
+    segments: ScriptSegment[],
+  ): Promise<{ audioBuffer: Buffer; cues: SubtitleCue[] }> {
     const ssml = this.buildSsml(segments);
     const byteLen = Buffer.byteLength(ssml, 'utf8');
-    this.logger.log(`TTS 시작 (SSML): ${segments.length}개 세그먼트, ${byteLen}bytes`);
-
-    // 4000bytes 이하 → 단일 호출
-    if (byteLen <= 4000) {
-      const result = await this.callGeminiTts(ssml, true);
-      return this.addWavHeader(result.pcm, result.sampleRate);
-    }
-
-    // 4000bytes 초과 → 토픽 단위 청크 분할
-    this.logger.log(`SSML ${byteLen}bytes 초과 → 토픽 단위 분할`);
-    const topicChunks = this.splitSegmentsByTopic(segments);
     const pcmBuffers: Buffer[] = [];
+    const cues: SubtitleCue[] = [];
     let sampleRate = 24000;
+    let currentMs = 0;
 
-    for (let i = 0; i < topicChunks.length; i++) {
-      const chunkSsml = this.buildSsml(topicChunks[i]);
+    const segmentChunks =
+      byteLen <= 4000 ? [segments] : this.splitSegmentsByTopic(segments);
+
+    this.logger.log(
+      `TTS 시작 (subtitle cues): 세그먼트 ${segments.length}개, 호출 청크 ${segmentChunks.length}개, 총 ${byteLen}bytes`,
+    );
+
+    for (let chunkIndex = 0; chunkIndex < segmentChunks.length; chunkIndex++) {
+      const chunk = segmentChunks[chunkIndex];
+      const chunkSsml = this.buildSsml(chunk);
       const chunkBytes = Buffer.byteLength(chunkSsml, 'utf8');
-      this.logger.log(`토픽 청크 [${i + 1}/${topicChunks.length}] ${chunkBytes}bytes`);
+      this.logger.log(
+        `TTS 청크 [${chunkIndex + 1}/${segmentChunks.length}]: 세그먼트 ${chunk.length}개, ${chunkBytes}bytes`,
+      );
       const result = await this.callGeminiTts(chunkSsml, true);
       sampleRate = result.sampleRate;
+      const chunkDurationMs = this.getPcmDurationMs(result.pcm, sampleRate);
 
-      if (i > 0) {
-        // 청크 경계: 이전 끝 페이드아웃 → 무음 100ms → 현재 시작 페이드인
-        const prev = pcmBuffers[pcmBuffers.length - 1];
-        pcmBuffers[pcmBuffers.length - 1] = this.applyFade(prev, 'out', 20, sampleRate);
-        pcmBuffers.push(this.makeSilence(100, sampleRate));
-        pcmBuffers.push(this.applyFade(result.pcm, 'in', 20, sampleRate));
-      } else {
-        pcmBuffers.push(result.pcm);
+      if (chunkIndex > 0) {
+        const chunkBoundaryPauseMs = 100;
+        pcmBuffers.push(this.makeSilence(chunkBoundaryPauseMs, sampleRate));
+        currentMs += chunkBoundaryPauseMs;
       }
+
+      pcmBuffers.push(result.pcm);
+      cues.push(
+        ...this.buildSubtitleCuesForChunk(
+          chunk,
+          cues.length,
+          currentMs,
+          chunkDurationMs,
+        ),
+      );
+      currentMs += chunkDurationMs;
     }
 
-    return this.addWavHeader(Buffer.concat(pcmBuffers), sampleRate);
+    return {
+      audioBuffer: this.addWavHeader(Buffer.concat(pcmBuffers), sampleRate),
+      cues,
+    };
   }
 
   /** isTopicChange 기준으로 세그먼트를 토픽 청크로 분리 후,
@@ -224,6 +248,85 @@ export class TtsService {
       return `${breakTag}${escaped}`;
     });
     return `<speak>${parts.join('')}</speak>`;
+  }
+
+  private normalizeCueText(text: string): string {
+    return text
+      .replace(/<break\s+time="(\d+ms)"\s*\/?>/gi, ' ')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&amp;/g, '&')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  private buildSubtitleCuesForChunk(
+    segments: ScriptSegment[],
+    startIndex: number,
+    chunkStartMs: number,
+    chunkDurationMs: number,
+  ): SubtitleCue[] {
+    if (segments.length === 0) return [];
+
+    const breakDurations = segments.map((segment, index) =>
+      this.getBreakMs(segment, index),
+    );
+    const totalBreakMs = breakDurations.reduce((sum, value) => sum + value, 0);
+    const weightedTexts = segments.map((segment) =>
+      this.normalizeCueText(segment.text),
+    );
+    const weights = weightedTexts.map((text) => this.getSpeechWeight(text));
+    const totalWeight = weights.reduce((sum, value) => sum + value, 0);
+    const speechDurationMs = Math.max(chunkDurationMs - totalBreakMs, segments.length);
+
+    const allocatedSpeechDurations = weights.map((weight, index) => {
+      if (index === weights.length - 1) {
+        const assigned = weights
+          .slice(0, index)
+          .reduce(
+            (sum, _, assignedIndex) =>
+              sum + Math.round((speechDurationMs * weights[assignedIndex]) / totalWeight),
+            0,
+          );
+        return Math.max(speechDurationMs - assigned, 1);
+      }
+      return Math.max(Math.round((speechDurationMs * weight) / totalWeight), 1);
+    });
+
+    const cues: SubtitleCue[] = [];
+    let cursorMs = chunkStartMs;
+
+    for (let i = 0; i < segments.length; i++) {
+      const pauseMs = breakDurations[i];
+      cursorMs += pauseMs;
+
+      const startMs = cursorMs;
+      const endMs = startMs + allocatedSpeechDurations[i];
+
+      cues.push({
+        index: startIndex + i,
+        text: weightedTexts[i],
+        startMs,
+        endMs,
+        isTopicChange: Boolean(segments[i].isTopicChange),
+      });
+
+      cursorMs = endMs;
+    }
+
+    return cues;
+  }
+
+  private getBreakMs(segment: ScriptSegment, index: number): number {
+    if (index === 0) return 0;
+    return segment.isTopicChange ? 800 : 300;
+  }
+
+  private getSpeechWeight(text: string): number {
+    const normalized = text.replace(/\s+/g, '');
+    const punctuationCount = (normalized.match(/[,.!?;:]/g) ?? []).length;
+    return Math.max(normalized.length + punctuationCount * 2, 1);
   }
 
   /** 텍스트 또는 SSML을 4500자 청크로 잘라 TTS 호출 */
@@ -285,18 +388,10 @@ export class TtsService {
     return Buffer.alloc(Math.floor((sampleRate * ms) / 1000) * 2, 0);
   }
 
-  /** PCM 버퍼에 선형 페이드 적용 (16bit signed LE) */
-  private applyFade(pcm: Buffer, direction: 'in' | 'out', durationMs: number, sampleRate: number): Buffer {
-    const fadeSamples = Math.min(Math.floor((sampleRate * durationMs) / 1000), pcm.length / 2);
-    const out = Buffer.from(pcm);
-    for (let i = 0; i < fadeSamples; i++) {
-      const sampleIdx = direction === 'in' ? i : pcm.length / 2 - fadeSamples + i;
-      const offset = sampleIdx * 2;
-      if (offset + 2 > out.length) break;
-      const gain = direction === 'in' ? i / fadeSamples : (fadeSamples - i) / fadeSamples;
-      out.writeInt16LE(Math.round(out.readInt16LE(offset) * gain), offset);
-    }
-    return out;
+  private getPcmDurationMs(pcm: Buffer, sampleRate: number): number {
+    const bytesPerSample = 2;
+    const sampleCount = pcm.length / bytesPerSample;
+    return Math.round((sampleCount / sampleRate) * 1000);
   }
 
   private splitText(text: string, maxLen: number): string[] {
@@ -362,5 +457,13 @@ export class TtsService {
     header.write('data', 36);
     header.writeUInt32LE(dataSize, 40);
     return Buffer.concat([header, pcmData]);
+  }
+
+  private writeSubtitleCues(filePath: string, cues: SubtitleCue[]) {
+    const document: SubtitleCueDocument = {
+      version: 1,
+      cues,
+    };
+    fs.writeFileSync(filePath, JSON.stringify(document, null, 2), 'utf8');
   }
 }

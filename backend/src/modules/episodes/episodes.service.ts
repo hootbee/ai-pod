@@ -9,7 +9,10 @@ import { AudioStatus, PodcastEpisode } from './entities/podcast-episode.entity';
 import { EpisodeThumbnail } from '../thumbnail/entities/episode-thumbnail.entity';
 import { toPublicMediaPath } from '../../common/media-path.util';
 
-export type PodcastEpisodeWithMedia = PodcastEpisode & { thumbnailPath: string | null };
+export type PodcastEpisodeWithMedia = PodcastEpisode & {
+  thumbnailPath: string | null;
+  subtitleCuesPath: string | null;
+};
 
 @Injectable()
 export class EpisodesService {
@@ -102,12 +105,46 @@ export class EpisodesService {
   ): PodcastEpisodeWithMedia {
     const normalizedAudioPath = toPublicMediaPath(episode.audioPath, '/audio-files');
     const normalizedThumbnailPath = toPublicMediaPath(thumbnailPath, '/thumbnails');
+    const normalizedSubtitleCuesPath = this.resolveSubtitleCuesPublicPath(episode.audioPath);
 
     return {
       ...episode,
       audioPath: normalizedAudioPath,
       thumbnailPath: normalizedThumbnailPath,
+      subtitleCuesPath: normalizedSubtitleCuesPath,
     };
+  }
+
+  private resolveSubtitleCuesPublicPath(audioPath: string | null): string | null {
+    if (!audioPath) return null;
+
+    const raw = audioPath.trim();
+    const basename = path.basename(raw);
+    const stem = basename.includes('.')
+      ? basename.slice(0, basename.lastIndexOf('.'))
+      : basename;
+    if (!stem) return null;
+
+    const candidateDirs = [
+      path.resolve(process.env.AUDIO_OUTPUT_DIR ?? './audio-files'),
+      path.resolve('./backend/audio-files'),
+      path.resolve(process.env.AUDIO_OUTPUT_FALLBACK_DIR ?? './audio-files_from_docker'),
+      path.resolve('./backend/audio-files_from_docker'),
+    ];
+
+    const candidates = new Set<string>();
+    const cueFilename = `${stem}.cues.json`;
+    for (const dir of candidateDirs) {
+      candidates.add(path.join(dir, cueFilename));
+    }
+
+    if (!raw.startsWith('http://') && !raw.startsWith('https://')) {
+      candidates.add(path.resolve(path.dirname(raw), cueFilename));
+      candidates.add(path.resolve(raw, '..', cueFilename));
+    }
+
+    const filePath = [...candidates].find((candidate) => fs.existsSync(candidate));
+    return filePath ? toPublicMediaPath(filePath, '/audio-files') : null;
   }
 
   private async findOneEntity(id: string): Promise<PodcastEpisode> {

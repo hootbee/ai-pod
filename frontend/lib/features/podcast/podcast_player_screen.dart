@@ -1,5 +1,10 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:just_audio/just_audio.dart';
+import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'main_screen.dart';
 
 class PodcastPlayerScreen extends StatefulWidget {
@@ -13,15 +18,26 @@ class PodcastPlayerScreen extends StatefulWidget {
 
 class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
   late AudioPlayer _audioPlayer;
+  StreamSubscription<Duration>? _positionSubscription;
   String? _audioError;
   bool _audioReady = false;
   bool _audioInitializing = false;
+  bool _subtitleCuesLoading = false;
+  List<SubtitleCue> _subtitleCues = [];
+  int _currentCueIndex = -1;
+  final ItemScrollController _itemScrollController = ItemScrollController();
+  final ItemPositionsListener _itemPositionsListener =
+      ItemPositionsListener.create();
 
   List<String> get _transcript => widget.episode.script
       .split('\n')
       .map(_sanitizeTranscriptLine)
       .where((line) => line.isNotEmpty)
       .toList();
+
+  List<String> get _displayLines => _subtitleCues.isNotEmpty
+      ? _subtitleCues.map((cue) => cue.text).toList()
+      : _transcript;
 
   String _sanitizeTranscriptLine(String rawLine) {
     var line = rawLine.replaceFirst(RegExp(r'^narrator:\s*'), '').trim();
@@ -41,7 +57,47 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
   void initState() {
     super.initState();
     _audioPlayer = AudioPlayer();
+    _positionSubscription = _audioPlayer.positionStream.listen(
+      _handlePlaybackPositionChanged,
+    );
+    _loadSubtitleCues();
     _initAudio();
+  }
+
+  Future<void> _loadSubtitleCues() async {
+    final subtitleCuesUrl = widget.episode.subtitleCuesUrl;
+    if (subtitleCuesUrl == null || subtitleCuesUrl.isEmpty) return;
+
+    setState(() {
+      _subtitleCuesLoading = true;
+    });
+
+    try {
+      final response = await http
+          .get(Uri.parse(subtitleCuesUrl))
+          .timeout(const Duration(seconds: 10));
+
+      if (response.statusCode != 200) {
+        throw Exception('subtitle cues API 실패: ${response.statusCode}');
+      }
+
+      final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+      final cues = (decoded['cues'] as List<dynamic>? ?? const [])
+          .map((item) => SubtitleCue.fromJson(item as Map<String, dynamic>))
+          .where((cue) => cue.text.isNotEmpty)
+          .toList();
+
+      if (!mounted) return;
+      setState(() {
+        _subtitleCues = cues;
+        _subtitleCuesLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _subtitleCuesLoading = false;
+      });
+    }
   }
 
   Future<void> _initAudio() async {
@@ -95,8 +151,49 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
     }
   }
 
+  void _handlePlaybackPositionChanged(Duration position) {
+    if (_subtitleCues.isEmpty) return;
+
+    final positionMs = position.inMilliseconds;
+    final cueIndex = _subtitleCues.indexWhere(
+      (cue) => positionMs >= cue.startMs && positionMs < cue.endMs,
+    );
+
+    if (cueIndex == -1 || cueIndex == _currentCueIndex) return;
+    if (!mounted) return;
+
+    setState(() {
+      _currentCueIndex = cueIndex;
+    });
+
+    if (_itemScrollController.isAttached && !_isCueComfortablyVisible(cueIndex)) {
+      _itemScrollController.scrollTo(
+        index: cueIndex,
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeInOut,
+        alignment: 0.18,
+      );
+    }
+  }
+
+  bool _isCueComfortablyVisible(int cueIndex) {
+    final positions = _itemPositionsListener.itemPositions.value;
+    if (positions.isEmpty) return false;
+
+    for (final itemPosition in positions) {
+      if (itemPosition.index != cueIndex) continue;
+
+      final isAboveViewport = itemPosition.itemTrailingEdge <= 0.12;
+      final isBelowViewport = itemPosition.itemLeadingEdge >= 0.82;
+      return !(isAboveViewport || isBelowViewport);
+    }
+
+    return false;
+  }
+
   @override
   void dispose() {
+    _positionSubscription?.cancel();
     _audioPlayer.dispose();
     super.dispose();
   }
@@ -154,24 +251,40 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
                 horizontal: 24.0,
                 vertical: 16.0,
               ),
-              child: ListView.separated(
-                itemCount: _transcript.length,
+              child: ScrollablePositionedList.separated(
+                itemScrollController: _itemScrollController,
+                itemPositionsListener: _itemPositionsListener,
+                itemCount: _displayLines.length,
                 separatorBuilder: (context, index) =>
                     const SizedBox(height: 16),
                 itemBuilder: (context, index) {
+                  final isActive = index == _currentCueIndex;
                   return Text(
-                    _transcript[index],
+                    _displayLines[index],
                     style: TextStyle(
                       fontSize: 20,
                       height: 1.5,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.white.withValues(alpha: 0.8),
+                      fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                      color: isActive
+                          ? const Color(0xFFD6E36F)
+                          : Colors.white.withValues(alpha: 0.8),
                     ),
                   );
                 },
               ),
             ),
           ),
+          if (_subtitleCuesLoading)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Text(
+                '자막 싱크 로딩 중...',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.65),
+                  fontSize: 13,
+                ),
+              ),
+            ),
 
           Padding(
             padding: const EdgeInsets.only(bottom: 50.0, top: 20.0),
@@ -223,6 +336,32 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class SubtitleCue {
+  final int index;
+  final String text;
+  final int startMs;
+  final int endMs;
+  final bool isTopicChange;
+
+  const SubtitleCue({
+    required this.index,
+    required this.text,
+    required this.startMs,
+    required this.endMs,
+    required this.isTopicChange,
+  });
+
+  factory SubtitleCue.fromJson(Map<String, dynamic> json) {
+    return SubtitleCue(
+      index: json['index'] as int? ?? 0,
+      text: json['text'] as String? ?? '',
+      startMs: json['startMs'] as int? ?? 0,
+      endMs: json['endMs'] as int? ?? 0,
+      isTopicChange: json['isTopicChange'] as bool? ?? false,
     );
   }
 }
