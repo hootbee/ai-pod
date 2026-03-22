@@ -76,7 +76,11 @@ class _CardNewsScreenState extends State<CardNewsScreen> {
         final cards = <CardNewsCard>[];
         for (var i = 0; i < imageUrls.length; i++) {
           final meta = i < slideMetas.length ? slideMetas[i] : null;
-          cards.add(CardNewsCard(imageUrl: imageUrls[i], meta: meta));
+          // raw Unsplash URL이 있으면 우선 사용, 없으면 템플릿 PNG 폴백
+          final displayUrl = (meta?.imageUrl != null && meta!.imageUrl!.isNotEmpty)
+              ? meta.imageUrl!
+              : imageUrls[i];
+          cards.add(CardNewsCard(imageUrl: displayUrl, meta: meta));
         }
 
         final episode =
@@ -244,12 +248,14 @@ class CardSlideMeta {
   final String title;
   final String body;
   final List<String> hashtags;
+  final String? imageUrl;
 
   const CardSlideMeta({
     required this.type,
     required this.title,
     required this.body,
     required this.hashtags,
+    this.imageUrl,
   });
 
   String get typeLabel {
@@ -273,6 +279,7 @@ class CardSlideMeta {
           .map((item) => (item as String? ?? '').trim())
           .where((tag) => tag.isNotEmpty)
           .toList(),
+      imageUrl: json['imageUrl'] as String?,
     );
   }
 }

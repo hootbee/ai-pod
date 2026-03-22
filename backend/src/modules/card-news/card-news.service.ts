@@ -47,6 +47,9 @@ export class CardNewsService {
         ? await this.researcherService.findImage(slide.imageKeyword)
         : null;
 
+      // 원본 이미지 URL 저장 (프론트에서 raw 이미지로 사용)
+      slide.imageUrl = imageResult?.url ?? null;
+
       // HTML 생성
       const html = await this.designMakerService.generateHtml(
         slide,
@@ -196,6 +199,9 @@ export class CardNewsService {
 
       // Unsplash 이미지 검색
       const imageResult = await this.researcherService.findImage(slide.imageKeyword);
+
+      // 원본 이미지 URL 저장 (프론트에서 raw 이미지로 사용)
+      slide.imageUrl = imageResult?.url ?? null;
 
       // HTML 생성 (정적 템플릿, LLM 호출 없음)
       const html = await this.designMakerService.generateHtml(
