@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -8,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:just_audio/just_audio.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import '../../core/app_config.dart';
+import '../../services/network_cache_service.dart';
 import 'main_screen.dart';
 
 class PodcastPlayerScreen extends StatefulWidget {
@@ -81,15 +81,10 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
     });
 
     try {
-      final response = await http
-          .get(Uri.parse(subtitleCuesUrl))
-          .timeout(const Duration(seconds: 10));
+      final response = await NetworkCacheService.instance.dio
+          .get<Map<String, dynamic>>(subtitleCuesUrl);
 
-      if (response.statusCode != 200) {
-        throw Exception('subtitle cues API 실패: ${response.statusCode}');
-      }
-
-      final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+      final decoded = response.data ?? {};
       final cues = (decoded['cues'] as List<dynamic>? ?? const [])
           .map((item) => SubtitleCue.fromJson(item as Map<String, dynamic>))
           .where((cue) => cue.text.isNotEmpty)
@@ -116,7 +111,9 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
       final String targetUrl =
           widget.episode.audioUrl ?? widget.episode.streamUrl;
       try {
-        await _audioPlayer.setUrl(targetUrl);
+        final source = await NetworkCacheService.instance
+            .getCachedAudioSource(targetUrl);
+        await _audioPlayer.setAudioSource(source);
         if (!mounted) return;
         setState(() {
           _audioReady = true;
@@ -127,7 +124,7 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
         if (!mounted) return;
         setState(() {
           _audioReady = false;
-          _audioError = '오디오 연결 실패 ($targetUrl): $e';
+          _audioError = '오디오 연결 실패: $e';
         });
       }
     } finally {

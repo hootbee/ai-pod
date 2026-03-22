@@ -1,7 +1,7 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
 import '../../core/app_config.dart';
+import '../../services/network_cache_service.dart';
 import '../../shared/widgets/click_wheel.dart';
 import '../card_news/card_news_screen.dart';
 import 'podcast_player_screen.dart';
@@ -28,15 +28,10 @@ class _MainScreenState extends State<MainScreen> {
 
   Future<void> _loadEpisodes() async {
     try {
-      final response = await http
-          .get(Uri.parse('${AppConfig.apiBaseUrl}/episodes'))
-          .timeout(const Duration(seconds: 10));
+      final response = await NetworkCacheService.instance.dio
+          .get<List<dynamic>>('${AppConfig.apiBaseUrl}/episodes');
 
-      if (response.statusCode != 200) {
-        throw Exception('episodes API 실패: ${response.statusCode}');
-      }
-
-      final decoded = jsonDecode(response.body) as List<dynamic>;
+      final decoded = response.data ?? [];
       final episodes = decoded
           .map(
             (item) => PodcastEpisodeItem.fromJson(item as Map<String, dynamic>),
@@ -179,7 +174,10 @@ class _MainScreenState extends State<MainScreen> {
             ],
             image: episode.thumbnailUrl != null
                 ? DecorationImage(
-                    image: NetworkImage(episode.thumbnailUrl!),
+                    image: CachedNetworkImageProvider(
+                      episode.thumbnailUrl!,
+                      cacheManager: AppImageCacheManager.instance,
+                    ),
                     fit: BoxFit.cover,
                   )
                 : null,

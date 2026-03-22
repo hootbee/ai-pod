@@ -1,10 +1,10 @@
-import 'dart:convert';
-
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/app_config.dart';
+import '../../services/network_cache_service.dart';
 
 class CardNewsScreen extends StatefulWidget {
   const CardNewsScreen({super.key});
@@ -36,18 +36,10 @@ class _CardNewsScreenState extends State<CardNewsScreen> {
 
   Future<void> _loadCardNewsBody() async {
     try {
-      final latestCardNewsRes = await http
-          .get(Uri.parse('${AppConfig.apiBaseUrl}/card-news/latest'))
-          .timeout(const Duration(seconds: 10));
+      final latestCardNewsRes = await NetworkCacheService.instance.dio
+          .get<List<dynamic>>('${AppConfig.apiBaseUrl}/card-news/latest');
 
-      if (latestCardNewsRes.statusCode != 200) {
-        throw Exception(
-          'latest card-news API 실패: ${latestCardNewsRes.statusCode}',
-        );
-      }
-
-      final latestCardNewsList =
-          jsonDecode(latestCardNewsRes.body) as List<dynamic>;
+      final latestCardNewsList = latestCardNewsRes.data ?? [];
       if (latestCardNewsList.isEmpty) {
         throw Exception('카드뉴스가 없습니다.');
       }
@@ -346,19 +338,21 @@ class _CardNewsSlideView extends StatelessWidget {
                 children: [
                   ColoredBox(
                     color: const Color(0xFF171B15),
-                    child: Image.network(
-                      card.imageUrl,
+                    child: CachedNetworkImage(
+                      imageUrl: card.imageUrl,
+                      cacheManager: AppImageCacheManager.instance,
                       fit: BoxFit.cover,
                       alignment: Alignment.topCenter,
                       filterQuality: FilterQuality.high,
-                      errorBuilder: (context, error, stackTrace) {
-                        return const Center(
-                          child: Text(
-                            '이미지를 불러오지 못했습니다.',
-                            style: TextStyle(color: Colors.white70),
-                          ),
-                        );
-                      },
+                      placeholder: (context, url) => const ColoredBox(
+                        color: Color(0xFF171B15),
+                      ),
+                      errorWidget: (context, url, error) => const Center(
+                        child: Text(
+                          '이미지를 불러오지 못했습니다.',
+                          style: TextStyle(color: Colors.white70),
+                        ),
+                      ),
                     ),
                   ),
                   const DecoratedBox(
