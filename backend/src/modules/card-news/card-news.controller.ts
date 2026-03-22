@@ -1,5 +1,8 @@
-import { Controller, Get, Param, Post } from '@nestjs/common';
+import { Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { CardNewsService } from './card-news.service';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import type { TokenPayload } from '../auth/interfaces/token.service.interface';
 
 @Controller('card-news')
 export class CardNewsController {
@@ -37,8 +40,12 @@ export class CardNewsController {
   }
 
   @Post(':id/view-count')
-  incrementViewCount(@Param('id') id: string) {
-    return this.cardNewsService.incrementViewCount(id);
+  @UseGuards(JwtAuthGuard)
+  incrementViewCount(
+    @Param('id') id: string,
+    @CurrentUser() user: TokenPayload,
+  ) {
+    return this.cardNewsService.incrementViewCount(id, user.sub);
   }
 
   @Get(':episodeId')

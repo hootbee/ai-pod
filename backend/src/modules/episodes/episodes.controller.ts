@@ -1,5 +1,5 @@
 import { InjectQueue } from '@nestjs/bull';
-import { Body, Controller, Get, Head, Param, Patch, Post, Req, Res } from '@nestjs/common';
+import { Body, Controller, Get, Head, Param, Patch, Post, Req, Res, UseGuards } from '@nestjs/common';
 import type { Queue } from 'bull';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -9,6 +9,9 @@ import { EpisodesService } from './episodes.service';
 import { HeadlineService } from './headline.service';
 import { TTS_JOB, TTS_QUEUE } from '../tts/tts.constants';
 import type { Request, Response } from 'express';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import type { TokenPayload } from '../auth/interfaces/token.service.interface';
 
 @Controller('episodes')
 export class EpisodesController {
@@ -44,12 +47,17 @@ export class EpisodesController {
   }
 
   @Post(':id/audio-play-count')
-  incrementAudioPlayCount(@Param('id') id: string) {
-    return this.episodesService.incrementAudioPlayCount(id);
+  @UseGuards(JwtAuthGuard)
+  incrementAudioPlayCount(
+    @Param('id') id: string,
+    @CurrentUser() user: TokenPayload,
+  ) {
+    return this.episodesService.incrementAudioPlayCount(id, user.sub);
   }
 
   /** 오디오 스트리밍 HEAD (확장자 힌트 URL 포함) */
   @Head(':id/audio/stream')
+  @UseGuards(JwtAuthGuard)
   async streamAudioHead(@Param('id') id: string, @Res() res: Response) {
     const { fileSize, contentType, contentDisposition } = await this.resolveStreamMeta(id);
     this.applyBaseHeaders(res, contentType, contentDisposition);
@@ -59,6 +67,7 @@ export class EpisodesController {
 
   /** 오디오 스트리밍 HEAD (예: /audio/stream.mp3) */
   @Head(':id/audio/stream.:extHint')
+  @UseGuards(JwtAuthGuard)
   async streamAudioHeadWithExt(
     @Param('id') id: string,
     @Param('extHint') extHint: string,
@@ -72,12 +81,14 @@ export class EpisodesController {
 
   /** 오디오 스트리밍 (HTTP Range 지원) */
   @Get(':id/audio/stream')
+  @UseGuards(JwtAuthGuard)
   async streamAudio(@Param('id') id: string, @Req() req: Request, @Res() res: Response) {
     return this.streamAudioInternal(id, req, res);
   }
 
   /** 오디오 스트리밍 (예: /audio/stream.mp3) */
   @Get(':id/audio/stream.:extHint')
+  @UseGuards(JwtAuthGuard)
   async streamAudioWithExt(
     @Param('id') id: string,
     @Param('extHint') extHint: string,

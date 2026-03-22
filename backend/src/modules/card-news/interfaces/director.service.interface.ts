@@ -7,6 +7,7 @@ export interface CardSlide {
   imageKeyword: string;
   accentColor: string;
   hashtags?: string[];  // 예: ["#에너지", "#지속가능성", "#원자력"]
+  imageUrl?: string | null; // Unsplash 원본 이미지 URL (프론트 렌더링용)
 }
 
 export interface CardNewsScript {

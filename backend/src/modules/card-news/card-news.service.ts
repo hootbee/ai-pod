@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as path from 'path';
 import { CardNews } from './entities/card-news.entity';
+import { CardNewsViewLog } from './entities/card-news-view-log.entity';
 import { DirectorService } from './director.service';
 import { DesignMakerService } from './design-maker.service';
 import { RendererService } from './renderer.service';
@@ -16,6 +17,8 @@ export class CardNewsService {
   constructor(
     @InjectRepository(CardNews)
     private readonly cardNewsRepository: Repository<CardNews>,
+    @InjectRepository(CardNewsViewLog)
+    private readonly viewLogRepository: Repository<CardNewsViewLog>,
     private readonly episodesService: EpisodesService,
     private readonly directorService: DirectorService,
     private readonly researcherService: ResearcherService,
@@ -46,6 +49,9 @@ export class CardNewsService {
       const imageResult = slide.type !== 'closing'
         ? await this.researcherService.findImage(slide.imageKeyword)
         : null;
+
+      // 원본 이미지 URL 저장 (프론트에서 raw 이미지로 사용)
+      slide.imageUrl = imageResult?.url ?? null;
 
       // HTML 생성
       const html = await this.designMakerService.generateHtml(
@@ -105,13 +111,13 @@ export class CardNewsService {
     });
   }
 
-  async incrementViewCount(id: string): Promise<CardNews> {
+  async incrementViewCount(id: string, userId: string): Promise<{ alreadyCounted: boolean }> {
+    const existing = await this.viewLogRepository.findOne({ where: { userId, cardNewsId: id } });
+    if (existing) return { alreadyCounted: true };
+
+    await this.viewLogRepository.save(this.viewLogRepository.create({ userId, cardNewsId: id }));
     await this.cardNewsRepository.increment({ id }, 'viewCount', 1);
-    const updated = await this.cardNewsRepository.findOne({ where: { id } });
-    if (!updated) {
-      throw new NotFoundException(`CardNews not found: ${id}`);
-    }
-    return updated;
+    return { alreadyCounted: false };
   }
 
   async getViewCount(id: string): Promise<{ cardNewsId: string; viewCount: number }> {
@@ -196,6 +202,9 @@ export class CardNewsService {
 
       // Unsplash 이미지 검색
       const imageResult = await this.researcherService.findImage(slide.imageKeyword);
+
+      // 원본 이미지 URL 저장 (프론트에서 raw 이미지로 사용)
+      slide.imageUrl = imageResult?.url ?? null;
 
       // HTML 생성 (정적 템플릿, LLM 호출 없음)
       const html = await this.designMakerService.generateHtml(

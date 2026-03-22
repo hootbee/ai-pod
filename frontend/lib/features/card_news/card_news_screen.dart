@@ -1,9 +1,10 @@
-import 'dart:convert';
-
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/app_config.dart';
+import '../../services/network_cache_service.dart';
 
 class CardNewsScreen extends StatefulWidget {
   const CardNewsScreen({super.key});
@@ -17,6 +18,7 @@ class _CardNewsScreenState extends State<CardNewsScreen> {
   String? _error;
   List<DayCardNews> _days = [];
   final Map<int, PageController> _slideControllers = {};
+  final Set<String> _viewCountedIds = {};
 
   @override
   void initState() {
@@ -34,18 +36,10 @@ class _CardNewsScreenState extends State<CardNewsScreen> {
 
   Future<void> _loadCardNewsBody() async {
     try {
-      final latestCardNewsRes = await http
-          .get(Uri.parse('${AppConfig.apiBaseUrl}/card-news/latest'))
-          .timeout(const Duration(seconds: 10));
+      final latestCardNewsRes = await NetworkCacheService.instance.dio
+          .get<List<dynamic>>('${AppConfig.apiBaseUrl}/card-news/latest');
 
-      if (latestCardNewsRes.statusCode != 200) {
-        throw Exception(
-          'latest card-news API 실패: ${latestCardNewsRes.statusCode}',
-        );
-      }
-
-      final latestCardNewsList =
-          jsonDecode(latestCardNewsRes.body) as List<dynamic>;
+      final latestCardNewsList = latestCardNewsRes.data ?? [];
       if (latestCardNewsList.isEmpty) {
         throw Exception('카드뉴스가 없습니다.');
       }
@@ -76,7 +70,11 @@ class _CardNewsScreenState extends State<CardNewsScreen> {
         final cards = <CardNewsCard>[];
         for (var i = 0; i < imageUrls.length; i++) {
           final meta = i < slideMetas.length ? slideMetas[i] : null;
-          cards.add(CardNewsCard(imageUrl: imageUrls[i], meta: meta));
+          // raw Unsplash URL이 있으면 우선 사용, 없으면 템플릿 PNG 폴백
+          final displayUrl = (meta?.imageUrl != null && meta!.imageUrl!.isNotEmpty)
+              ? meta.imageUrl!
+              : imageUrls[i];
+          cards.add(CardNewsCard(imageUrl: displayUrl, meta: meta));
         }
 
         final episode =
@@ -85,7 +83,11 @@ class _CardNewsScreenState extends State<CardNewsScreen> {
             (episode['createdAt'] as String?) ??
             (latestCardNews['createdAt'] as String?) ??
             '';
-        days.add(DayCardNews(dayLabel: _toDayLabel(createdAt), cards: cards));
+        days.add(DayCardNews(
+          id: (latestCardNews['id'] as String?) ?? '',
+          dayLabel: _toDayLabel(createdAt),
+          cards: cards,
+        ));
       }
 
       if (days.isEmpty) {
@@ -105,6 +107,21 @@ class _CardNewsScreenState extends State<CardNewsScreen> {
         _loading = false;
       });
     }
+  }
+
+  void _onSlidePageChanged(int dayIndex, int slideIndex) {
+    if (slideIndex < 1) return;
+    final id = _days[dayIndex].id;
+    if (id.isEmpty || _viewCountedIds.contains(id)) return;
+    _viewCountedIds.add(id);
+    SharedPreferences.getInstance().then((prefs) {
+      final token = prefs.getString('access_token');
+      if (token == null) return;
+      http.post(
+        Uri.parse('${AppConfig.apiBaseUrl}/card-news/$id/view-count'),
+        headers: {'Authorization': 'Bearer $token'},
+      ).ignore();
+    });
   }
 
   PageController _slideControllerForDay(int dayIndex) {
@@ -204,6 +221,7 @@ class _CardNewsScreenState extends State<CardNewsScreen> {
               child: PageView.builder(
                 scrollDirection: Axis.horizontal,
                 controller: _slideControllerForDay(dayIndex),
+                onPageChanged: (slideIndex) => _onSlidePageChanged(dayIndex, slideIndex),
                 itemCount: day.cards.length,
                 itemBuilder: (context, slideIndex) {
                   final card = day.cards[slideIndex];
@@ -226,10 +244,11 @@ class _CardNewsScreenState extends State<CardNewsScreen> {
 }
 
 class DayCardNews {
+  final String id;
   final String dayLabel;
   final List<CardNewsCard> cards;
 
-  const DayCardNews({required this.dayLabel, required this.cards});
+  const DayCardNews({required this.id, required this.dayLabel, required this.cards});
 }
 
 class CardNewsCard {
@@ -244,12 +263,14 @@ class CardSlideMeta {
   final String title;
   final String body;
   final List<String> hashtags;
+  final String? imageUrl;
 
   const CardSlideMeta({
     required this.type,
     required this.title,
     required this.body,
     required this.hashtags,
+    this.imageUrl,
   });
 
   String get typeLabel {
@@ -273,6 +294,7 @@ class CardSlideMeta {
           .map((item) => (item as String? ?? '').trim())
           .where((tag) => tag.isNotEmpty)
           .toList(),
+      imageUrl: json['imageUrl'] as String?,
     );
   }
 }
@@ -316,19 +338,21 @@ class _CardNewsSlideView extends StatelessWidget {
                 children: [
                   ColoredBox(
                     color: const Color(0xFF171B15),
-                    child: Image.network(
-                      card.imageUrl,
+                    child: CachedNetworkImage(
+                      imageUrl: card.imageUrl,
+                      cacheManager: AppImageCacheManager.instance,
                       fit: BoxFit.cover,
                       alignment: Alignment.topCenter,
                       filterQuality: FilterQuality.high,
-                      errorBuilder: (context, error, stackTrace) {
-                        return const Center(
-                          child: Text(
-                            '이미지를 불러오지 못했습니다.',
-                            style: TextStyle(color: Colors.white70),
-                          ),
-                        );
-                      },
+                      placeholder: (context, url) => const ColoredBox(
+                        color: Color(0xFF171B15),
+                      ),
+                      errorWidget: (context, url, error) => const Center(
+                        child: Text(
+                          '이미지를 불러오지 못했습니다.',
+                          style: TextStyle(color: Colors.white70),
+                        ),
+                      ),
                     ),
                   ),
                   const DecoratedBox(

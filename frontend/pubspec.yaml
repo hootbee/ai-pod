@@ -41,6 +41,10 @@ dependencies:
   http: ^1.2.2
   font_awesome_flutter: ^10.9.1
   shared_preferences: ^2.5.4
+  dio: ^5.0.0
+  cached_network_image: ^3.3.0
+  flutter_cache_manager: ^3.3.0
+  path_provider: ^2.0.0
 
 dev_dependencies:
   flutter_test:

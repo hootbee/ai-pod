@@ -1,7 +1,7 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
 import '../../core/app_config.dart';
+import '../../services/network_cache_service.dart';
 import '../../shared/widgets/click_wheel.dart';
 import '../card_news/card_news_screen.dart';
 import 'podcast_player_screen.dart';
@@ -28,15 +28,10 @@ class _MainScreenState extends State<MainScreen> {
 
   Future<void> _loadEpisodes() async {
     try {
-      final response = await http
-          .get(Uri.parse('${AppConfig.apiBaseUrl}/episodes'))
-          .timeout(const Duration(seconds: 10));
+      final response = await NetworkCacheService.instance.dio
+          .get<List<dynamic>>('${AppConfig.apiBaseUrl}/episodes');
 
-      if (response.statusCode != 200) {
-        throw Exception('episodes API 실패: ${response.statusCode}');
-      }
-
-      final decoded = jsonDecode(response.body) as List<dynamic>;
+      final decoded = response.data ?? [];
       final episodes = decoded
           .map(
             (item) => PodcastEpisodeItem.fromJson(item as Map<String, dynamic>),
@@ -172,14 +167,17 @@ class _MainScreenState extends State<MainScreen> {
             borderRadius: BorderRadius.circular(24),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.3),
+                color: Colors.black.withValues(alpha: 0.3),
                 blurRadius: 10,
                 offset: const Offset(0, 5),
               ),
             ],
             image: episode.thumbnailUrl != null
                 ? DecorationImage(
-                    image: NetworkImage(episode.thumbnailUrl!),
+                    image: CachedNetworkImageProvider(
+                      episode.thumbnailUrl!,
+                      cacheManager: AppImageCacheManager.instance,
+                    ),
                     fit: BoxFit.cover,
                   )
                 : null,
@@ -191,7 +189,7 @@ class _MainScreenState extends State<MainScreen> {
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [Colors.transparent, Colors.black.withOpacity(0.72)],
+                colors: [Colors.transparent, Colors.black.withValues(alpha: 0.72)],
               ),
             ),
             alignment: Alignment.bottomLeft,
@@ -208,7 +206,7 @@ class _MainScreenState extends State<MainScreen> {
                       vertical: 12,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.42),
+                      color: Colors.black.withValues(alpha: 0.42),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
@@ -232,7 +230,7 @@ class _MainScreenState extends State<MainScreen> {
                       vertical: 12,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.3),
+                      color: Colors.black.withValues(alpha: 0.3),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
@@ -265,6 +263,7 @@ class PodcastEpisodeItem {
   final String? audioStatus;
   final String? audioUrl;
   final String streamUrl;
+  final String? subtitleCuesUrl;
   final String? thumbnailUrl;
 
   PodcastEpisodeItem({
@@ -276,6 +275,7 @@ class PodcastEpisodeItem {
     required this.audioStatus,
     required this.audioUrl,
     required this.streamUrl,
+    required this.subtitleCuesUrl,
     required this.thumbnailUrl,
   });
 
@@ -294,6 +294,7 @@ class PodcastEpisodeItem {
       streamUrl:
           '${AppConfig.apiBaseUrl}/episodes/${json['id']}/audio/stream.$streamExt'
               .trim(),
+      subtitleCuesUrl: _toAbsoluteUrl(json['subtitleCuesPath'] as String?),
       thumbnailUrl: _toAbsoluteUrl(thumbnailPath),
     );
   }
