@@ -24,6 +24,12 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
   String? _audioError;
   bool _audioReady = false;
   bool _audioInitializing = false;
+  bool _subtitleCuesLoading = false;
+  List<SubtitleCue> _subtitleCues = [];
+  int _currentCueIndex = -1;
+  final ItemScrollController _itemScrollController = ItemScrollController();
+  final ItemPositionsListener _itemPositionsListener =
+      ItemPositionsListener.create();
 
   List<String> get _transcript => widget.episode.script
       .split('\n')
@@ -145,6 +151,46 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
     } else {
       await _audioPlayer.play();
     }
+  }
+
+  void _handlePlaybackPositionChanged(Duration position) {
+    if (_subtitleCues.isEmpty) return;
+
+    final positionMs = position.inMilliseconds;
+    final cueIndex = _subtitleCues.indexWhere(
+      (cue) => positionMs >= cue.startMs && positionMs < cue.endMs,
+    );
+
+    if (cueIndex == -1 || cueIndex == _currentCueIndex) return;
+    if (!mounted) return;
+
+    setState(() {
+      _currentCueIndex = cueIndex;
+    });
+
+    if (_itemScrollController.isAttached && !_isCueComfortablyVisible(cueIndex)) {
+      _itemScrollController.scrollTo(
+        index: cueIndex,
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeInOut,
+        alignment: 0.18,
+      );
+    }
+  }
+
+  bool _isCueComfortablyVisible(int cueIndex) {
+    final positions = _itemPositionsListener.itemPositions.value;
+    if (positions.isEmpty) return false;
+
+    for (final itemPosition in positions) {
+      if (itemPosition.index != cueIndex) continue;
+
+      final isAboveViewport = itemPosition.itemTrailingEdge <= 0.12;
+      final isBelowViewport = itemPosition.itemLeadingEdge >= 0.82;
+      return !(isAboveViewport || isBelowViewport);
+    }
+
+    return false;
   }
 
   @override
