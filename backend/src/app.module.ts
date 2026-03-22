@@ -1,8 +1,10 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { APP_GUARD } from '@nestjs/core';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bull';
 import { ScheduleModule } from '@nestjs/schedule';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { CrawlerModule } from './modules/crawler/crawler.module';
@@ -28,6 +30,16 @@ import { RefreshToken } from './modules/auth/entities/refresh-token.entity';
       isGlobal: true,
       envFilePath: '.env',
     }),
+    ThrottlerModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => [
+        {
+          ttl: config.get<number>('THROTTLE_TTL', 60000),
+          limit: config.get<number>('THROTTLE_LIMIT', 100),
+        },
+      ],
+    }),
     BullModule.forRoot({
       redis: process.env.REDIS_URL ?? 'redis://localhost:6379',
     }),
@@ -52,6 +64,9 @@ import { RefreshToken } from './modules/auth/entities/refresh-token.entity';
     ThumbnailModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
+  ],
 })
 export class AppModule {}

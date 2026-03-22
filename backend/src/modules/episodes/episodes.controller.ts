@@ -57,6 +57,7 @@ export class EpisodesController {
 
   /** 오디오 스트리밍 HEAD (확장자 힌트 URL 포함) */
   @Head(':id/audio/stream')
+  @UseGuards(JwtAuthGuard)
   async streamAudioHead(@Param('id') id: string, @Res() res: Response) {
     const { fileSize, contentType, contentDisposition } = await this.resolveStreamMeta(id);
     this.applyBaseHeaders(res, contentType, contentDisposition);
@@ -66,6 +67,7 @@ export class EpisodesController {
 
   /** 오디오 스트리밍 HEAD (예: /audio/stream.mp3) */
   @Head(':id/audio/stream.:extHint')
+  @UseGuards(JwtAuthGuard)
   async streamAudioHeadWithExt(
     @Param('id') id: string,
     @Param('extHint') extHint: string,
@@ -79,12 +81,14 @@ export class EpisodesController {
 
   /** 오디오 스트리밍 (HTTP Range 지원) */
   @Get(':id/audio/stream')
+  @UseGuards(JwtAuthGuard)
   async streamAudio(@Param('id') id: string, @Req() req: Request, @Res() res: Response) {
     return this.streamAudioInternal(id, req, res);
   }
 
   /** 오디오 스트리밍 (예: /audio/stream.mp3) */
   @Get(':id/audio/stream.:extHint')
+  @UseGuards(JwtAuthGuard)
   async streamAudioWithExt(
     @Param('id') id: string,
     @Param('extHint') extHint: string,
