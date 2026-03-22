@@ -19,6 +19,8 @@ class PodcastPlayerScreen extends StatefulWidget {
 class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
   static const List<double> _playbackSpeeds = [1.0, 1.2, 1.5, 2.0];
 
+  double _playbackSpeed = 1.0;
+
   late AudioPlayer _audioPlayer;
   StreamSubscription<Duration>? _positionSubscription;
   String? _audioError;
@@ -127,6 +129,51 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
     } finally {
       _audioInitializing = false;
     }
+  }
+
+  void _showPlaybackSpeedSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF2A2D24),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: _playbackSpeeds.map((speed) {
+              final isSelected = speed == _playbackSpeed;
+              return ListTile(
+                title: Text(
+                  '${speed.toStringAsFixed(1)}x',
+                  style: TextStyle(
+                    color: isSelected
+                        ? const Color(0xFFD6E36F)
+                        : Colors.white,
+                    fontWeight: isSelected
+                        ? FontWeight.w700
+                        : FontWeight.w400,
+                    fontSize: 18,
+                  ),
+                ),
+                trailing: isSelected
+                    ? const Icon(Icons.check, color: Color(0xFFD6E36F))
+                    : null,
+                onTap: () async {
+                  await _audioPlayer.setSpeed(speed);
+                  setState(() {
+                    _playbackSpeed = speed;
+                  });
+                  if (mounted) Navigator.of(context).pop();
+                },
+              );
+            }).toList(),
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _seekRelative(int deltaSeconds) async {
