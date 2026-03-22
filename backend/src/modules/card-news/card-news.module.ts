@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CardNews } from './entities/card-news.entity';
+import { CardNewsViewLog } from './entities/card-news-view-log.entity';
 import { CardNewsController } from './card-news.controller';
 import { CardNewsService } from './card-news.service';
 import { DirectorService } from './director.service';
@@ -10,7 +11,7 @@ import { ResearcherService } from './researcher.service';
 import { EpisodesModule } from '../episodes/episodes.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([CardNews]), EpisodesModule],
+  imports: [TypeOrmModule.forFeature([CardNews, CardNewsViewLog]), EpisodesModule],
   controllers: [CardNewsController],
   providers: [CardNewsService, DirectorService, ResearcherService, DesignMakerService, RendererService],
   exports: [CardNewsService],

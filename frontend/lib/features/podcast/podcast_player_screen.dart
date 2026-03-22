@@ -1,10 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:shared_preferences/shared_preferences.dart';
+
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:just_audio/just_audio.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
+import '../../core/app_config.dart';
 import 'main_screen.dart';
 
 class PodcastPlayerScreen extends StatefulWidget {
@@ -20,6 +23,7 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
   static const List<double> _playbackSpeeds = [1.0, 1.2, 1.5, 2.0];
 
   double _playbackSpeed = 1.0;
+  bool _playCountIncremented = false;
 
   late AudioPlayer _audioPlayer;
   StreamSubscription<Duration>? _positionSubscription;
@@ -196,6 +200,17 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
     if (playing) {
       await _audioPlayer.pause();
     } else {
+      if (!_playCountIncremented) {
+        _playCountIncremented = true;
+        SharedPreferences.getInstance().then((prefs) {
+          final token = prefs.getString('access_token');
+          if (token == null) return;
+          http.post(
+            Uri.parse('${AppConfig.apiBaseUrl}/episodes/${widget.episode.id}/audio-play-count'),
+            headers: {'Authorization': 'Bearer $token'},
+          ).ignore();
+        });
+      }
       await _audioPlayer.play();
     }
   }

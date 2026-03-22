@@ -7,6 +7,7 @@ import { CreateEpisodeDto } from './dto/create-episode.dto';
 import { UpdateAudioPathDto } from './dto/update-audio-path.dto';
 import { AudioStatus, PodcastEpisode } from './entities/podcast-episode.entity';
 import { EpisodeThumbnail } from '../thumbnail/entities/episode-thumbnail.entity';
+import { EpisodePlayLog } from './entities/episode-play-log.entity';
 import { toPublicMediaPath } from '../../common/media-path.util';
 
 export type PodcastEpisodeWithMedia = PodcastEpisode & {
@@ -21,6 +22,8 @@ export class EpisodesService {
     private readonly episodesRepository: Repository<PodcastEpisode>,
     @InjectRepository(EpisodeThumbnail)
     private readonly thumbnailsRepository: Repository<EpisodeThumbnail>,
+    @InjectRepository(EpisodePlayLog)
+    private readonly playLogRepository: Repository<EpisodePlayLog>,
   ) {}
 
   async create(createEpisodeDto: CreateEpisodeDto): Promise<PodcastEpisode> {
@@ -72,9 +75,13 @@ export class EpisodesService {
     return this.episodesRepository.save(episode);
   }
 
-  async incrementAudioPlayCount(id: string): Promise<PodcastEpisodeWithMedia> {
+  async incrementAudioPlayCount(id: string, userId: string): Promise<{ alreadyCounted: boolean }> {
+    const existing = await this.playLogRepository.findOne({ where: { userId, episodeId: id } });
+    if (existing) return { alreadyCounted: true };
+
+    await this.playLogRepository.save(this.playLogRepository.create({ userId, episodeId: id }));
     await this.episodesRepository.increment({ id }, 'audioPlayCount', 1);
-    return this.findOne(id);
+    return { alreadyCounted: false };
   }
 
   async getAudioPlayCount(id: string): Promise<{ episodeId: string; audioPlayCount: number }> {

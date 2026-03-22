@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/app_config.dart';
 
@@ -17,6 +18,7 @@ class _CardNewsScreenState extends State<CardNewsScreen> {
   String? _error;
   List<DayCardNews> _days = [];
   final Map<int, PageController> _slideControllers = {};
+  final Set<String> _viewCountedIds = {};
 
   @override
   void initState() {
@@ -89,7 +91,11 @@ class _CardNewsScreenState extends State<CardNewsScreen> {
             (episode['createdAt'] as String?) ??
             (latestCardNews['createdAt'] as String?) ??
             '';
-        days.add(DayCardNews(dayLabel: _toDayLabel(createdAt), cards: cards));
+        days.add(DayCardNews(
+          id: (latestCardNews['id'] as String?) ?? '',
+          dayLabel: _toDayLabel(createdAt),
+          cards: cards,
+        ));
       }
 
       if (days.isEmpty) {
@@ -109,6 +115,21 @@ class _CardNewsScreenState extends State<CardNewsScreen> {
         _loading = false;
       });
     }
+  }
+
+  void _onSlidePageChanged(int dayIndex, int slideIndex) {
+    if (slideIndex < 1) return;
+    final id = _days[dayIndex].id;
+    if (id.isEmpty || _viewCountedIds.contains(id)) return;
+    _viewCountedIds.add(id);
+    SharedPreferences.getInstance().then((prefs) {
+      final token = prefs.getString('access_token');
+      if (token == null) return;
+      http.post(
+        Uri.parse('${AppConfig.apiBaseUrl}/card-news/$id/view-count'),
+        headers: {'Authorization': 'Bearer $token'},
+      ).ignore();
+    });
   }
 
   PageController _slideControllerForDay(int dayIndex) {
@@ -208,6 +229,7 @@ class _CardNewsScreenState extends State<CardNewsScreen> {
               child: PageView.builder(
                 scrollDirection: Axis.horizontal,
                 controller: _slideControllerForDay(dayIndex),
+                onPageChanged: (slideIndex) => _onSlidePageChanged(dayIndex, slideIndex),
                 itemCount: day.cards.length,
                 itemBuilder: (context, slideIndex) {
                   final card = day.cards[slideIndex];
@@ -230,10 +252,11 @@ class _CardNewsScreenState extends State<CardNewsScreen> {
 }
 
 class DayCardNews {
+  final String id;
   final String dayLabel;
   final List<CardNewsCard> cards;
 
-  const DayCardNews({required this.dayLabel, required this.cards});
+  const DayCardNews({required this.id, required this.dayLabel, required this.cards});
 }
 
 class CardNewsCard {

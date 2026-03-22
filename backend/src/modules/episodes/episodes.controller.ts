@@ -1,5 +1,5 @@
 import { InjectQueue } from '@nestjs/bull';
-import { Body, Controller, Get, Head, Param, Patch, Post, Req, Res } from '@nestjs/common';
+import { Body, Controller, Get, Head, Param, Patch, Post, Req, Res, UseGuards } from '@nestjs/common';
 import type { Queue } from 'bull';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -9,6 +9,9 @@ import { EpisodesService } from './episodes.service';
 import { HeadlineService } from './headline.service';
 import { TTS_JOB, TTS_QUEUE } from '../tts/tts.constants';
 import type { Request, Response } from 'express';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import type { TokenPayload } from '../auth/interfaces/token.service.interface';
 
 @Controller('episodes')
 export class EpisodesController {
@@ -44,8 +47,12 @@ export class EpisodesController {
   }
 
   @Post(':id/audio-play-count')
-  incrementAudioPlayCount(@Param('id') id: string) {
-    return this.episodesService.incrementAudioPlayCount(id);
+  @UseGuards(JwtAuthGuard)
+  incrementAudioPlayCount(
+    @Param('id') id: string,
+    @CurrentUser() user: TokenPayload,
+  ) {
+    return this.episodesService.incrementAudioPlayCount(id, user.sub);
   }
 
   /** 오디오 스트리밍 HEAD (확장자 힌트 URL 포함) */

@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as path from 'path';
 import { CardNews } from './entities/card-news.entity';
+import { CardNewsViewLog } from './entities/card-news-view-log.entity';
 import { DirectorService } from './director.service';
 import { DesignMakerService } from './design-maker.service';
 import { RendererService } from './renderer.service';
@@ -16,6 +17,8 @@ export class CardNewsService {
   constructor(
     @InjectRepository(CardNews)
     private readonly cardNewsRepository: Repository<CardNews>,
+    @InjectRepository(CardNewsViewLog)
+    private readonly viewLogRepository: Repository<CardNewsViewLog>,
     private readonly episodesService: EpisodesService,
     private readonly directorService: DirectorService,
     private readonly researcherService: ResearcherService,
@@ -108,13 +111,13 @@ export class CardNewsService {
     });
   }
 
-  async incrementViewCount(id: string): Promise<CardNews> {
+  async incrementViewCount(id: string, userId: string): Promise<{ alreadyCounted: boolean }> {
+    const existing = await this.viewLogRepository.findOne({ where: { userId, cardNewsId: id } });
+    if (existing) return { alreadyCounted: true };
+
+    await this.viewLogRepository.save(this.viewLogRepository.create({ userId, cardNewsId: id }));
     await this.cardNewsRepository.increment({ id }, 'viewCount', 1);
-    const updated = await this.cardNewsRepository.findOne({ where: { id } });
-    if (!updated) {
-      throw new NotFoundException(`CardNews not found: ${id}`);
-    }
-    return updated;
+    return { alreadyCounted: false };
   }
 
   async getViewCount(id: string): Promise<{ cardNewsId: string; viewCount: number }> {
