@@ -18,7 +18,12 @@ class _MainScreenState extends State<MainScreen> {
   List<PodcastEpisodeItem> _episodes = [];
   int _currentIndex = 0;
   bool _loading = true;
+  bool _loadingMore = false;
+  bool _hasNextPage = false;
+  int _offset = 0;
   String? _error;
+
+  static const int _pageLimit = 10;
 
   @override
   void initState() {
@@ -29,18 +34,21 @@ class _MainScreenState extends State<MainScreen> {
   Future<void> _loadEpisodes() async {
     try {
       final response = await NetworkCacheService.instance.dio
-          .get<List<dynamic>>('${AppConfig.apiBaseUrl}/episodes');
+          .get<dynamic>(
+        '${AppConfig.apiBaseUrl}/episodes',
+        queryParameters: {'limit': _pageLimit, 'offset': 0},
+      );
 
-      final decoded = response.data ?? [];
-      final episodes = decoded
-          .map(
-            (item) => PodcastEpisodeItem.fromJson(item as Map<String, dynamic>),
-          )
+      final body = _toPaginatedBody(response.data);
+      final items = (body['data'] as List<dynamic>? ?? [])
+          .map((item) => PodcastEpisodeItem.fromJson(item as Map<String, dynamic>))
           .toList();
 
       if (!mounted) return;
       setState(() {
-        _episodes = episodes;
+        _episodes = items;
+        _offset = 0;
+        _hasNextPage = body['hasNextPage'] as bool? ?? false;
         _loading = false;
       });
     } catch (e) {
@@ -50,6 +58,46 @@ class _MainScreenState extends State<MainScreen> {
         _loading = false;
       });
     }
+  }
+
+  Future<void> _loadMoreEpisodes() async {
+    if (_loadingMore || !_hasNextPage) return;
+
+    setState(() => _loadingMore = true);
+
+    try {
+      final newOffset = _offset + _pageLimit;
+      final response = await NetworkCacheService.instance.dio
+          .get<dynamic>(
+        '${AppConfig.apiBaseUrl}/episodes',
+        queryParameters: {'limit': _pageLimit, 'offset': newOffset},
+      );
+
+      final body = _toPaginatedBody(response.data);
+      final items = (body['data'] as List<dynamic>? ?? [])
+          .map((item) => PodcastEpisodeItem.fromJson(item as Map<String, dynamic>))
+          .toList();
+
+      if (!mounted) return;
+      setState(() {
+        _episodes = [..._episodes, ...items];
+        _offset = newOffset;
+        _hasNextPage = body['hasNextPage'] as bool? ?? false;
+        _loadingMore = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _loadingMore = false);
+    }
+  }
+
+  /// 배열([]) 또는 페이징 객체({data, totalCount, hasNextPage}) 모두 처리
+  Map<String, dynamic> _toPaginatedBody(dynamic raw) {
+    if (raw is Map<String, dynamic>) return raw;
+    if (raw is List) {
+      return {'data': raw, 'totalCount': raw.length, 'hasNextPage': false};
+    }
+    return {'data': <dynamic>[], 'totalCount': 0, 'hasNextPage': false};
   }
 
   void _goToCardNews() {
@@ -94,7 +142,7 @@ class _MainScreenState extends State<MainScreen> {
 
   // 가운데 버튼 클릭 시 상세 화면으로 이동
   void _enterPodcast() {
-    if (_episodes.isEmpty) return;
+    if (_episodes.isEmpty || _currentIndex >= _episodes.length) return;
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) =>
@@ -153,11 +201,25 @@ class _MainScreenState extends State<MainScreen> {
       return const Center(child: Text('에피소드가 없습니다.'));
     }
 
+    // 로딩 중일 때 마지막에 인디케이터 아이템 추가
+    final itemCount = _episodes.length + (_loadingMore ? 1 : 0);
+
     return PageView.builder(
       controller: _pageController,
-      itemCount: _episodes.length,
-      onPageChanged: (index) => setState(() => _currentIndex = index),
+      itemCount: itemCount,
+      onPageChanged: (index) {
+        setState(() => _currentIndex = index);
+        // 마지막 2개 항목 진입 시 다음 페이지 선제 로드
+        if (index >= _episodes.length - 2) {
+          _loadMoreEpisodes();
+        }
+      },
       itemBuilder: (context, index) {
+        // 로딩 인디케이터 아이템
+        if (index == _episodes.length) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
         final episode = _episodes[index];
         final hasHeadline = episode.headline?.trim().isNotEmpty ?? false;
         final hasSubtitle = episode.subtitle?.trim().isNotEmpty ?? false;

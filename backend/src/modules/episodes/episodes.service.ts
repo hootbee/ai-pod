@@ -4,11 +4,13 @@ import { In, MoreThanOrEqual, Repository } from 'typeorm';
 import * as fs from 'fs';
 import * as path from 'path';
 import { CreateEpisodeDto } from './dto/create-episode.dto';
+import { PaginateEpisodesDto } from './dto/paginate-episodes.dto';
 import { UpdateAudioPathDto } from './dto/update-audio-path.dto';
 import { AudioStatus, PodcastEpisode } from './entities/podcast-episode.entity';
 import { EpisodeThumbnail } from '../thumbnail/entities/episode-thumbnail.entity';
 import { EpisodePlayLog } from './entities/episode-play-log.entity';
 import { toPublicMediaPath } from '../../common/media-path.util';
+import { PaginatedResponse, toPaginatedResponse } from '../../common/dto/paginated-response.dto';
 
 export type PodcastEpisodeWithMedia = PodcastEpisode & {
   thumbnailPath: string | null;
@@ -37,9 +39,14 @@ export class EpisodesService {
     return this.episodesRepository.save(episode);
   }
 
-  async findAll(): Promise<PodcastEpisodeWithMedia[]> {
-    const episodes = await this.episodesRepository.find({
+  async findAll(dto: PaginateEpisodesDto): Promise<PaginatedResponse<PodcastEpisodeWithMedia>> {
+    const limit = dto.limit ?? 10;
+    const offset = dto.offset ?? 0;
+
+    const [episodes, totalCount] = await this.episodesRepository.findAndCount({
       order: { createdAt: 'DESC' },
+      take: limit,
+      skip: offset,
     });
 
     const episodeIds = episodes.map((episode) => episode.id);
@@ -48,7 +55,8 @@ export class EpisodesService {
       : [];
     const thumbnailMap = new Map(thumbnails.map((thumbnail) => [thumbnail.episodeId, thumbnail]));
 
-    return episodes.map((episode) => this.withMedia(episode, thumbnailMap.get(episode.id)?.imagePath));
+    const data = episodes.map((episode) => this.withMedia(episode, thumbnailMap.get(episode.id)?.imagePath));
+    return toPaginatedResponse(data, totalCount, limit, offset);
   }
 
   async findOne(id: string): Promise<PodcastEpisodeWithMedia> {

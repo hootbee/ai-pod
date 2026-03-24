@@ -1,6 +1,7 @@
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
+import * as compression from 'compression';
 import * as fs from 'fs';
 import * as path from 'path';
 import { AppModule } from './app.module';
@@ -8,6 +9,10 @@ import { CrawlerService } from './modules/crawler/crawler.service';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+  // Gzip/Brotli 압축 — threshold 1KB 이상 응답만 압축 (텍스트 트래픽 절감)
+  app.use(compression({ level: 6, threshold: 1024 }));
+
   app.enableCors({
     origin: process.env.CORS_ORIGIN ?? '*',
   });
