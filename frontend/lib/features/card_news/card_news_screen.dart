@@ -15,10 +15,14 @@ class CardNewsScreen extends StatefulWidget {
 
 class _CardNewsScreenState extends State<CardNewsScreen> {
   bool _loading = true;
+  bool _loadingMore = false;
+  bool _hasNextPage = false;
+  int _offset = 0;
   String? _error;
   List<DayCardNews> _days = [];
   final Map<int, PageController> _slideControllers = {};
   final Set<String> _viewCountedIds = {};
+  static const int _pageLimit = 10;
 
   @override
   void initState() {
@@ -37,58 +41,19 @@ class _CardNewsScreenState extends State<CardNewsScreen> {
   Future<void> _loadCardNewsBody() async {
     try {
       final latestCardNewsRes = await NetworkCacheService.instance.dio
-          .get<List<dynamic>>('${AppConfig.apiBaseUrl}/card-news/latest');
+          .get<dynamic>(
+        '${AppConfig.apiBaseUrl}/card-news/latest',
+        queryParameters: {'limit': _pageLimit, 'offset': 0},
+      );
 
-      final latestCardNewsList = latestCardNewsRes.data ?? [];
+      final body = _toPaginatedBody(latestCardNewsRes.data);
+      final latestCardNewsList = body['data'] as List<dynamic>? ?? [];
+
       if (latestCardNewsList.isEmpty) {
         throw Exception('카드뉴스가 없습니다.');
       }
 
-      final days = <DayCardNews>[];
-      for (final rawCardNews in latestCardNewsList) {
-        final latestCardNews = Map<String, dynamic>.from(rawCardNews as Map);
-        final imagePathsJson = latestCardNews['imagePaths'] as List<dynamic>?;
-        if (imagePathsJson == null || imagePathsJson.isEmpty) {
-          continue;
-        }
-
-        final scriptSnapshot =
-            latestCardNews['scriptSnapshot'] as Map<String, dynamic>?;
-        final slidesJson =
-            scriptSnapshot?['slides'] as List<dynamic>? ?? const [];
-        final slideMetas = slidesJson
-            .map((item) => Map<String, dynamic>.from(item as Map))
-            .map(CardSlideMeta.fromJson)
-            .toList();
-        final imageUrls = imagePathsJson
-            .map((item) => _toAbsoluteCardNewsImageUrl((item as String?) ?? ''))
-            .where((url) => url.isNotEmpty)
-            .toList();
-
-        if (imageUrls.isEmpty) continue;
-
-        final cards = <CardNewsCard>[];
-        for (var i = 0; i < imageUrls.length; i++) {
-          final meta = i < slideMetas.length ? slideMetas[i] : null;
-          // raw Unsplash URL이 있으면 우선 사용, 없으면 템플릿 PNG 폴백
-          final displayUrl = (meta?.imageUrl != null && meta!.imageUrl!.isNotEmpty)
-              ? meta.imageUrl!
-              : imageUrls[i];
-          cards.add(CardNewsCard(imageUrl: displayUrl, meta: meta));
-        }
-
-        final episode =
-            latestCardNews['episode'] as Map<String, dynamic>? ?? const {};
-        final createdAt =
-            (episode['createdAt'] as String?) ??
-            (latestCardNews['createdAt'] as String?) ??
-            '';
-        days.add(DayCardNews(
-          id: (latestCardNews['id'] as String?) ?? '',
-          dayLabel: _toDayLabel(createdAt),
-          cards: cards,
-        ));
-      }
+      final days = _parseDays(latestCardNewsList);
 
       if (days.isEmpty) {
         throw Exception('카드뉴스 이미지가 없습니다.');
@@ -97,6 +62,8 @@ class _CardNewsScreenState extends State<CardNewsScreen> {
       if (!mounted) return;
       setState(() {
         _days = days;
+        _offset = 0;
+        _hasNextPage = body['hasNextPage'] as bool? ?? false;
         _disposeUnusedSlideControllers(keepLength: _days.length);
         _loading = false;
       });
@@ -107,6 +74,94 @@ class _CardNewsScreenState extends State<CardNewsScreen> {
         _loading = false;
       });
     }
+  }
+
+  Future<void> _loadMoreCardNews() async {
+    if (_loadingMore || !_hasNextPage) return;
+
+    setState(() => _loadingMore = true);
+
+    try {
+      final newOffset = _offset + _pageLimit;
+      final latestCardNewsRes = await NetworkCacheService.instance.dio
+          .get<dynamic>(
+        '${AppConfig.apiBaseUrl}/card-news/latest',
+        queryParameters: {'limit': _pageLimit, 'offset': newOffset},
+      );
+
+      final body = _toPaginatedBody(latestCardNewsRes.data);
+      final latestCardNewsList = body['data'] as List<dynamic>? ?? [];
+      final newDays = _parseDays(latestCardNewsList);
+
+      if (!mounted) return;
+      setState(() {
+        _days = [..._days, ...newDays];
+        _offset = newOffset;
+        _hasNextPage = body['hasNextPage'] as bool? ?? false;
+        _loadingMore = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _loadingMore = false);
+    }
+  }
+
+  /// 배열([]) 또는 페이징 객체({data, totalCount, hasNextPage}) 모두 처리
+  Map<String, dynamic> _toPaginatedBody(dynamic raw) {
+    if (raw is Map<String, dynamic>) return raw;
+    if (raw is List) {
+      return {'data': raw, 'totalCount': raw.length, 'hasNextPage': false};
+    }
+    return {'data': <dynamic>[], 'totalCount': 0, 'hasNextPage': false};
+  }
+
+  List<DayCardNews> _parseDays(List<dynamic> latestCardNewsList) {
+    final days = <DayCardNews>[];
+
+    for (final rawCardNews in latestCardNewsList) {
+      final latestCardNews = Map<String, dynamic>.from(rawCardNews as Map);
+      final imagePathsJson = latestCardNews['imagePaths'] as List<dynamic>?;
+      if (imagePathsJson == null || imagePathsJson.isEmpty) continue;
+
+      final scriptSnapshot =
+          latestCardNews['scriptSnapshot'] as Map<String, dynamic>?;
+      final slidesJson =
+          scriptSnapshot?['slides'] as List<dynamic>? ?? const [];
+      final slideMetas = slidesJson
+          .map((item) => Map<String, dynamic>.from(item as Map))
+          .map(CardSlideMeta.fromJson)
+          .toList();
+      final imageUrls = imagePathsJson
+          .map((item) => _toAbsoluteCardNewsImageUrl((item as String?) ?? ''))
+          .where((url) => url.isNotEmpty)
+          .toList();
+
+      if (imageUrls.isEmpty) continue;
+
+      final cards = <CardNewsCard>[];
+      for (var i = 0; i < imageUrls.length; i++) {
+        final meta = i < slideMetas.length ? slideMetas[i] : null;
+        // raw Unsplash URL이 있으면 우선 사용, 없으면 템플릿 PNG 폴백
+        final displayUrl = (meta?.imageUrl != null && meta!.imageUrl!.isNotEmpty)
+            ? meta.imageUrl!
+            : imageUrls[i];
+        cards.add(CardNewsCard(imageUrl: displayUrl, meta: meta));
+      }
+
+      final episode =
+          latestCardNews['episode'] as Map<String, dynamic>? ?? const {};
+      final createdAt =
+          (episode['createdAt'] as String?) ??
+          (latestCardNews['createdAt'] as String?) ??
+          '';
+      days.add(DayCardNews(
+        id: (latestCardNews['id'] as String?) ?? '',
+        dayLabel: _toDayLabel(createdAt),
+        cards: cards,
+      ));
+    }
+
+    return days;
   }
 
   void _onSlidePageChanged(int dayIndex, int slideIndex) {
@@ -198,10 +253,23 @@ class _CardNewsScreenState extends State<CardNewsScreen> {
       );
     }
 
+    final itemCount = _days.length + (_loadingMore ? 1 : 0);
+
     return PageView.builder(
       scrollDirection: Axis.vertical,
-      itemCount: _days.length,
+      itemCount: itemCount,
+      onPageChanged: (dayIndex) {
+        if (dayIndex >= _days.length - 1) {
+          _loadMoreCardNews();
+        }
+      },
       itemBuilder: (context, dayIndex) {
+        if (dayIndex == _days.length) {
+          return const Center(
+            child: CircularProgressIndicator(color: Colors.white),
+          );
+        }
+
         final day = _days[dayIndex];
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -221,7 +289,8 @@ class _CardNewsScreenState extends State<CardNewsScreen> {
               child: PageView.builder(
                 scrollDirection: Axis.horizontal,
                 controller: _slideControllerForDay(dayIndex),
-                onPageChanged: (slideIndex) => _onSlidePageChanged(dayIndex, slideIndex),
+                onPageChanged: (slideIndex) =>
+                    _onSlidePageChanged(dayIndex, slideIndex),
                 itemCount: day.cards.length,
                 itemBuilder: (context, slideIndex) {
                   final card = day.cards[slideIndex];

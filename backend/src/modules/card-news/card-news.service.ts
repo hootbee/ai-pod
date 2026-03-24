@@ -4,11 +4,13 @@ import { Repository } from 'typeorm';
 import * as path from 'path';
 import { CardNews } from './entities/card-news.entity';
 import { CardNewsViewLog } from './entities/card-news-view-log.entity';
+import { PaginateCardNewsDto } from './dto/paginate-card-news.dto';
 import { DirectorService } from './director.service';
 import { DesignMakerService } from './design-maker.service';
 import { RendererService } from './renderer.service';
 import { ResearcherService } from './researcher.service';
 import { EpisodesService } from '../episodes/episodes.service';
+import { PaginatedResponse, toPaginatedResponse } from '../../common/dto/paginated-response.dto';
 
 @Injectable()
 export class CardNewsService {
@@ -85,7 +87,17 @@ export class CardNewsService {
     });
   }
 
-  async findLatestByEpisode(): Promise<CardNews[]> {
+  async findLatestByEpisode(dto: PaginateCardNewsDto): Promise<PaginatedResponse<CardNews>> {
+    const limit = dto.limit ?? 10;
+    const offset = dto.offset ?? 0;
+
+    // 카드뉴스가 존재하는 고유 에피소드 수 조회
+    const totalCount: number = await this.cardNewsRepository
+      .createQueryBuilder('cardNews')
+      .select('COUNT(DISTINCT cardNews.episodeId)', 'count')
+      .getRawOne()
+      .then((r) => Number(r?.count ?? 0));
+
     const rows = await this.cardNewsRepository
       .createQueryBuilder('cardNews')
       .leftJoinAndSelect('cardNews.episode', 'episode')
@@ -102,13 +114,17 @@ export class CardNewsService {
       .distinctOn(['cardNews.episodeId'])
       .orderBy('cardNews.episodeId', 'ASC')
       .addOrderBy('cardNews.createdAt', 'DESC')
+      .take(limit)
+      .skip(offset)
       .getMany();
 
-    return rows.sort((a, b) => {
+    const sortedRows = rows.sort((a, b) => {
       const aTime = a.episode?.createdAt?.getTime() ?? a.createdAt.getTime();
       const bTime = b.episode?.createdAt?.getTime() ?? b.createdAt.getTime();
       return bTime - aTime;
     });
+
+    return toPaginatedResponse(sortedRows, totalCount, limit, offset);
   }
 
   async incrementViewCount(id: string, userId: string): Promise<{ alreadyCounted: boolean }> {

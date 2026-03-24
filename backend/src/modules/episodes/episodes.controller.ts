@@ -1,9 +1,10 @@
 import { InjectQueue } from '@nestjs/bull';
-import { Body, Controller, Get, Head, Param, Patch, Post, Req, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Head, Param, Patch, Post, Query, Req, Res, UseGuards } from '@nestjs/common';
 import type { Queue } from 'bull';
 import * as fs from 'fs';
 import * as path from 'path';
 import { CreateEpisodeDto } from './dto/create-episode.dto';
+import { PaginateEpisodesDto } from './dto/paginate-episodes.dto';
 import { UpdateAudioPathDto } from './dto/update-audio-path.dto';
 import { EpisodesService } from './episodes.service';
 import { HeadlineService } from './headline.service';
@@ -27,8 +28,8 @@ export class EpisodesController {
   }
 
   @Get()
-  findAll() {
-    return this.episodesService.findAll();
+  findAll(@Query() paginateDto: PaginateEpisodesDto) {
+    return this.episodesService.findAll(paginateDto);
   }
 
   @Get(':id')

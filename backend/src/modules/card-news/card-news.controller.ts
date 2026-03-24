@@ -1,5 +1,6 @@
-import { Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { CardNewsService } from './card-news.service';
+import { PaginateCardNewsDto } from './dto/paginate-card-news.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { TokenPayload } from '../auth/interfaces/token.service.interface';
@@ -30,8 +31,8 @@ export class CardNewsController {
   }
 
   @Get('latest')
-  findLatestByEpisode() {
-    return this.cardNewsService.findLatestByEpisode();
+  findLatestByEpisode(@Query() paginateDto: PaginateCardNewsDto) {
+    return this.cardNewsService.findLatestByEpisode(paginateDto);
   }
 
   @Get(':id/view-count')
