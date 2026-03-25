@@ -106,8 +106,8 @@ export class DirectorService implements IDirectorService {
   ]
 }
 
-[팟캐스트 대본 (앞 2000자)]
-${script.slice(0, 2000)}
+[팟캐스트 대본 (앞 3000자)]
+${script.slice(0, 3000)}
 `.trim();
 
     const response = await fetch(this.baseUrl, {
@@ -142,7 +142,8 @@ ${script.slice(0, 2000)}
         mood: 'serious',
         slides: [
           { type: 'cover', title: '오늘의 테크 브리핑', body: `${today} · 최신 IT 뉴스`, imageKeyword: 'technology', accentColor: '#4FC3F7' },
-          { type: 'topic', title: 'AI 혁신', body: '최신 AI 기술이 산업을 바꾸고 있습니다.', imageKeyword: 'artificial intelligence', accentColor: '#FF7043' },
+          { type: 'topic', title: 'AI 혁신', body: '최신 AI 기술이 다양한 산업에 변화를 가져오고 있습니다.\n글로벌 AI 투자 규모가 전년 대비 40% 이상 증가했습니다.\n기술 혁신이 일상과 비즈니스를 빠르게 재편하고 있습니다.', imageKeyword: 'artificial', accentColor: '#FF7043', hashtags: ['#AI', '#기술혁신', '#테크트렌드'] },
+          { type: 'topic', title: '테크 산업 동향', body: '글로벌 빅테크 기업들이 새로운 서비스 경쟁에 돌입했습니다.\n주요 기업의 분기 실적이 시장 예상치를 상회하고 있습니다.\n기술 패권 경쟁이 더욱 치열해지는 양상입니다.', imageKeyword: 'technology', accentColor: '#AB47BC', hashtags: ['#빅테크', '#산업동향', '#테크뉴스'] },
           { type: 'closing', title: '더 자세히 들어보세요', body: '오늘의 테크 브리핑 전체 내용은 AiPod 팟캐스트에서 확인하세요.', imageKeyword: 'podcast', accentColor: '#66BB6A' },
         ],
       };
