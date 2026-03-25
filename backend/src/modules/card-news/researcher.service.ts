@@ -57,8 +57,15 @@ export class ResearcherService implements IResearcherService {
       const photo = data.results[0];
       this.logger.log(`이미지 찾음: ${photo.urls.regular}`);
 
+      const imageUrl = new URL(photo.urls.regular);
+      imageUrl.searchParams.set('w', '600');
+      imageUrl.searchParams.set('fm', 'webp');
+      imageUrl.searchParams.set('q', '75');
+      imageUrl.searchParams.delete('fit');
+      const optimizedUrl = imageUrl.toString();
+
       return {
-        url: photo.urls.regular,
+        url: optimizedUrl,
         description: photo.description,
         credit: photo.user.name,
       };
