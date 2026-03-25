@@ -319,6 +319,7 @@ class _MainScreenState extends State<MainScreen> {
 class PodcastEpisodeItem {
   final String id;
   final String title;
+  final DateTime? createdAt;
   final String? headline;
   final String? subtitle;
   final String script;
@@ -331,6 +332,7 @@ class PodcastEpisodeItem {
   PodcastEpisodeItem({
     required this.id,
     required this.title,
+    required this.createdAt,
     required this.headline,
     required this.subtitle,
     required this.script,
@@ -348,6 +350,7 @@ class PodcastEpisodeItem {
     return PodcastEpisodeItem(
       id: json['id'] as String,
       title: json['title'] as String? ?? '제목 없음',
+      createdAt: DateTime.tryParse(json['createdAt'] as String? ?? ''),
       headline: json['headline'] as String?,
       subtitle: json['headlineSubtitle'] as String?,
       script: json['script'] as String? ?? '',

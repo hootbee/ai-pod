@@ -47,6 +47,12 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
       ? _subtitleCues.map((cue) => cue.text).toList()
       : _transcript;
 
+  String get _screenTitle {
+    final createdAt = widget.episode.createdAt;
+    if (createdAt == null) return widget.episode.title;
+    return '${createdAt.year}년 ${createdAt.month}월 ${createdAt.day}일 뉴스';
+  }
+
   String _sanitizeTranscriptLine(String rawLine) {
     var line = rawLine.replaceFirst(RegExp(r'^narrator:\s*'), '').trim();
     if (line == '---TOPIC_CHANGE---') return '';
@@ -167,11 +173,12 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
                     ? const Icon(Icons.check, color: Color(0xFFD6E36F))
                     : null,
                 onTap: () async {
+                  final navigator = Navigator.of(context);
                   await _audioPlayer.setSpeed(speed);
                   setState(() {
                     _playbackSpeed = speed;
                   });
-                  if (mounted) Navigator.of(context).pop();
+                  if (mounted) navigator.pop();
                 },
               );
             }).toList(),
@@ -286,7 +293,7 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
           child: Padding(
             padding: const EdgeInsets.only(left: 56, right: 16, top: 12),
             child: Text(
-              widget.episode.title,
+              _screenTitle,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(color: Colors.white, fontSize: 18),
