@@ -1,6 +1,5 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { execSync } from 'child_process';
 import {
   Injectable,
   InternalServerErrorException,
@@ -8,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { EpisodesService } from '../episodes/episodes.service';
+import { AudioOptimizationService } from '../audio/audio-optimization.service';
 import type { ScriptSegment } from '../ai-processor/interfaces/ai-provider.interface';
 import type { SubtitleCue, SubtitleCueDocument } from './interfaces/subtitle-cue.interface';
 
@@ -26,6 +26,7 @@ export class TtsService {
   constructor(
     private readonly configService: ConfigService,
     private readonly episodesService: EpisodesService,
+    private readonly audioOptimizationService: AudioOptimizationService,
   ) {
     const key = this.configService.get<string>('GOOGLE_CLOUD_TTS_API_KEY');
     if (!key) throw new Error('GOOGLE_CLOUD_TTS_API_KEY is not set');
@@ -59,11 +60,14 @@ export class TtsService {
       const dateStr = new Date(episode.createdAt).toISOString().slice(0, 10).replace(/-/g, '');
       const baseName = `${dateStr}-${episodeId.slice(0, 8)}`;
       const wavPath = path.join(this.outputDir, `${baseName}.wav`);
-      const m4aPath = path.join(this.outputDir, `${baseName}.m4a`);
       const mp3Path = path.join(this.outputDir, `${baseName}.mp3`);
       const cuesPath = path.join(this.outputDir, `${baseName}.cues.json`);
       fs.writeFileSync(wavPath, audioBuffer);
-      const finalAudioPath = this.convertToPlayableAudio(wavPath, m4aPath, mp3Path);
+
+      const converted = await this.audioOptimizationService.convertWavToOptimizedMp3(wavPath, mp3Path);
+      const finalAudioPath = converted ? mp3Path : wavPath;
+      if (converted) this.audioOptimizationService.safeUnlink(wavPath);
+
       this.writeSubtitleCues(cuesPath, cues);
 
       await this.episodesService.updateAudioPath(episodeId, { audioPath: finalAudioPath });
@@ -100,11 +104,14 @@ export class TtsService {
       : { audioBuffer: await this.generateChunked(rawText), cues: [] };
 
     const wavPath = path.join(this.outputDir, 'test.wav');
-    const m4aPath = path.join(this.outputDir, 'test.m4a');
     const mp3Path = path.join(this.outputDir, 'test.mp3');
     const cuesPath = path.join(this.outputDir, 'test.cues.json');
     fs.writeFileSync(wavPath, audioBuffer);
-    const finalAudioPath = this.convertToPlayableAudio(wavPath, m4aPath, mp3Path);
+
+    const converted = await this.audioOptimizationService.convertWavToOptimizedMp3(wavPath, mp3Path);
+    const finalAudioPath = converted ? mp3Path : wavPath;
+    if (converted) this.audioOptimizationService.safeUnlink(wavPath);
+
     this.writeSubtitleCues(cuesPath, cues);
     this.logger.log(`[TEST] 저장 완료: ${finalAudioPath}`);
     return finalAudioPath;
@@ -408,36 +415,6 @@ export class TtsService {
     }
     if (current) chunks.push(current.trim());
     return chunks;
-  }
-
-  /** WAV → iOS 우선 호환 포맷(m4a) 변환, 실패 시 mp3, 모두 실패 시 wav 유지 */
-  private convertToPlayableAudio(
-    wavPath: string,
-    m4aPath: string,
-    mp3Path: string,
-  ): string {
-    try {
-      execSync(
-        `ffmpeg -y -i "${wavPath}" -af "loudnorm=I=-16:TP=-1.5:LRA=11" -c:a aac -b:a 128k -ar 44100 -ac 2 -movflags +faststart "${m4aPath}"`,
-        { stdio: 'pipe' },
-      );
-      fs.unlinkSync(wavPath);
-      this.logger.log('M4A 변환 완료 (AAC + loudnorm 적용)');
-      return m4aPath;
-    } catch {
-      try {
-        execSync(
-          `ffmpeg -y -i "${wavPath}" -af "loudnorm=I=-16:TP=-1.5:LRA=11" -c:a libmp3lame -b:a 128k -ar 44100 -ac 2 -id3v2_version 3 -write_xing 0 "${mp3Path}"`,
-          { stdio: 'pipe' },
-        );
-        fs.unlinkSync(wavPath);
-        this.logger.warn('M4A 변환 실패, MP3 변환으로 fallback');
-        return mp3Path;
-      } catch {
-        this.logger.warn('ffmpeg 변환 실패 - WAV 파일 유지');
-        return wavPath;
-      }
-    }
   }
 
   private addWavHeader(pcmData: Buffer, sampleRate = 24000, channels = 1, bitDepth = 16): Buffer {

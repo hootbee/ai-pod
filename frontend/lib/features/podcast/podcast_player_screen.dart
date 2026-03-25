@@ -108,11 +108,15 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
     _audioInitializing = true;
 
     try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('access_token');
+      final headers = token != null ? {'Authorization': 'Bearer $token'} : null;
+
       final String targetUrl =
           widget.episode.audioUrl ?? widget.episode.streamUrl;
       try {
         final source = await NetworkCacheService.instance
-            .getCachedAudioSource(targetUrl);
+            .getCachedAudioSource(targetUrl, headers: headers);
         await _audioPlayer.setAudioSource(source);
         if (!mounted) return;
         setState(() {

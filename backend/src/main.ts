@@ -1,7 +1,7 @@
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
-import * as compression from 'compression';
+import compression = require('compression');
 import * as fs from 'fs';
 import * as path from 'path';
 import { AppModule } from './app.module';
