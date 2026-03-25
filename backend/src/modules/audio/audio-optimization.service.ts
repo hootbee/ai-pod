@@ -6,33 +6,61 @@ import ffmpeg = require('fluent-ffmpeg');
 export class AudioOptimizationService {
   private readonly logger = new Logger(AudioOptimizationService.name);
 
+  /** ffprobe로 오디오 재생 시간(ms) 조회 */
+  getAudioDurationMs(filePath: string): Promise<number> {
+    return new Promise((resolve, reject) => {
+      ffmpeg.ffprobe(filePath, (err, metadata) => {
+        if (err) { reject(err); return; }
+        resolve(Math.round((metadata.format.duration ?? 0) * 1000));
+      });
+    });
+  }
+
   /**
-   * WAV → 최적화된 MP3 변환
+   * 하나 이상의 오디오 파일(M4A/WAV 등) → 최적화된 MP3 변환
    * - 64kbps CBR, 모노, 22050Hz, loudnorm 적용
-   * - 음성 콘텐츠 기준 원본 대비 약 75% 파일 크기 절감
-   * @returns 변환 성공 여부 (false 시 호출자가 WAV 원본으로 fallback 처리)
+   * - 여러 파일이면 concat 필터로 이어붙인 뒤 인코딩
    */
-  convertWavToOptimizedMp3(wavPath: string, outputPath: string): Promise<boolean> {
+  convertFilesToOptimizedMp3(inputPaths: string[], outputPath: string): Promise<boolean> {
     return new Promise((resolve) => {
-      ffmpeg(wavPath)
+      if (inputPaths.length === 0) { resolve(false); return; }
+
+      let cmd = ffmpeg();
+      inputPaths.forEach((p) => { cmd = cmd.input(p); });
+
+      const baseOutputOpts = ['-id3v2_version 3'];
+
+      if (inputPaths.length > 1) {
+        const filterStr =
+          inputPaths.map((_, i) => `[${i}:a]`).join('') +
+          `concat=n=${inputPaths.length}:v=0:a=1,loudnorm=I=-16:TP=-1.5:LRA=11[out]`;
+        cmd = cmd
+          .complexFilter(filterStr)
+          .outputOptions([...baseOutputOpts, '-map [out]']);
+      } else {
+        cmd = cmd
+          .audioFilters('loudnorm=I=-16:TP=-1.5:LRA=11')
+          .outputOptions(baseOutputOpts);
+      }
+
+      cmd
         .audioCodec('libmp3lame')
         .audioBitrate(64)
-        .audioChannels(1)      // 모노: 팟캐스트/뉴스 음성에 스테레오 정보 없음
-        .audioFrequency(22050) // 22050Hz: 음성 대역(~8kHz) 대비 충분한 나이퀴스트 마진
-        .audioFilters('loudnorm=I=-16:TP=-1.5:LRA=11') // EBU R128 loudness 정규화
-        .outputOptions(['-id3v2_version 3'])
-        .on('end', () => {
-          this.logger.log(`MP3 변환 완료: ${outputPath}`);
-          resolve(true);
-        })
-        .on('error', (err: Error) => {
-          this.logger.error(`MP3 변환 실패: ${err.message}`);
-          resolve(false);
-        })
-        // loudnorm 분석 로그(verbose)는 억제
+        .audioChannels(1)
+        .audioFrequency(22050)
+        .on('end', () => { this.logger.log(`MP3 변환 완료: ${outputPath}`); resolve(true); })
+        .on('error', (err: Error) => { this.logger.error(`MP3 변환 실패: ${err.message}`); resolve(false); })
         .on('stderr', () => {})
         .save(outputPath);
     });
+  }
+
+  /**
+   * WAV → 최적화된 MP3 변환 (PCM fallback용)
+   * - 64kbps CBR, 모노, 22050Hz, loudnorm 적용
+   */
+  convertWavToOptimizedMp3(wavPath: string, outputPath: string): Promise<boolean> {
+    return this.convertFilesToOptimizedMp3([wavPath], outputPath);
   }
 
   /** best-effort 파일 삭제: 실패 시 무시 */
