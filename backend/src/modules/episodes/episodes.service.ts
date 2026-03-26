@@ -34,6 +34,7 @@ export class EpisodesService {
       script: createEpisodeDto.script,
       audioPath: createEpisodeDto.audioPath ?? null,
       sourceCount: createEpisodeDto.sourceCount ?? 0,
+      sources: createEpisodeDto.sources ?? null,
     });
 
     return this.episodesRepository.save(episode);

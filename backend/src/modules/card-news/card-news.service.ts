@@ -110,6 +110,7 @@ export class CardNewsService {
         'cardNews.createdAt',
         'episode.id',
         'episode.createdAt',
+        'episode.sources',
       ])
       .distinctOn(['cardNews.episodeId'])
       .orderBy('cardNews.episodeId', 'ASC')

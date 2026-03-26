@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import '../../core/app_config.dart';
 import '../../services/network_cache_service.dart';
+import '../../shared/models/episode_source.dart';
 import '../../shared/widgets/click_wheel.dart';
 import '../card_news/card_news_screen.dart';
 import 'podcast_player_screen.dart';
@@ -328,6 +329,7 @@ class PodcastEpisodeItem {
   final String streamUrl;
   final String? subtitleCuesUrl;
   final String? thumbnailUrl;
+  final List<EpisodeSource> sources;
 
   PodcastEpisodeItem({
     required this.id,
@@ -341,12 +343,14 @@ class PodcastEpisodeItem {
     required this.streamUrl,
     required this.subtitleCuesUrl,
     required this.thumbnailUrl,
+    this.sources = const [],
   });
 
   factory PodcastEpisodeItem.fromJson(Map<String, dynamic> json) {
     final audioPath = json['audioPath'] as String?;
     final thumbnailPath = json['thumbnailPath'] as String?;
     final streamExt = _extractStreamExt(audioPath);
+    final sourcesJson = json['sources'] as List<dynamic>? ?? const [];
     return PodcastEpisodeItem(
       id: json['id'] as String,
       title: json['title'] as String? ?? '제목 없음',
@@ -361,6 +365,9 @@ class PodcastEpisodeItem {
               .trim(),
       subtitleCuesUrl: _toAbsoluteUrl(json['subtitleCuesPath'] as String?),
       thumbnailUrl: _toAbsoluteUrl(thumbnailPath),
+      sources: sourcesJson
+          .map((s) => EpisodeSource.fromJson(s as Map<String, dynamic>))
+          .toList(),
     );
   }
 

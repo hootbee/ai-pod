@@ -5,6 +5,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/app_config.dart';
 import '../../services/network_cache_service.dart';
+import '../../shared/models/episode_source.dart';
+import '../../shared/widgets/source_info_bottom_sheet.dart';
 
 class CardNewsScreen extends StatefulWidget {
   const CardNewsScreen({super.key});
@@ -154,10 +156,15 @@ class _CardNewsScreenState extends State<CardNewsScreen> {
           (episode['createdAt'] as String?) ??
           (latestCardNews['createdAt'] as String?) ??
           '';
+      final sourcesJson = episode['sources'] as List<dynamic>? ?? const [];
+      final sources = sourcesJson
+          .map((s) => EpisodeSource.fromJson(s as Map<String, dynamic>))
+          .toList();
       days.add(DayCardNews(
         id: (latestCardNews['id'] as String?) ?? '',
         dayLabel: _toDayLabel(createdAt),
         cards: cards,
+        sources: sources,
       ));
     }
 
@@ -300,6 +307,7 @@ class _CardNewsScreenState extends State<CardNewsScreen> {
                       card: card,
                       slideIndex: slideIndex,
                       totalSlides: day.cards.length,
+                      sources: day.sources,
                     ),
                   );
                 },
@@ -316,8 +324,14 @@ class DayCardNews {
   final String id;
   final String dayLabel;
   final List<CardNewsCard> cards;
+  final List<EpisodeSource> sources;
 
-  const DayCardNews({required this.id, required this.dayLabel, required this.cards});
+  const DayCardNews({
+    required this.id,
+    required this.dayLabel,
+    required this.cards,
+    this.sources = const [],
+  });
 }
 
 class CardNewsCard {
@@ -372,11 +386,13 @@ class _CardNewsSlideView extends StatelessWidget {
   final CardNewsCard card;
   final int slideIndex;
   final int totalSlides;
+  final List<EpisodeSource> sources;
 
   const _CardNewsSlideView({
     required this.card,
     required this.slideIndex,
     required this.totalSlides,
+    this.sources = const [],
   });
 
   @override
@@ -456,16 +472,44 @@ class _CardNewsSlideView extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 14),
-                    Text(
-                      meta?.title ?? '카드뉴스',
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Color(0xFF141710),
-                        fontSize: 24,
-                        fontWeight: FontWeight.w800,
-                        height: 1.18,
-                      ),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            meta?.title ?? '카드뉴스',
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Color(0xFF141710),
+                              fontSize: 24,
+                              fontWeight: FontWeight.w800,
+                              height: 1.18,
+                            ),
+                          ),
+                        ),
+                        if (sources.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(left: 4),
+                            child: IconButton(
+                              icon: const Icon(
+                                Icons.link,
+                                color: Color(0xFF2D3426),
+                                size: 20,
+                              ),
+                              tooltip: '원문 출처',
+                              padding: const EdgeInsets.all(4),
+                              constraints: const BoxConstraints(
+                                minWidth: 36,
+                                minHeight: 36,
+                              ),
+                              onPressed: () => showSourceInfoBottomSheet(
+                                context,
+                                sources: sources,
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
                     const SizedBox(height: 12),
                     Expanded(

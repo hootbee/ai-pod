@@ -8,6 +8,7 @@ import 'package:just_audio/just_audio.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import '../../core/app_config.dart';
 import '../../services/network_cache_service.dart';
+import '../../shared/widgets/source_info_bottom_sheet.dart';
 import 'main_screen.dart';
 
 class PodcastPlayerScreen extends StatefulWidget {
@@ -301,6 +302,16 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
           ),
         ),
         actions: [
+          if (widget.episode.sources.isNotEmpty)
+            IconButton(
+              icon: const Icon(Icons.link, color: Colors.white),
+              tooltip: '원문 출처',
+              onPressed: () => showSourceInfoBottomSheet(
+                context,
+                sources: widget.episode.sources,
+                thumbnailUrl: widget.episode.thumbnailUrl,
+              ),
+            ),
           IconButton(
             icon: const Icon(Icons.ios_share, color: Colors.white),
             onPressed: () {},

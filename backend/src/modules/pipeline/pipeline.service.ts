@@ -59,7 +59,7 @@ export class PipelineService {
 
     // ── 1. 크롤링 ────────────────────────────────────────────────────────
     this.logger.log('[Pipeline] 크롤링 시작');
-    const articles = await this.collectArticlesSafely();
+    const { articles, sources } = await this.collectArticlesSafely();
 
     const minArticles = Number(process.env.MIN_ARTICLES ?? 3);
     if (articles.length < minArticles) {
@@ -80,6 +80,7 @@ export class PipelineService {
       title: briefing.title,
       script: briefing.script,
       sourceCount: articles.length,
+      sources,
     });
     this.logger.log(`[Pipeline] 에피소드 저장 완료: ${episode.id}`);
 
@@ -158,7 +159,10 @@ export class PipelineService {
   // ── private helpers ───────────────────────────────────────────────────
 
   /** 개별 기사 fetch 실패 시 skip, 성공한 것만 반환 */
-  private async collectArticlesSafely(): Promise<BriefingArticle[]> {
+  private async collectArticlesSafely(): Promise<{
+    articles: BriefingArticle[];
+    sources: Array<{ title: string; source: string; link: string }>;
+  }> {
     const LIMIT_PER_SOURCE = 5;
     const MAX_ARTICLES = 15;
 
@@ -166,17 +170,19 @@ export class PipelineService {
     const candidates = items.slice(0, MAX_ARTICLES);
 
     const articles: BriefingArticle[] = [];
+    const sources: Array<{ title: string; source: string; link: string }> = [];
     for (const item of candidates) {
       try {
         const content = await this.crawlerService.fetchArticleContent(item.link, item.sourceId);
         if (!content) continue;
         articles.push({ title: item.title, content: content.slice(0, 1500), source: item.source });
+        sources.push({ title: item.title, source: item.source, link: item.link });
         await this.crawlerService.markProcessed(item);
       } catch {
         this.logger.warn(`[Pipeline] 기사 fetch 실패, skip: ${item.link}`);
       }
     }
-    return articles;
+    return { articles, sources };
   }
 
   /** Promise에 timeout + retryCount 적용 */
