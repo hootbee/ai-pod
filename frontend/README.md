@@ -1,5 +1,28 @@
 # AiPod Frontend
 
+## Google 로그인 설정 파일
+
+모바일(iOS/Android)에서 Google 로그인을 사용하려면 아래 파일이 필요합니다.
+
+- Android: `frontend/android/app/google-services.json`
+- iOS: `frontend/ios/Runner/GoogleService-Info.plist`
+
+참고:
+- Web(Chrome) 실행만 할 때는 위 파일보다 `GOOGLE_CLIENT_ID`가 더 중요합니다.
+- iOS 폴더에 `frontend/ios/GoogleService-Info.plist`가 하나 더 있을 수 있지만, 실제 Xcode 프로젝트 기준 경로는 `frontend/ios/Runner/GoogleService-Info.plist`입니다.
+
+팀원에게 공유할 때는 아래처럼 두면 됩니다.
+
+```text
+frontend/
+  android/
+    app/
+      google-services.json
+  ios/
+    Runner/
+      GoogleService-Info.plist
+```
+
 ## 실행 방법
 
 ### 1) 로컬 백엔드(개발 PC의 3000번) 붙여서 실행
@@ -71,3 +94,16 @@ flutter run -d chrome --web-port 7357 \
 ```bash
 flutter run -d chrome --web-port 7357 --dart-define=ENV=dev
 ```
+
+### 4) Windows에서 Chrome 웹 실행 시 주의
+
+macOS/Linux 예시처럼 줄 끝에 `\`를 붙인 명령은 Windows `cmd`/PowerShell에서 그대로 동작하지 않을 수 있습니다.
+
+- 가장 안전한 방법: 한 줄로 실행
+
+```bash
+flutter run -d chrome --web-port 7357 --dart-define=ENV=production --dart-define=API_URL=http://127.0.0.1:3000 --dart-define=GOOGLE_CLIENT_ID=<google-web-client-id>
+```
+
+- PowerShell에서 여러 줄로 쓰고 싶으면 줄 끝에 백슬래시(`\`)가 아니라 백틱(<code>`</code>)을 사용
+- `cmd`에서는 줄 끝에 `^`를 사용
