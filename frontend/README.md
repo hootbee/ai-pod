@@ -85,7 +85,7 @@ flutter run -d chrome --web-port 7357 \
 ```bash
 flutter run -d chrome --web-port 7357 \
   --dart-define=ENV=production \
-  --dart-define=API_URL=http://54.180.201.105:3000 \
+  --dart-define=API_URL=http://3.36.120.247:3000 \
   --dart-define=GOOGLE_CLIENT_ID=826440481147-effr7vmiuqh5d0tujtne4e726ft14ttr.apps.googleusercontent.com
 ```
 
