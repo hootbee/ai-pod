@@ -1,7 +1,17 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:just_audio_background/just_audio_background.dart';
 import 'features/splash/splash_screen.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  if (!kIsWeb) {
+    await JustAudioBackground.init(
+      androidNotificationChannelId: 'com.aipod.channel.audio',
+      androidNotificationChannelName: 'AIPod 오디오',
+      androidNotificationOngoing: true,
+    );
+  }
   runApp(const AipodApp());
 }
 

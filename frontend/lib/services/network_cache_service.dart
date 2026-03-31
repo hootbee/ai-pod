@@ -120,7 +120,7 @@ class NetworkCacheService {
   /// 웹은 파일 시스템 접근 불가 → URL 직접 재생.
   /// 모바일/데스크톱은 LockCachingAudioSource로 스트리밍+로컬 저장.
   /// [headers]: JWT 인증 헤더 등 (스트림 엔드포인트가 JwtAuthGuard 적용 시 필수)
-  Future<AudioSource> getCachedAudioSource(String url, {Map<String, String>? headers}) {
-    return buildCachedAudioSource(url, headers: headers);
+  Future<AudioSource> getCachedAudioSource(String url, {Map<String, String>? headers, Object? tag}) {
+    return buildCachedAudioSource(url, headers: headers, tag: tag);
   }
 }

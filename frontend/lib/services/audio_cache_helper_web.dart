@@ -4,6 +4,7 @@ import 'package:just_audio/just_audio.dart';
 Future<AudioSource> buildCachedAudioSource(
   String url, {
   Map<String, String>? headers,
+  Object? tag,
 }) async {
   return AudioSource.uri(Uri.parse(url), headers: headers);
 }
