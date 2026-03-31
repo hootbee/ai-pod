@@ -110,6 +110,7 @@ export class CardNewsService {
         'cardNews.createdAt',
         'episode.id',
         'episode.createdAt',
+        'episode.sources',
       ])
       .distinctOn(['cardNews.episodeId'])
       .orderBy('cardNews.episodeId', 'ASC')
@@ -208,43 +209,27 @@ export class CardNewsService {
 
     this.logger.log(`[TOPICS] 처리할 토픽 수: ${topicSlides.length}장`);
 
-    const outputDir = process.env.CARD_NEWS_OUTPUT_DIR ?? './card-news-images';
-    const imagePaths: string[] = [];
-
+    // Unsplash 이미지 검색 후 URL 직접 저장 (PNG 렌더링 없음 — 프론트가 레이아웃 담당)
     for (let i = 0; i < topicSlides.length; i++) {
       const slide = topicSlides[i];
-      const topicNumber = i + 1;
-      this.logger.log(`[TOPICS] 토픽 ${topicNumber}/${topicSlides.length} 처리 중: "${slide.title}"`);
-
-      // Unsplash 이미지 검색
+      this.logger.log(`[TOPICS] 토픽 ${i + 1}/${topicSlides.length} 처리 중: "${slide.title}"`);
       const imageResult = await this.researcherService.findImage(slide.imageKeyword);
-
-      // 원본 이미지 URL 저장 (프론트에서 raw 이미지로 사용)
       slide.imageUrl = imageResult?.url ?? null;
-
-      // HTML 생성 (정적 템플릿, LLM 호출 없음)
-      const html = await this.designMakerService.generateHtml(
-        slide,
-        cardNewsScript.theme,
-        imageResult?.url,
-      );
-
-      // 파일명: {YYYYMMDD}-{episodeId 앞 8자}-topic{N}-{imageKeyword}.png (날짜는 에피소드 생성일 기준)
-      const dateStr = new Date(episode.createdAt).toISOString().slice(0, 10).replace(/-/g, ''); // YYYYMMDD
-      const keyword = slide.imageKeyword.replace(/\s+/g, '-').toLowerCase();
-      const filename = `${dateStr}-${episodeId.slice(0, 8)}-topic${topicNumber}-${keyword}.png`;
-      const outputPath = path.join(outputDir, filename);
-      const savedPath = await this.rendererService.renderToFile(html, outputPath);
-      imagePaths.push(savedPath);
-      this.logger.log(`[TOPICS] 토픽 ${topicNumber} PNG 저장: ${savedPath}`);
+      this.logger.log(`[TOPICS] 토픽 ${i + 1} 이미지: ${slide.imageUrl ?? '없음'}`);
     }
 
-    // DB에 저장: imagePaths 배열에 4장(또는 그 이하) 경로 저장
+    // imagePaths에 Unsplash URL 직접 저장
+    const imagePaths = topicSlides.map((s) => s.imageUrl ?? '');
+
+    // DB 저장: scriptSnapshot은 topicSlides만 (slides[i] ↔ imagePaths[i] 1:1 매핑)
     const cardNews = this.cardNewsRepository.create({
       episodeId,
       imagePaths,
-      slideCount: imagePaths.length,
-      scriptSnapshot: cardNewsScript as unknown as Record<string, unknown>,
+      slideCount: topicSlides.length,
+      scriptSnapshot: {
+        ...cardNewsScript,
+        slides: topicSlides,
+      } as unknown as Record<string, unknown>,
     });
 
     return this.cardNewsRepository.save(cardNews);

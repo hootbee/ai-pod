@@ -1,6 +1,5 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { execSync } from 'child_process';
 import {
   Injectable,
   InternalServerErrorException,
@@ -8,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { EpisodesService } from '../episodes/episodes.service';
+import { AudioOptimizationService } from '../audio/audio-optimization.service';
 import type { ScriptSegment } from '../ai-processor/interfaces/ai-provider.interface';
 import type { SubtitleCue, SubtitleCueDocument } from './interfaces/subtitle-cue.interface';
 
@@ -26,6 +26,7 @@ export class TtsService {
   constructor(
     private readonly configService: ConfigService,
     private readonly episodesService: EpisodesService,
+    private readonly audioOptimizationService: AudioOptimizationService,
   ) {
     const key = this.configService.get<string>('GOOGLE_CLOUD_TTS_API_KEY');
     if (!key) throw new Error('GOOGLE_CLOUD_TTS_API_KEY is not set');
@@ -52,18 +53,34 @@ export class TtsService {
       const segments = this.parseScriptToSegments(episode.script);
       this.logger.log(`TTS 시작: episodeId=${episodeId}, segments=${segments.length}`);
 
-      const { audioBuffer, cues } = segments.length > 0
+      const { audioBuffer, tempFilePaths, cues } = segments.length > 0
         ? await this.generateWithSubtitleCues(segments)
-        : { audioBuffer: await this.generateChunked(episode.script), cues: [] };
+        : { ...(await this.generateChunked(episode.script)), cues: [] };
 
       const dateStr = new Date(episode.createdAt).toISOString().slice(0, 10).replace(/-/g, '');
       const baseName = `${dateStr}-${episodeId.slice(0, 8)}`;
       const wavPath = path.join(this.outputDir, `${baseName}.wav`);
-      const m4aPath = path.join(this.outputDir, `${baseName}.m4a`);
       const mp3Path = path.join(this.outputDir, `${baseName}.mp3`);
       const cuesPath = path.join(this.outputDir, `${baseName}.cues.json`);
-      fs.writeFileSync(wavPath, audioBuffer);
-      const finalAudioPath = this.convertToPlayableAudio(wavPath, m4aPath, mp3Path);
+
+      let finalAudioPath: string;
+      if (tempFilePaths.length > 0) {
+        // M4A 청크 → ffmpeg concat → MP3
+        const converted = await this.audioOptimizationService.convertFilesToOptimizedMp3(tempFilePaths, mp3Path);
+        if (converted) {
+          this.audioOptimizationService.safeUnlink(...tempFilePaths);
+          finalAudioPath = mp3Path;
+        } else {
+          finalAudioPath = tempFilePaths[0]; // fallback: 첫 번째 M4A 그대로
+        }
+      } else {
+        // PCM WAV → MP3
+        fs.writeFileSync(wavPath, audioBuffer!);
+        const converted = await this.audioOptimizationService.convertWavToOptimizedMp3(wavPath, mp3Path);
+        finalAudioPath = converted ? mp3Path : wavPath;
+        if (converted) this.audioOptimizationService.safeUnlink(wavPath);
+      }
+
       this.writeSubtitleCues(cuesPath, cues);
 
       await this.episodesService.updateAudioPath(episodeId, { audioPath: finalAudioPath });
@@ -95,16 +112,30 @@ export class TtsService {
     this.logger.log('[TEST] TTS 테스트 시작');
 
     const segments = this.parseScriptToSegments(rawText);
-    const { audioBuffer, cues } = segments.length > 0
+    const { audioBuffer, tempFilePaths, cues } = segments.length > 0
       ? await this.generateWithSubtitleCues(segments)
-      : { audioBuffer: await this.generateChunked(rawText), cues: [] };
+      : { ...(await this.generateChunked(rawText)), cues: [] };
 
     const wavPath = path.join(this.outputDir, 'test.wav');
-    const m4aPath = path.join(this.outputDir, 'test.m4a');
     const mp3Path = path.join(this.outputDir, 'test.mp3');
     const cuesPath = path.join(this.outputDir, 'test.cues.json');
-    fs.writeFileSync(wavPath, audioBuffer);
-    const finalAudioPath = this.convertToPlayableAudio(wavPath, m4aPath, mp3Path);
+
+    let finalAudioPath: string;
+    if (tempFilePaths.length > 0) {
+      const converted = await this.audioOptimizationService.convertFilesToOptimizedMp3(tempFilePaths, mp3Path);
+      if (converted) {
+        this.audioOptimizationService.safeUnlink(...tempFilePaths);
+        finalAudioPath = mp3Path;
+      } else {
+        finalAudioPath = tempFilePaths[0];
+      }
+    } else {
+      fs.writeFileSync(wavPath, audioBuffer!);
+      const converted = await this.audioOptimizationService.convertWavToOptimizedMp3(wavPath, mp3Path);
+      finalAudioPath = converted ? mp3Path : wavPath;
+      if (converted) this.audioOptimizationService.safeUnlink(wavPath);
+    }
+
     this.writeSubtitleCues(cuesPath, cues);
     this.logger.log(`[TEST] 저장 완료: ${finalAudioPath}`);
     return finalAudioPath;
@@ -141,20 +172,17 @@ export class TtsService {
    * - 4000바이트 이하: 단일 호출
    * - 4000바이트 초과: 토픽 변경(isTopicChange) 기준으로 청크 분할 후 각각 호출
    */
-  private async generateWithPauses(segments: ScriptSegment[]): Promise<Buffer> {
-    const { audioBuffer } = await this.generateWithSubtitleCues(segments);
-    return audioBuffer;
-  }
-
   private async generateWithSubtitleCues(
     segments: ScriptSegment[],
-  ): Promise<{ audioBuffer: Buffer; cues: SubtitleCue[] }> {
+  ): Promise<{ audioBuffer: Buffer | null; tempFilePaths: string[]; cues: SubtitleCue[] }> {
     const ssml = this.buildSsml(segments);
     const byteLen = Buffer.byteLength(ssml, 'utf8');
     const pcmBuffers: Buffer[] = [];
+    const tempFilePaths: string[] = [];
     const cues: SubtitleCue[] = [];
     let sampleRate = 24000;
     let currentMs = 0;
+    let isEncoded: boolean | null = null;
 
     const segmentChunks =
       byteLen <= 4000 ? [segments] : this.splitSegmentsByTopic(segments);
@@ -163,6 +191,8 @@ export class TtsService {
       `TTS 시작 (subtitle cues): 세그먼트 ${segments.length}개, 호출 청크 ${segmentChunks.length}개, 총 ${byteLen}bytes`,
     );
 
+    const tmpBase = `_tmp_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+
     for (let chunkIndex = 0; chunkIndex < segmentChunks.length; chunkIndex++) {
       const chunk = segmentChunks[chunkIndex];
       const chunkSsml = this.buildSsml(chunk);
@@ -170,30 +200,45 @@ export class TtsService {
       this.logger.log(
         `TTS 청크 [${chunkIndex + 1}/${segmentChunks.length}]: 세그먼트 ${chunk.length}개, ${chunkBytes}bytes`,
       );
+
       const result = await this.callGeminiTts(chunkSsml, true);
-      sampleRate = result.sampleRate;
-      const chunkDurationMs = this.getPcmDurationMs(result.pcm, sampleRate);
+      if (isEncoded === null) isEncoded = result.isEncoded;
 
-      if (chunkIndex > 0) {
-        const chunkBoundaryPauseMs = 100;
-        pcmBuffers.push(this.makeSilence(chunkBoundaryPauseMs, sampleRate));
-        currentMs += chunkBoundaryPauseMs;
+      const chunkBoundaryPauseMs = 100;
+
+      if (result.isEncoded) {
+        // M4A: 임시 파일에 저장 후 ffprobe로 길이 조회
+        const tmpPath = path.join(this.outputDir, `${tmpBase}_${chunkIndex}.m4a`);
+        fs.writeFileSync(tmpPath, result.data);
+        tempFilePaths.push(tmpPath);
+
+        if (chunkIndex > 0) currentMs += chunkBoundaryPauseMs;
+
+        const chunkDurationMs = await this.audioOptimizationService.getAudioDurationMs(tmpPath);
+        cues.push(...this.buildSubtitleCuesForChunk(chunk, cues.length, currentMs, chunkDurationMs));
+        currentMs += chunkDurationMs;
+      } else {
+        // PCM: 기존 방식
+        sampleRate = result.sampleRate;
+        const chunkDurationMs = this.getPcmDurationMs(result.data, sampleRate);
+
+        if (chunkIndex > 0) {
+          pcmBuffers.push(this.makeSilence(chunkBoundaryPauseMs, sampleRate));
+          currentMs += chunkBoundaryPauseMs;
+        }
+
+        pcmBuffers.push(result.data);
+        cues.push(...this.buildSubtitleCuesForChunk(chunk, cues.length, currentMs, chunkDurationMs));
+        currentMs += chunkDurationMs;
       }
-
-      pcmBuffers.push(result.pcm);
-      cues.push(
-        ...this.buildSubtitleCuesForChunk(
-          chunk,
-          cues.length,
-          currentMs,
-          chunkDurationMs,
-        ),
-      );
-      currentMs += chunkDurationMs;
     }
 
+    if (isEncoded) {
+      return { audioBuffer: null, tempFilePaths, cues };
+    }
     return {
       audioBuffer: this.addWavHeader(Buffer.concat(pcmBuffers), sampleRate),
+      tempFilePaths: [],
       cues,
     };
   }
@@ -330,30 +375,44 @@ export class TtsService {
   }
 
   /** 텍스트 또는 SSML을 4500자 청크로 잘라 TTS 호출 */
-  private async generateChunked(input: string, isSsml = false): Promise<Buffer> {
-    // SSML은 speak 태그 처리 관계로 청크 분할 없이 단일 호출
-    const inputs = isSsml
-      ? [input]
-      : this.splitText(input, 4500).map((t) => t);
+  private async generateChunked(
+    input: string,
+    isSsml = false,
+  ): Promise<{ audioBuffer: Buffer | null; tempFilePaths: string[] }> {
+    const inputs = isSsml ? [input] : this.splitText(input, 4500);
 
     const pcmBuffers: Buffer[] = [];
+    const tempFilePaths: string[] = [];
     let sampleRate = 24000;
+    let isEncoded: boolean | null = null;
+    const tmpBase = `_tmp_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
 
     for (let i = 0; i < inputs.length; i++) {
       this.logger.log(`청크 [${i + 1}/${inputs.length}]`);
       const result = await this.callGeminiTts(inputs[i], isSsml);
-      pcmBuffers.push(result.pcm);
-      sampleRate = result.sampleRate;
+      if (isEncoded === null) isEncoded = result.isEncoded;
+
+      if (result.isEncoded) {
+        const tmpPath = path.join(this.outputDir, `${tmpBase}_${i}.m4a`);
+        fs.writeFileSync(tmpPath, result.data);
+        tempFilePaths.push(tmpPath);
+      } else {
+        pcmBuffers.push(result.data);
+        sampleRate = result.sampleRate;
+      }
     }
 
-    return this.addWavHeader(Buffer.concat(pcmBuffers), sampleRate);
+    if (isEncoded) {
+      return { audioBuffer: null, tempFilePaths };
+    }
+    return { audioBuffer: this.addWavHeader(Buffer.concat(pcmBuffers), sampleRate), tempFilePaths: [] };
   }
 
   /** Cloud TTS Chirp 3 HD 호출 (text 또는 SSML 입력) */
   private async callGeminiTts(
     input: string,
     isSsml = false,
-  ): Promise<{ pcm: Buffer; sampleRate: number }> {
+  ): Promise<{ data: Buffer; isEncoded: boolean; sampleRate: number }> {
     const body = {
       input: isSsml ? { ssml: input } : { text: input },
       voice: {
@@ -380,7 +439,14 @@ export class TtsService {
     const data = (await response.json()) as { audioContent: string };
     if (!data.audioContent) throw new Error('TTS 응답에 오디오 데이터 없음');
 
-    return { pcm: Buffer.from(data.audioContent, 'base64'), sampleRate: 24000 };
+    const rawBytes = Buffer.from(data.audioContent, 'base64');
+    // Chirp 3 HD가 LINEAR16 대신 M4A/AAC를 반환하는 경우 감지
+    // M4A: offset 4..8 이 'ftyp'
+    const isEncoded = rawBytes.length > 8 && rawBytes.toString('ascii', 4, 8) === 'ftyp';
+    if (isEncoded) {
+      this.logger.warn('TTS 응답이 LINEAR16이 아닌 M4A 포맷 — ffmpeg concat 경로로 처리');
+    }
+    return { data: rawBytes, isEncoded, sampleRate: 24000 };
   }
 
   /** 무음 PCM 생성 (16bit mono) */
@@ -408,36 +474,6 @@ export class TtsService {
     }
     if (current) chunks.push(current.trim());
     return chunks;
-  }
-
-  /** WAV → iOS 우선 호환 포맷(m4a) 변환, 실패 시 mp3, 모두 실패 시 wav 유지 */
-  private convertToPlayableAudio(
-    wavPath: string,
-    m4aPath: string,
-    mp3Path: string,
-  ): string {
-    try {
-      execSync(
-        `ffmpeg -y -i "${wavPath}" -af "loudnorm=I=-16:TP=-1.5:LRA=11" -c:a aac -b:a 128k -ar 44100 -ac 2 -movflags +faststart "${m4aPath}"`,
-        { stdio: 'pipe' },
-      );
-      fs.unlinkSync(wavPath);
-      this.logger.log('M4A 변환 완료 (AAC + loudnorm 적용)');
-      return m4aPath;
-    } catch {
-      try {
-        execSync(
-          `ffmpeg -y -i "${wavPath}" -af "loudnorm=I=-16:TP=-1.5:LRA=11" -c:a libmp3lame -b:a 128k -ar 44100 -ac 2 -id3v2_version 3 -write_xing 0 "${mp3Path}"`,
-          { stdio: 'pipe' },
-        );
-        fs.unlinkSync(wavPath);
-        this.logger.warn('M4A 변환 실패, MP3 변환으로 fallback');
-        return mp3Path;
-      } catch {
-        this.logger.warn('ffmpeg 변환 실패 - WAV 파일 유지');
-        return wavPath;
-      }
-    }
   }
 
   private addWavHeader(pcmData: Buffer, sampleRate = 24000, channels = 1, bitDepth = 16): Buffer {

@@ -1,4 +1,5 @@
-import { IsInt, IsNotEmpty, IsOptional, IsString, MaxLength, Min } from 'class-validator';
+import { IsArray, IsInt, IsNotEmpty, IsOptional, IsString, MaxLength, Min } from 'class-validator';
+import { EpisodeSource } from '../entities/podcast-episode.entity';
 
 export class CreateEpisodeDto {
   @IsString()
@@ -19,4 +20,8 @@ export class CreateEpisodeDto {
   @Min(0)
   @IsOptional()
   sourceCount?: number;
+
+  @IsArray()
+  @IsOptional()
+  sources?: EpisodeSource[];
 }

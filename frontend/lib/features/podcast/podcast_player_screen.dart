@@ -8,6 +8,7 @@ import 'package:just_audio/just_audio.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import '../../core/app_config.dart';
 import '../../services/network_cache_service.dart';
+import '../../shared/widgets/source_info_bottom_sheet.dart';
 import 'main_screen.dart';
 
 class PodcastPlayerScreen extends StatefulWidget {
@@ -46,6 +47,12 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
   List<String> get _displayLines => _subtitleCues.isNotEmpty
       ? _subtitleCues.map((cue) => cue.text).toList()
       : _transcript;
+
+  String get _screenTitle {
+    final createdAt = widget.episode.createdAt;
+    if (createdAt == null) return widget.episode.title;
+    return '${createdAt.year}년 ${createdAt.month}월 ${createdAt.day}일 뉴스';
+  }
 
   String _sanitizeTranscriptLine(String rawLine) {
     var line = rawLine.replaceFirst(RegExp(r'^narrator:\s*'), '').trim();
@@ -108,11 +115,15 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
     _audioInitializing = true;
 
     try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('access_token');
+      final headers = token != null ? {'Authorization': 'Bearer $token'} : null;
+
       final String targetUrl =
           widget.episode.audioUrl ?? widget.episode.streamUrl;
       try {
         final source = await NetworkCacheService.instance
-            .getCachedAudioSource(targetUrl);
+            .getCachedAudioSource(targetUrl, headers: headers);
         await _audioPlayer.setAudioSource(source);
         if (!mounted) return;
         setState(() {
@@ -163,11 +174,12 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
                     ? const Icon(Icons.check, color: Color(0xFFD6E36F))
                     : null,
                 onTap: () async {
+                  final navigator = Navigator.of(context);
                   await _audioPlayer.setSpeed(speed);
                   setState(() {
                     _playbackSpeed = speed;
                   });
-                  if (mounted) Navigator.of(context).pop();
+                  if (mounted) navigator.pop();
                 },
               );
             }).toList(),
@@ -282,7 +294,7 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
           child: Padding(
             padding: const EdgeInsets.only(left: 56, right: 16, top: 12),
             child: Text(
-              widget.episode.title,
+              _screenTitle,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(color: Colors.white, fontSize: 18),
@@ -290,6 +302,16 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
           ),
         ),
         actions: [
+          if (widget.episode.sources.isNotEmpty)
+            IconButton(
+              icon: const Icon(Icons.link, color: Colors.white),
+              tooltip: '원문 출처',
+              onPressed: () => showSourceInfoBottomSheet(
+                context,
+                sources: widget.episode.sources,
+                thumbnailUrl: widget.episode.thumbnailUrl,
+              ),
+            ),
           IconButton(
             icon: const Icon(Icons.ios_share, color: Colors.white),
             onPressed: () {},

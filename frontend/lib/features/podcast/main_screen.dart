@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import '../../core/app_config.dart';
 import '../../services/network_cache_service.dart';
+import '../../shared/models/episode_source.dart';
 import '../../shared/widgets/click_wheel.dart';
 import '../card_news/card_news_screen.dart';
 import 'podcast_player_screen.dart';
@@ -319,6 +320,7 @@ class _MainScreenState extends State<MainScreen> {
 class PodcastEpisodeItem {
   final String id;
   final String title;
+  final DateTime? createdAt;
   final String? headline;
   final String? subtitle;
   final String script;
@@ -327,10 +329,12 @@ class PodcastEpisodeItem {
   final String streamUrl;
   final String? subtitleCuesUrl;
   final String? thumbnailUrl;
+  final List<EpisodeSource> sources;
 
   PodcastEpisodeItem({
     required this.id,
     required this.title,
+    required this.createdAt,
     required this.headline,
     required this.subtitle,
     required this.script,
@@ -339,15 +343,18 @@ class PodcastEpisodeItem {
     required this.streamUrl,
     required this.subtitleCuesUrl,
     required this.thumbnailUrl,
+    this.sources = const [],
   });
 
   factory PodcastEpisodeItem.fromJson(Map<String, dynamic> json) {
     final audioPath = json['audioPath'] as String?;
     final thumbnailPath = json['thumbnailPath'] as String?;
     final streamExt = _extractStreamExt(audioPath);
+    final sourcesJson = json['sources'] as List<dynamic>? ?? const [];
     return PodcastEpisodeItem(
       id: json['id'] as String,
       title: json['title'] as String? ?? '제목 없음',
+      createdAt: DateTime.tryParse(json['createdAt'] as String? ?? ''),
       headline: json['headline'] as String?,
       subtitle: json['headlineSubtitle'] as String?,
       script: json['script'] as String? ?? '',
@@ -358,6 +365,9 @@ class PodcastEpisodeItem {
               .trim(),
       subtitleCuesUrl: _toAbsoluteUrl(json['subtitleCuesPath'] as String?),
       thumbnailUrl: _toAbsoluteUrl(thumbnailPath),
+      sources: sourcesJson
+          .map((s) => EpisodeSource.fromJson(s as Map<String, dynamic>))
+          .toList(),
     );
   }
 
