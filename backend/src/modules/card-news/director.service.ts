@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import type {
   CardNewsScript,
   DeepDiveScript,
@@ -269,6 +270,88 @@ ${script.slice(0, 3000)}
           { type: 'deep-impact', title: '우리에게 어떤 영향?', body: 'AI 도입으로 업무 생산성이 크게 향상될 전망입니다.\n새로운 직종이 생겨나고 기존 직종은 변화를 맞이합니다.\n지금 AI 역량을 키우는 것이 경쟁력의 핵심입니다.', imageKeyword: 'future', accentColor: '#66BB6A' },
         ],
       };
+    }
+  }
+
+  /**
+   * Google Search 그라운딩을 활용해 주제를 실시간 웹 정보로 심층 분석.
+   * gemini-3-flash-preview + googleSearch tool → 1회 요청으로 최신 트렌드 반영.
+   * GOOGLE_AI_API_KEY 우선, 없으면 MINDLOGIC_API_KEY 사용.
+   */
+  async analyzeDeepDiveGrounded(script: string): Promise<DeepDiveScript> {
+    const apiKey = process.env.GOOGLE_AI_STUDIO_API_KEY ?? process.env.GOOGLE_AI_API_KEY ?? this.apiKey;
+    const modelName = process.env.GROUNDING_MODEL ?? 'gemini-3-flash-preview';
+
+    const genAi = new GoogleGenerativeAI(apiKey);
+    const model = genAi.getGenerativeModel({
+      model: modelName,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      tools: [{ googleSearch: {} } as any],
+    });
+
+    const prompt = `
+당신은 IT 테크 미디어의 수석 에디터입니다.
+아래 팟캐스트 대본에서 가장 임팩트 있는 주제 하나를 골라주세요.
+그런 다음 Google Search를 통해 해당 주제의 최신 정보, 수치, 전문가 의견, 트렌드를 검색하고
+검색 결과를 바탕으로 4장짜리 딥다이브 카드뉴스를 JSON으로만 작성하세요.
+
+[핵심 원칙]
+- 대본은 주제 파악 용도로만 사용
+- 카드 내용은 반드시 Google Search로 얻은 최신 웹 정보 기반으로 작성
+- 구체적인 수치·날짜·인물·기업명을 최대한 포함
+- 독자가 "이건 처음 아는 정보다"라고 느낄 만큼 구체적으로
+
+[카드 구성]
+카드 1 (type: "deep-thumbnail") — 자극적 표지
+  - title: 검색 결과를 반영한 충격적이고 자극적인 제목 (최대 22자, 의문문·숫자 활용)
+  - subtitle: 도발적인 부제 (최대 40자, 최신 사실 힌트 포함)
+  - body: 한줄 티저 (최대 60자)
+  - imageKeyword: Unsplash 검색용 영어 단어 1개
+  - accentColor: 강렬한 hex 색상
+
+카드 2 (type: "deep-background") — 배경
+  - title: 섹션 제목 (최대 20자)
+  - body: 검색된 배경·맥락·타임라인 (150~200자, \\n으로 2~3문장 구분, 구체적 날짜·수치 포함)
+  - imageKeyword: 영어 단어 1개
+  - accentColor: hex 색상
+
+카드 3 (type: "deep-detail") — 핵심
+  - title: 섹션 제목 (최대 20자)
+  - body: 검색된 핵심 데이터·전문가 발언·최신 수치 (150~200자, \\n 구분, 출처 느낌 포함)
+  - imageKeyword: 영어 단어 1개
+  - accentColor: hex 색상
+
+카드 4 (type: "deep-impact") — 영향
+  - title: 섹션 제목 (최대 20자)
+  - body: 검색 결과 기반 실질적 영향·전망·독자 행동 촉구 (150~200자, \\n 구분)
+  - imageKeyword: 영어 단어 1개
+  - accentColor: hex 색상
+
+[공통 규칙]
+- theme: 'dark' 또는 'light'
+- mood: 'serious' | 'bright' | 'urgent'
+- topicTitle: 선택한 주제명 (20자 이내)
+- 반드시 JSON만 응답 (마크다운 없이)
+
+[팟캐스트 대본 — 주제 파악용]
+${script.slice(0, 2000)}
+`.trim();
+
+    this.logger.log(`[GROUNDED] Google Search 그라운딩 딥다이브 분석 시작 (model: ${modelName})`);
+
+    const result = await model.generateContent(prompt);
+    const text = result.response.text();
+
+    this.logger.log(`[GROUNDED] 그라운딩 응답 수신 (${text.length}자)`);
+
+    try {
+      const cleaned = text.replace(/```json?|```/g, '').trim();
+      const parsed = JSON.parse(cleaned) as DeepDiveScript;
+      this.logger.log(`[GROUNDED] 파싱 성공: 주제="${parsed.topicTitle}", 카드 ${parsed.cards?.length ?? 0}장`);
+      return parsed;
+    } catch {
+      this.logger.warn('[GROUNDED] JSON 파싱 실패, 비그라운딩 fallback 실행');
+      return this.analyzeDeepDive(script);
     }
   }
 }

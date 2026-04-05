@@ -234,7 +234,19 @@ class _DeepDiveScreenState extends State<DeepDiveScreen> {
 
     final itemCount = _days.length + (_loadingMore ? 1 : 0);
 
-    return PageView.builder(
+    return RefreshIndicator(
+      color: Colors.white,
+      backgroundColor: const Color(0xFF16162a),
+      onRefresh: () async {
+        setState(() {
+          _days = [];
+          _offset = 0;
+          _hasNextPage = false;
+          _loading = true;
+        });
+        await _load();
+      },
+      child: PageView.builder(
       scrollDirection: Axis.vertical,
       itemCount: itemCount,
       onPageChanged: (i) {
@@ -299,7 +311,8 @@ class _DeepDiveScreenState extends State<DeepDiveScreen> {
           ],
         );
       },
-    );
+    ),   // PageView.builder
+    ); // RefreshIndicator
   }
 }
 

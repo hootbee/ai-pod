@@ -40,4 +40,5 @@ export interface DeepDiveScript {
 export interface IDirectorService {
   analyze(script: string): Promise<CardNewsScript>;
   analyzeDeepDive(script: string): Promise<DeepDiveScript>;
+  analyzeDeepDiveGrounded(script: string): Promise<DeepDiveScript>;
 }

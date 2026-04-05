@@ -247,8 +247,8 @@ export class CardNewsService {
       throw new NotFoundException('에피소드 또는 대본을 찾을 수 없습니다');
     }
 
-    this.logger.log(`[DEEP-DIVE] Director 딥다이브 분석 시작: episodeId=${episodeId}`);
-    const deepDiveScript = await this.directorService.analyzeDeepDive(episode.script);
+    this.logger.log(`[DEEP-DIVE] Google Search 그라운딩 분석 시작: episodeId=${episodeId}`);
+    const deepDiveScript = await this.directorService.analyzeDeepDiveGrounded(episode.script);
     this.logger.log(`[DEEP-DIVE] 주제: "${deepDiveScript.topicTitle}", 카드 ${deepDiveScript.cards.length}장`);
 
     // thumbnail 카드에만 Unsplash 이미지 URL 수급
@@ -285,12 +285,39 @@ export class CardNewsService {
     const limit = dto.limit ?? 10;
     const offset = dto.offset ?? 0;
 
+    // 에피소드별 최신 deep-dive의 id를 서브쿼리로 추출
+    const latestIds: Array<{ id: string }> = await this.cardNewsRepository
+      .createQueryBuilder('cn')
+      .select('cn.id', 'id')
+      .where('cn.cardType = :cardType', { cardType: 'deep-dive' })
+      .andWhere((qb) => {
+        const sub = qb
+          .subQuery()
+          .select('MAX(cn2.createdAt)')
+          .from('card_news', 'cn2')
+          .where('cn2.episodeId = cn.episodeId')
+          .andWhere('cn2.cardType = :cardType')
+          .getQuery();
+        return `cn.createdAt = ${sub}`;
+      })
+      .setParameter('cardType', 'deep-dive')
+      .orderBy('cn.createdAt', 'DESC')
+      .limit(limit)
+      .offset(offset)
+      .getRawMany();
+
     const totalCount: number = await this.cardNewsRepository
-      .createQueryBuilder('cardNews')
-      .select('COUNT(DISTINCT cardNews.episodeId)', 'count')
-      .where('cardNews.cardType = :cardType', { cardType: 'deep-dive' })
+      .createQueryBuilder('cn')
+      .select('COUNT(DISTINCT cn.episodeId)', 'count')
+      .where('cn.cardType = :cardType', { cardType: 'deep-dive' })
       .getRawOne()
       .then((r) => Number(r?.count ?? 0));
+
+    if (latestIds.length === 0) {
+      return toPaginatedResponse([], totalCount, limit, offset);
+    }
+
+    const ids = latestIds.map((r) => r.id);
 
     const rows = await this.cardNewsRepository
       .createQueryBuilder('cardNews')
@@ -307,20 +334,13 @@ export class CardNewsService {
         'episode.createdAt',
         'episode.sources',
       ])
-      .where('cardNews.cardType = :cardType', { cardType: 'deep-dive' })
-      .distinctOn(['cardNews.episodeId'])
-      .orderBy('cardNews.episodeId', 'ASC')
-      .addOrderBy('cardNews.createdAt', 'DESC')
-      .take(limit)
-      .skip(offset)
+      .whereInIds(ids)
       .getMany();
 
-    const sortedRows = rows.sort((a, b) => {
-      const aTime = a.episode?.createdAt?.getTime() ?? a.createdAt.getTime();
-      const bTime = b.episode?.createdAt?.getTime() ?? b.createdAt.getTime();
-      return bTime - aTime;
-    });
+    // 서브쿼리 정렬 순서(createdAt DESC) 복원
+    const orderMap = new Map(ids.map((id, i) => [id, i]));
+    rows.sort((a, b) => (orderMap.get(a.id) ?? 0) - (orderMap.get(b.id) ?? 0));
 
-    return toPaginatedResponse(sortedRows, totalCount, limit, offset);
+    return toPaginatedResponse(rows, totalCount, limit, offset);
   }
 }
