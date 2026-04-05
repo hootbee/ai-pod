@@ -234,4 +234,93 @@ export class CardNewsService {
 
     return this.cardNewsRepository.save(cardNews);
   }
+
+  /**
+   * 에피소드 대본에서 가장 임팩트 있는 주제 1개를 골라
+   * 4장 딥다이브 카드뉴스 메타데이터를 DB에 저장 (PNG 렌더링 없음 — 프론트 렌더링).
+   * thumbnail 카드에만 Unsplash 이미지 URL 수급.
+   * cardType = 'deep-dive'
+   */
+  async generateDeepDive(episodeId: string): Promise<CardNews> {
+    const episode = await this.episodesService.findOne(episodeId);
+    if (!episode?.script) {
+      throw new NotFoundException('에피소드 또는 대본을 찾을 수 없습니다');
+    }
+
+    this.logger.log(`[DEEP-DIVE] Director 딥다이브 분석 시작: episodeId=${episodeId}`);
+    const deepDiveScript = await this.directorService.analyzeDeepDive(episode.script);
+    this.logger.log(`[DEEP-DIVE] 주제: "${deepDiveScript.topicTitle}", 카드 ${deepDiveScript.cards.length}장`);
+
+    // thumbnail 카드에만 Unsplash 이미지 URL 수급
+    for (const card of deepDiveScript.cards) {
+      if (card.type === 'deep-thumbnail') {
+        const imageResult = await this.researcherService.findImage(card.imageKeyword);
+        card.imageUrl = imageResult?.url ?? null;
+        this.logger.log(`[DEEP-DIVE] 썸네일 이미지: ${card.imageUrl ?? '없음'}`);
+      }
+    }
+
+    // imagePaths: 카드별 imageUrl 저장 (thumbnail만 URL, 나머지는 빈 문자열)
+    const imagePaths = deepDiveScript.cards.map((c) => c.imageUrl ?? '');
+
+    const cardNews = this.cardNewsRepository.create({
+      episodeId,
+      imagePaths,
+      cardType: 'deep-dive',
+      slideCount: deepDiveScript.cards.length,
+      scriptSnapshot: deepDiveScript as unknown as Record<string, unknown>,
+    });
+
+    return this.cardNewsRepository.save(cardNews);
+  }
+
+  async findDeepDiveByEpisodeId(episodeId: string): Promise<CardNews[]> {
+    return this.cardNewsRepository.find({
+      where: { episodeId, cardType: 'deep-dive' },
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  async findLatestDeepDive(dto: PaginateCardNewsDto): Promise<PaginatedResponse<CardNews>> {
+    const limit = dto.limit ?? 10;
+    const offset = dto.offset ?? 0;
+
+    const totalCount: number = await this.cardNewsRepository
+      .createQueryBuilder('cardNews')
+      .select('COUNT(DISTINCT cardNews.episodeId)', 'count')
+      .where('cardNews.cardType = :cardType', { cardType: 'deep-dive' })
+      .getRawOne()
+      .then((r) => Number(r?.count ?? 0));
+
+    const rows = await this.cardNewsRepository
+      .createQueryBuilder('cardNews')
+      .leftJoinAndSelect('cardNews.episode', 'episode')
+      .select([
+        'cardNews.id',
+        'cardNews.episodeId',
+        'cardNews.imagePaths',
+        'cardNews.slideCount',
+        'cardNews.cardType',
+        'cardNews.scriptSnapshot',
+        'cardNews.createdAt',
+        'episode.id',
+        'episode.createdAt',
+        'episode.sources',
+      ])
+      .where('cardNews.cardType = :cardType', { cardType: 'deep-dive' })
+      .distinctOn(['cardNews.episodeId'])
+      .orderBy('cardNews.episodeId', 'ASC')
+      .addOrderBy('cardNews.createdAt', 'DESC')
+      .take(limit)
+      .skip(offset)
+      .getMany();
+
+    const sortedRows = rows.sort((a, b) => {
+      const aTime = a.episode?.createdAt?.getTime() ?? a.createdAt.getTime();
+      const bTime = b.episode?.createdAt?.getTime() ?? b.createdAt.getTime();
+      return bTime - aTime;
+    });
+
+    return toPaginatedResponse(sortedRows, totalCount, limit, offset);
+  }
 }

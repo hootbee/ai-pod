@@ -1,10 +1,13 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getQueueToken } from '@nestjs/bull';
+import { DataSource } from 'typeorm';
 import { PipelineService } from './pipeline.service';
 import { EpisodesService } from '../episodes/episodes.service';
 import { AiProcessorService } from '../ai-processor/ai-processor.service';
 import { CrawlerService } from '../crawler/crawler.service';
 import { CardNewsService } from '../card-news/card-news.service';
+import { HeadlineService } from '../episodes/headline.service';
+import { ThumbnailService } from '../thumbnail/thumbnail.service';
 import { TTS_QUEUE } from '../tts/tts.constants';
 
 // ── 공통 Mock 팩토리 ────────────────────────────────────────────────────────
@@ -25,7 +28,19 @@ const mockCrawlerService = () => ({
 });
 
 const mockCardNewsService = () => ({
-  generateTopics: jest.fn(),
+  generateDeepDive: jest.fn(),
+});
+
+const mockHeadlineService = () => ({
+  generateAndSave: jest.fn(),
+});
+
+const mockThumbnailService = () => ({
+  generateAndSave: jest.fn().mockResolvedValue({ imagePath: '/thumbnails/test.png' }),
+});
+
+const mockDataSource = () => ({
+  query: jest.fn(),
 });
 
 const mockTtsQueue = () => ({
@@ -50,6 +65,9 @@ describe('PipelineService', () => {
         { provide: AiProcessorService, useFactory: mockAiProcessorService },
         { provide: CrawlerService, useFactory: mockCrawlerService },
         { provide: CardNewsService, useFactory: mockCardNewsService },
+        { provide: HeadlineService, useFactory: mockHeadlineService },
+        { provide: ThumbnailService, useFactory: mockThumbnailService },
+        { provide: DataSource, useFactory: mockDataSource },
         { provide: getQueueToken(TTS_QUEUE), useFactory: mockTtsQueue },
       ],
     }).compile();
@@ -129,7 +147,7 @@ describe('PipelineService', () => {
         script: 'narrator: 테스트',
       });
       episodesService.create.mockResolvedValue({ id: 'ep-1', createdAt: new Date() });
-      cardNewsService.generateTopics.mockResolvedValue({ id: 'cn-1', slideCount: 3 });
+      cardNewsService.generateDeepDive.mockResolvedValue({ id: 'cn-1', slideCount: 3 });
       ttsQueue.add.mockResolvedValue({ id: 'job-1' });
 
       const result = await service.runDailyPipeline();
@@ -156,7 +174,7 @@ describe('PipelineService', () => {
         script: 'narrator: 안녕하세요',
       });
       episodesService.create.mockResolvedValue({ id: 'ep-123', createdAt: new Date() });
-      cardNewsService.generateTopics.mockResolvedValue({ id: 'cn-456', slideCount: 3 });
+      cardNewsService.generateDeepDive.mockResolvedValue({ id: 'cn-456', slideCount: 3 });
       ttsQueue.add.mockResolvedValue({ id: 'job-789' });
     });
 
@@ -215,7 +233,7 @@ describe('PipelineService', () => {
         .mockResolvedValueOnce({ title: '복구 성공', script: 'narrator: ok' });
 
       episodesService.create.mockResolvedValue({ id: 'ep-retry', createdAt: new Date() });
-      cardNewsService.generateTopics.mockResolvedValue({ id: 'cn-retry', slideCount: 1 });
+      cardNewsService.generateDeepDive.mockResolvedValue({ id: 'cn-retry', slideCount: 1 });
       ttsQueue.add.mockResolvedValue({ id: 'job-retry' });
 
       const result = await service.runDailyPipeline();
@@ -242,7 +260,7 @@ describe('PipelineService', () => {
     });
 
     it('카드뉴스 실패해도 에피소드 ID 반환, warnings에 기록', async () => {
-      cardNewsService.generateTopics.mockRejectedValue(new Error('director fail'));
+      cardNewsService.generateDeepDive.mockRejectedValue(new Error('director fail'));
 
       const result = await service.runDailyPipeline();
 
@@ -266,7 +284,7 @@ describe('PipelineService', () => {
       crawlerService.fetchArticleContent.mockResolvedValue('content');
       aiProcessorService.processNewsBriefing.mockResolvedValue({ title: 'T', script: 'S' });
       episodesService.create.mockResolvedValue({ id: 'ep-ok', createdAt: new Date() });
-      cardNewsService.generateTopics.mockResolvedValue({ id: 'cn-ok', slideCount: 2 });
+      cardNewsService.generateDeepDive.mockResolvedValue({ id: 'cn-ok', slideCount: 2 });
     });
 
     it('TTS 실패해도 에피소드·카드뉴스 유지, warnings에 기록', async () => {
