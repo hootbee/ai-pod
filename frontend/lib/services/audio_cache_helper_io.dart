@@ -11,6 +11,7 @@ import 'package:path_provider/path_provider.dart';
 Future<AudioSource> buildCachedAudioSource(
   String url, {
   Map<String, String>? headers,
+  Object? tag,
 }) async {
   final dir = await getTemporaryDirectory();
   final hash = url.hashCode.abs().toRadixString(36);
@@ -24,5 +25,6 @@ Future<AudioSource> buildCachedAudioSource(
     Uri.parse(url),
     headers: headers,
     cacheFile: cacheFile,
+    tag: tag,
   );
 }
