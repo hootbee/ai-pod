@@ -82,7 +82,7 @@ class _ETagCacheInterceptor extends Interceptor {
       final etag = response.headers.value('etag');
       if (etag != null) {
         final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('etag:$uri', uri.toString());
+        await prefs.setString('etag:$uri', etag);
         await prefs.setString('cache:$uri', jsonEncode(response.data));
       }
     }

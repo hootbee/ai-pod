@@ -112,7 +112,7 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
     }
   }
 
-  Future<void> _initAudio() async {
+  Future<void> _initAudio({int maxRetries = 3}) async {
     if (_audioInitializing) return;
     _audioInitializing = true;
 
@@ -123,33 +123,43 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
 
       final String targetUrl =
           widget.episode.audioUrl ?? widget.episode.streamUrl;
-      try {
-        final Object? mediaTag = kIsWeb
-            ? null
-            : MediaItem(
-                id: widget.episode.id,
-                title: widget.episode.headline ?? widget.episode.title,
-                artist: 'AIPod',
-                artUri: widget.episode.thumbnailUrl != null
-                    ? Uri.tryParse(widget.episode.thumbnailUrl!)
-                    : null,
-              );
-        final source = await NetworkCacheService.instance
-            .getCachedAudioSource(targetUrl, headers: headers, tag: mediaTag);
-        await _audioPlayer.setAudioSource(source);
-        if (!mounted) return;
-        setState(() {
-          _audioReady = true;
-          _audioError = null;
-        });
-        return;
-      } catch (e) {
-        if (!mounted) return;
-        setState(() {
-          _audioReady = false;
-          _audioError = '오디오 연결 실패: $e';
-        });
+      final Object? mediaTag = kIsWeb
+          ? null
+          : MediaItem(
+              id: widget.episode.id,
+              title: widget.episode.headline ?? widget.episode.title,
+              artist: 'AIPod',
+              artUri: widget.episode.thumbnailUrl != null
+                  ? Uri.tryParse(widget.episode.thumbnailUrl!)
+                  : null,
+            );
+
+      Object? lastError;
+      for (int attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          final source = await NetworkCacheService.instance
+              .getCachedAudioSource(targetUrl, headers: headers, tag: mediaTag);
+          await _audioPlayer.setAudioSource(source);
+          if (!mounted) return;
+          setState(() {
+            _audioReady = true;
+            _audioError = null;
+          });
+          return;
+        } catch (e) {
+          lastError = e;
+          if (attempt < maxRetries) {
+            await Future<void>.delayed(const Duration(seconds: 2));
+            if (!mounted) return;
+          }
+        }
       }
+
+      if (!mounted) return;
+      setState(() {
+        _audioReady = false;
+        _audioError = '오디오 연결 실패: $lastError';
+      });
     } finally {
       _audioInitializing = false;
     }

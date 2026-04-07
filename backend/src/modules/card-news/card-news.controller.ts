@@ -30,6 +30,20 @@ export class CardNewsController {
     return this.cardNewsService.generateTopics(episodeId);
   }
 
+  /**
+   * 딥다이브: 에피소드에서 가장 임팩트 있는 주제 1개를 4장 카드로 심층 설명.
+   * PNG 렌더링 포함. cardType = 'deep-dive'
+   */
+  @Post('generate-deep-dive/:episodeId')
+  generateDeepDive(@Param('episodeId') episodeId: string) {
+    return this.cardNewsService.generateDeepDive(episodeId);
+  }
+
+  @Get('deep-dive/latest')
+  findLatestDeepDive(@Query() paginateDto: PaginateCardNewsDto) {
+    return this.cardNewsService.findLatestDeepDive(paginateDto);
+  }
+
   @Get('latest')
   findLatestByEpisode(@Query() paginateDto: PaginateCardNewsDto) {
     return this.cardNewsService.findLatestByEpisode(paginateDto);
@@ -47,6 +61,11 @@ export class CardNewsController {
     @CurrentUser() user: TokenPayload,
   ) {
     return this.cardNewsService.incrementViewCount(id, user.sub);
+  }
+
+  @Get('deep-dive/:episodeId')
+  findDeepDiveByEpisodeId(@Param('episodeId') episodeId: string) {
+    return this.cardNewsService.findDeepDiveByEpisodeId(episodeId);
   }
 
   @Get(':episodeId')

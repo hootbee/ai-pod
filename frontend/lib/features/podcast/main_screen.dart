@@ -4,7 +4,7 @@ import '../../core/app_config.dart';
 import '../../services/network_cache_service.dart';
 import '../../shared/models/episode_source.dart';
 import '../../shared/widgets/click_wheel.dart';
-import '../card_news/card_news_screen.dart';
+import '../card_news/deep_dive_screen.dart';
 import 'podcast_player_screen.dart';
 
 class MainScreen extends StatefulWidget {
@@ -105,7 +105,7 @@ class _MainScreenState extends State<MainScreen> {
     Navigator.of(context).push(
       PageRouteBuilder(
         pageBuilder: (context, animation, secondaryAnimation) =>
-            const CardNewsScreen(),
+            const DeepDiveScreen(),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           // 오른쪽에서 왼쪽으로 스르륵 나타나는 애니메이션
           const begin = Offset(1.0, 0.0);

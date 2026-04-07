@@ -23,6 +23,10 @@ export class CardNews {
   @Column({ type: 'jsonb' })
   imagePaths: string[]; // 슬라이드별 PNG 경로 배열 [표지, 주제..., 마무리]
 
+  /** 'topics': 기존 주제별 1장, 'deep-dive': 1주제 4장 심층 */
+  @Column({ type: 'varchar', length: 20, default: 'topics' })
+  cardType: string;
+
   @Column({ type: 'int', default: 0 })
   slideCount: number;
 

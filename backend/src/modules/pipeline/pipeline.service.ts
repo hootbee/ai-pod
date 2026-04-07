@@ -108,7 +108,7 @@ export class PipelineService {
 
     // ── 4. 카드뉴스 생성 (실패해도 에피소드 유지) ─────────────────────────
     try {
-      const cardNews = await this.cardNewsService.generateTopics(episode.id);
+      const cardNews = await this.cardNewsService.generateDeepDive(episode.id);
       result.cardNewsId = cardNews.id;
       this.logger.log(`[Pipeline] 카드뉴스 생성 완료: ${cardNews.id} (${cardNews.slideCount}장)`);
     } catch (err: unknown) {
@@ -136,7 +136,7 @@ export class PipelineService {
 
   /** 카드뉴스만 재트리거 */
   async retryCardNews(episodeId: string) {
-    const cardNews = await this.cardNewsService.generateTopics(episodeId);
+    const cardNews = await this.cardNewsService.generateDeepDive(episodeId);
     this.logger.log(`[Pipeline] 카드뉴스 재생성 완료: ${cardNews.id}`);
     return cardNews;
   }
