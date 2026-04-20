@@ -142,7 +142,7 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
           await _audioPlayer.setAudioSource(source);
           if (!mounted) return;
           setState(() {
-            _audioReady = true;
+            _audioReady = true; 
             _audioError = null;
           });
           return;
