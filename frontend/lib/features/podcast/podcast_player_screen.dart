@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:frontend/services/audio_handler.dart';
 import 'package:just_audio_background/just_audio_background.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -73,13 +74,27 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
   @override
   void initState() {
     super.initState();
-    _audioPlayer = AudioPlayer();
+    _audioPlayer = AudioHandler.instance.player;
+  
     _positionSubscription = _audioPlayer.positionStream.listen(
       _handlePlaybackPositionChanged,
     );
     _loadSubtitleCues();
-    _initAudio();
+
+    final bool isPlaying = _audioPlayer.playing;
+    final bool isSameEpisode = AudioHandler.instance.currentEpisodeId == widget.episode.id;
+
+  if (isSameEpisode && isPlaying) {
+    setState(() {
+      _audioReady = true;
+    }); 
+  } else {
+    _initAudio().then((_) {
+      _audioPlayer.seek(Duration.zero);
+      _audioPlayer.play();
+    });
   }
+}
 
   Future<void> _loadSubtitleCues() async {
     final subtitleCuesUrl = widget.episode.subtitleCuesUrl;
@@ -140,6 +155,9 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
           final source = await NetworkCacheService.instance
               .getCachedAudioSource(targetUrl, headers: headers, tag: mediaTag);
           await _audioPlayer.setAudioSource(source);
+
+          AudioHandler.instance.currentEpisodeId = widget.episode.id;
+
           if (!mounted) return;
           setState(() {
             _audioReady = true; 
@@ -289,7 +307,6 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
   @override
   void dispose() {
     _positionSubscription?.cancel();
-    _audioPlayer.dispose();
     super.dispose();
   }
 

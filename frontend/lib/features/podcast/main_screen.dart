@@ -7,6 +7,8 @@ import '../../shared/widgets/click_wheel.dart';
 import '../card_news/deep_dive_screen.dart';
 import 'podcast_player_screen.dart';
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:just_audio/just_audio.dart';
+import '../../services/audio_handler.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -161,8 +163,15 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
-    bool isPlaying = false;
-    String? currentThumbnail = _episodes.isNotEmpty ? _episodes[_currentIndex].thumbnailUrl : null;
+    return StreamBuilder<PlayerState>(
+      stream: AudioHandler.instance.player.playerStateStream,
+      builder: (context, snapshot) {
+        final playerState = snapshot.data;
+        final bool isPlaying = playerState?.playing ?? false;
+
+        String? currentThumbnail = _episodes.isNotEmpty
+            ? _episodes[_currentIndex].thumbnailUrl
+            : null;
 
     return Scaffold(
       body: SafeArea(
@@ -187,49 +196,47 @@ class _MainScreenState extends State<MainScreen> {
       ),
       bottomNavigationBar: _buildBottomNavBar(context, isPlaying, currentThumbnail)
     );
+  },
+  );
   }
 
   Widget _buildBottomNavBar(BuildContext context, bool isPlaying, String? currentThumbnail) {
   final double screenWidth = MediaQuery.of(context).size.width;
-  final double cardWidth = screenWidth * 0.85 - 20;
 
-  final double navBarHeight = (screenWidth * 0.08).clamp(64.0, 80.0);
+  final double navBarHeight = (screenWidth * 0.08).clamp(56.0, 70.0);
+  final double navBarWidth = screenWidth - 40 - 16 - navBarHeight;
 
   return SafeArea(
     child: Padding(
-      padding: const EdgeInsets.only(bottom: 20.0),
+      padding: const EdgeInsets.only(bottom: 20.0, left: 20.0, right: 20.0),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisAlignment: isPlaying ? MainAxisAlignment.start : MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          SizedBox(
-            width: cardWidth,
-            child: Row(
-              children: [
-                Expanded(
-                  child: Container(
-                    height: navBarHeight,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF50583D),
-                      borderRadius: BorderRadius.circular(navBarHeight / 2),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        _buildNavItem(context, Symbols.podcasts, "팟캐스트", isSelected: true),
-                        _buildNavItem(context, Symbols.cards_stack, "카드뉴스", isSelected: false),
-                        _buildNavItem(context, Symbols.person, "보관함", isSelected: false),
-                      ],
-                    ),
-                  ),
-                ),
+          Container(
+            width: navBarWidth,
+            height: navBarHeight,
+            decoration: BoxDecoration(
+                color: const Color(0xFF50583D),
+                borderRadius: BorderRadius.circular(navBarHeight / 2),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _buildNavItem(context, Symbols.podcasts, "팟캐스트", isSelected: true),
+                  _buildNavItem(context, Symbols.cards_stack, "카드뉴스", isSelected: false),
+                  _buildNavItem(context, Symbols.person, "보관함", isSelected: false),
+                ],
+              ),
+            ),
 
                 if (isPlaying && currentThumbnail != null) ...[
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 16),
                   GestureDetector(
                     onTap: _enterPodcast,
                     child: Container(
-                      width: 64,
-                      height: 64,
+                      width: navBarHeight,
+                      height: navBarHeight,
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(16),
                         image: DecorationImage(
@@ -237,23 +244,27 @@ class _MainScreenState extends State<MainScreen> {
                           fit: BoxFit.cover,
                         ),
                         border: Border.all(color: Colors.white10, width: 1),
+                        boxShadow: [
+                          BoxShadow(
+                          color: Colors.black.withOpacity(0.2),
+                          blurRadius: 8,
+                          offset: const Offset(0, 4),
                       ),
-                    ),
+                    ],
                   ),
-                ],
-              ],
-            ),
-          ),
-        ],
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
-    ),
-  );
-}
+    );
+  }
 
 Widget _buildNavItem(BuildContext context, IconData icon, String label, {bool isSelected = false}) {
   final double screenWidth = MediaQuery.of(context).size.width;
-  final double itemWidth = (screenWidth * 0.235).clamp(70.0, 250.0);
-  final double itemHeight = (screenWidth * 0.0625).clamp(50.0, 60.0);
+  final double itemWidth = (screenWidth * 0.21).clamp(70.0, 250.0);
+  final double itemHeight = (screenWidth * 0.1).clamp(43.0, 60.0);
   final double iconSize = (screenWidth * 0.03).clamp(20.0, 26.0);
   final double fontSize = (screenWidth * 0.015).clamp(10.0, 14.0);
 
