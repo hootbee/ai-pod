@@ -6,6 +6,7 @@ import '../../shared/models/episode_source.dart';
 import '../../shared/widgets/click_wheel.dart';
 import '../card_news/deep_dive_screen.dart';
 import 'podcast_player_screen.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -160,6 +161,9 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
+    bool isPlaying = false;
+    String? currentThumbnail = _episodes.isNotEmpty ? _episodes[_currentIndex].thumbnailUrl : null;
+
     return Scaffold(
       body: SafeArea(
         child: Column(
@@ -181,8 +185,107 @@ class _MainScreenState extends State<MainScreen> {
           ],
         ),
       ),
+      bottomNavigationBar: _buildBottomNavBar(context, isPlaying, currentThumbnail)
     );
   }
+
+  Widget _buildBottomNavBar(BuildContext context, bool isPlaying, String? currentThumbnail) {
+  final double screenWidth = MediaQuery.of(context).size.width;
+  final double cardWidth = screenWidth * 0.85 - 20;
+
+  final double navBarHeight = (screenWidth * 0.08).clamp(64.0, 80.0);
+
+  return SafeArea(
+    child: Padding(
+      padding: const EdgeInsets.only(bottom: 20.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          SizedBox(
+            width: cardWidth,
+            child: Row(
+              children: [
+                Expanded(
+                  child: Container(
+                    height: navBarHeight,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF50583D),
+                      borderRadius: BorderRadius.circular(navBarHeight / 2),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        _buildNavItem(context, Symbols.podcasts, "팟캐스트", isSelected: true),
+                        _buildNavItem(context, Symbols.cards_stack, "카드뉴스", isSelected: false),
+                        _buildNavItem(context, Symbols.person, "보관함", isSelected: false),
+                      ],
+                    ),
+                  ),
+                ),
+
+                if (isPlaying && currentThumbnail != null) ...[
+                  const SizedBox(width: 12),
+                  GestureDetector(
+                    onTap: _enterPodcast,
+                    child: Container(
+                      width: 64,
+                      height: 64,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(16),
+                        image: DecorationImage(
+                          image: CachedNetworkImageProvider(currentThumbnail),
+                          fit: BoxFit.cover,
+                        ),
+                        border: Border.all(color: Colors.white10, width: 1),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+Widget _buildNavItem(BuildContext context, IconData icon, String label, {bool isSelected = false}) {
+  final double screenWidth = MediaQuery.of(context).size.width;
+  final double itemWidth = (screenWidth * 0.235).clamp(70.0, 250.0);
+  final double itemHeight = (screenWidth * 0.0625).clamp(50.0, 60.0);
+  final double iconSize = (screenWidth * 0.03).clamp(20.0, 26.0);
+  final double fontSize = (screenWidth * 0.015).clamp(10.0, 14.0);
+
+  return Container(
+    width: itemWidth,
+    height: itemHeight,
+    decoration: BoxDecoration(
+      color: isSelected ? const Color(0xFFA1A98F) : Colors.transparent,
+      borderRadius: BorderRadius.circular(itemHeight / 2),
+    ),
+    child: Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          icon,
+          size: iconSize,
+          color: isSelected ? const Color(0xFFB8FF00) : Colors.black87,
+        ),
+        const SizedBox(height: 2),
+        Text(
+          label,
+          style: TextStyle(
+            color: isSelected ? const Color(0xFFB8FF00) : Colors.black87,
+            fontSize: fontSize,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+          ),
+        ),
+      ],
+    ),
+  );
+}
 
   Widget _buildEpisodeSection() {
     if (_loading) {
