@@ -200,13 +200,23 @@ class _MainScreenState extends State<MainScreen> {
               children: [
                 const SizedBox(height: 20),
                 Expanded(child: _buildEpisodeSection()),
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onHorizontalDragEnd: (details) {
+                    if (details.primaryVelocity! < -300) {
+                      _onTabSelected(1);
+                    }
+                  },
+                  child: const SizedBox(
+                    width: double.infinity,
+                    height: 50,),
+                ),
                 Padding(
                   padding: const EdgeInsets.only(bottom: 60, top: 40),
                   child: ClickWheel(
                     onScrollRight: _nextPodcast,
                     onScrollLeft: _previousPodcast,
                     onCenterTap: _enterPodcast,
-                    onSwipeLeft: () => _onTabSelected(1),
               ),
             ),
           ],
