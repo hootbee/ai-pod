@@ -224,17 +224,22 @@ class _MainScreenState extends State<MainScreen> {
         final episode = _episodes[index];
         final hasHeadline = episode.headline?.trim().isNotEmpty ?? false;
         final hasSubtitle = episode.subtitle?.trim().isNotEmpty ?? false;
-        return Container(
-          margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 20),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.3),
-                blurRadius: 10,
-                offset: const Offset(0, 5),
-              ),
-            ],
+
+        return GestureDetector(
+          onTap: _enterPodcast,
+          behavior: HitTestBehavior.opaque,
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 20),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.3),
+                  blurRadius: 10,
+                  offset: const Offset(0, 5),
+                ),
+              ],
+
             image: episode.thumbnailUrl != null
                 ? DecorationImage(
                     image: CachedNetworkImageProvider(
@@ -311,6 +316,7 @@ class _MainScreenState extends State<MainScreen> {
               ],
             ),
           ),
+        ),
         );
       },
     );
