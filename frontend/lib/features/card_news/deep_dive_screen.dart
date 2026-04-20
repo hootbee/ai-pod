@@ -9,7 +9,8 @@ import '../../shared/models/episode_source.dart';
 import '../../shared/widgets/source_info_bottom_sheet.dart';
 
 class DeepDiveScreen extends StatefulWidget {
-  const DeepDiveScreen({super.key});
+  final VoidCallback? onBack;
+  const DeepDiveScreen({super.key, this.onBack});
 
   @override
   State<DeepDiveScreen> createState() => _DeepDiveScreenState();
@@ -180,7 +181,13 @@ class _DeepDiveScreenState extends State<DeepDiveScreen> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: () {
+            if (widget.onBack != null) {
+              widget.onBack!();
+            } else {
+              Navigator.of(context).pop();
+            }
+          },
         ),
         title: const Text(
           'DEEP DIVE',

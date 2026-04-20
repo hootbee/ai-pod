@@ -18,6 +18,20 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> {
+  int _currentTabIndex = 0;
+
+  late PageController _tabPageController;
+
+  void _onTabSelected(int index) {
+    setState(() {
+      _currentTabIndex = index;
+    });
+    _tabPageController.animateToPage(
+      index,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
+  }
   final PageController _pageController = PageController(viewportFraction: 0.85);
   List<PodcastEpisodeItem> _episodes = [];
   int _currentIndex = 0;
@@ -32,6 +46,7 @@ class _MainScreenState extends State<MainScreen> {
   @override
   void initState() {
     super.initState();
+    _tabPageController = PageController(initialPage: 0);
     _loadEpisodes();
   }
 
@@ -104,7 +119,7 @@ class _MainScreenState extends State<MainScreen> {
     return {'data': <dynamic>[], 'totalCount': 0, 'hasNextPage': false};
   }
 
-  void _goToCardNews() {
+  /*void _goToCardNews() {
     Navigator.of(context).push(
       PageRouteBuilder(
         pageBuilder: (context, animation, secondaryAnimation) =>
@@ -124,7 +139,7 @@ class _MainScreenState extends State<MainScreen> {
         },
       ),
     );
-  }
+  }*/
 
   // 다음 팟캐스트로 부드럽게 넘어가기
   void _nextPodcast() {
@@ -157,6 +172,7 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   void dispose() {
+    _tabPageController.dispose();
     _pageController.dispose(); // 메모리 누수 방지
     super.dispose();
   }
@@ -174,35 +190,42 @@ class _MainScreenState extends State<MainScreen> {
             : null;
 
     return Scaffold(
-      body: SafeArea(
-        child: Column(
-          children: [
-            const SizedBox(height: 20),
-            // 상단: 팟캐스트 커버 영역 (PageView)
-            Expanded(child: _buildEpisodeSection()),
-
-            // 하단: 우리가 만든 다이얼(Click Wheel)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 60, top: 40),
-              child: ClickWheel(
-                onScrollRight: _nextPodcast,
-                onScrollLeft: _previousPodcast,
-                onCenterTap: _enterPodcast,
-                onSwipeLeft: _goToCardNews,
+      backgroundColor: const Color(0xFF1E211A),
+      body: PageView(
+        controller: _tabPageController,
+        physics: const NeverScrollableScrollPhysics(),
+        children: [
+          SafeArea(
+            child: Column(
+              children: [
+                const SizedBox(height: 20),
+                Expanded(child: _buildEpisodeSection()),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 60, top: 40),
+                  child: ClickWheel(
+                    onScrollRight: _nextPodcast,
+                    onScrollLeft: _previousPodcast,
+                    onCenterTap: _enterPodcast,
+                    onSwipeLeft: () => _onTabSelected(1),
               ),
             ),
           ],
         ),
       ),
-      bottomNavigationBar: _buildBottomNavBar(context, isPlaying, currentThumbnail)
+      DeepDiveScreen(
+        onBack: () => _onTabSelected(0),
+      ),
+      const Center(child: Text('보관함', style: TextStyle(color: Colors.white70, fontSize: 18))),
+        ],
+      ),
+      bottomNavigationBar: _buildBottomNavBar(context, isPlaying, currentThumbnail, _currentTabIndex, _onTabSelected),
     );
   },
   );
   }
 
-  Widget _buildBottomNavBar(BuildContext context, bool isPlaying, String? currentThumbnail) {
+  Widget _buildBottomNavBar(BuildContext context, bool isPlaying, String? currentThumbnail, int selectedIndex, Function(int) onTabSelected) {
   final double screenWidth = MediaQuery.of(context).size.width;
-
   final double navBarHeight = (screenWidth * 0.08).clamp(56.0, 70.0);
   final double navBarWidth = screenWidth - 40 - 16 - navBarHeight;
 
@@ -223,9 +246,18 @@ class _MainScreenState extends State<MainScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  _buildNavItem(context, Symbols.podcasts, "팟캐스트", isSelected: true),
-                  _buildNavItem(context, Symbols.cards_stack, "카드뉴스", isSelected: false),
-                  _buildNavItem(context, Symbols.person, "보관함", isSelected: false),
+                  GestureDetector(
+                    onTap: () => onTabSelected(0),
+                    child: _buildNavItem(context, Symbols.podcasts, "팟캐스트", isSelected: selectedIndex == 0),
+                  ),
+                  GestureDetector(
+                    onTap: () => onTabSelected(1),
+                    child: _buildNavItem(context, Symbols.cards_stack, "카드뉴스", isSelected: selectedIndex == 1),
+                  ),
+                  GestureDetector(
+                    onTap: () => onTabSelected(2),
+                    child: _buildNavItem(context, Symbols.person, "보관함", isSelected: selectedIndex == 2),
+                  ),
                 ],
               ),
             ),
