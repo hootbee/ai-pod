@@ -6,6 +6,9 @@ import '../../shared/models/episode_source.dart';
 import '../../shared/widgets/click_wheel.dart';
 import '../card_news/deep_dive_screen.dart';
 import 'podcast_player_screen.dart';
+import 'package:material_symbols_icons/symbols.dart';
+import 'package:just_audio/just_audio.dart';
+import '../../services/audio_handler.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -15,6 +18,20 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> {
+  int _currentTabIndex = 0;
+
+  late PageController _tabPageController;
+
+  void _onTabSelected(int index) {
+    setState(() {
+      _currentTabIndex = index;
+    });
+    _tabPageController.animateToPage(
+      index,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
+  }
   final PageController _pageController = PageController(viewportFraction: 0.85);
   List<PodcastEpisodeItem> _episodes = [];
   int _currentIndex = 0;
@@ -29,6 +46,7 @@ class _MainScreenState extends State<MainScreen> {
   @override
   void initState() {
     super.initState();
+    _tabPageController = PageController(initialPage: 0);
     _loadEpisodes();
   }
 
@@ -101,7 +119,7 @@ class _MainScreenState extends State<MainScreen> {
     return {'data': <dynamic>[], 'totalCount': 0, 'hasNextPage': false};
   }
 
-  void _goToCardNews() {
+  /*void _goToCardNews() {
     Navigator.of(context).push(
       PageRouteBuilder(
         pageBuilder: (context, animation, secondaryAnimation) =>
@@ -121,7 +139,7 @@ class _MainScreenState extends State<MainScreen> {
         },
       ),
     );
-  }
+  }*/
 
   // 다음 팟캐스트로 부드럽게 넘어가기
   void _nextPodcast() {
@@ -154,35 +172,173 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   void dispose() {
+    _tabPageController.dispose();
     _pageController.dispose(); // 메모리 누수 방지
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: Column(
-          children: [
-            const SizedBox(height: 20),
-            // 상단: 팟캐스트 커버 영역 (PageView)
-            Expanded(child: _buildEpisodeSection()),
+    return StreamBuilder<PlayerState>(
+      stream: AudioHandler.instance.player.playerStateStream,
+      builder: (context, snapshot) {
+        final playerState = snapshot.data;
+        final bool isPlaying = playerState?.playing ?? false;
 
-            // 하단: 우리가 만든 다이얼(Click Wheel)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 60, top: 40),
-              child: ClickWheel(
-                onScrollRight: _nextPodcast,
-                onScrollLeft: _previousPodcast,
-                onCenterTap: _enterPodcast,
-                onSwipeLeft: _goToCardNews,
+        String? currentThumbnail = _episodes.isNotEmpty
+            ? _episodes[_currentIndex].thumbnailUrl
+            : null;
+
+    return Scaffold(
+      backgroundColor: const Color(0xFF1E211A),
+      body: PageView(
+        controller: _tabPageController,
+        physics: const NeverScrollableScrollPhysics(),
+        children: [
+          SafeArea(
+            child: Column(
+              children: [
+                const SizedBox(height: 20),
+                Expanded(child: _buildEpisodeSection()),
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onHorizontalDragEnd: (details) {
+                    if (details.primaryVelocity! < -300) {
+                      _onTabSelected(1);
+                    }
+                  },
+                  child: const SizedBox(
+                    width: double.infinity,
+                    height: 50,),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 60, top: 40),
+                  child: ClickWheel(
+                    onScrollRight: _nextPodcast,
+                    onScrollLeft: _previousPodcast,
+                    onCenterTap: _enterPodcast,
               ),
             ),
           ],
         ),
       ),
+      DeepDiveScreen(
+        onBack: () => _onTabSelected(0),
+      ),
+      const Center(child: Text('보관함', style: TextStyle(color: Colors.white70, fontSize: 18))),
+        ],
+      ),
+      bottomNavigationBar: _buildBottomNavBar(context, isPlaying, currentThumbnail, _currentTabIndex, _onTabSelected),
+    );
+  },
+  );
+  }
+
+  Widget _buildBottomNavBar(BuildContext context, bool isPlaying, String? currentThumbnail, int selectedIndex, Function(int) onTabSelected) {
+  final double screenWidth = MediaQuery.of(context).size.width;
+  final double navBarHeight = (screenWidth * 0.08).clamp(56.0, 70.0);
+  final double navBarWidth = screenWidth - 40 - 16 - navBarHeight;
+
+  return SafeArea(
+    child: Padding(
+      padding: const EdgeInsets.only(bottom: 20.0, left: 20.0, right: 20.0),
+      child: Row(
+        mainAxisAlignment: isPlaying ? MainAxisAlignment.start : MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            width: navBarWidth,
+            height: navBarHeight,
+            decoration: BoxDecoration(
+                color: const Color(0xFF50583D),
+                borderRadius: BorderRadius.circular(navBarHeight / 2),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  GestureDetector(
+                    onTap: () => onTabSelected(0),
+                    child: _buildNavItem(context, Symbols.podcasts, "팟캐스트", isSelected: selectedIndex == 0),
+                  ),
+                  GestureDetector(
+                    onTap: () => onTabSelected(1),
+                    child: _buildNavItem(context, Symbols.cards_stack, "카드뉴스", isSelected: selectedIndex == 1),
+                  ),
+                  GestureDetector(
+                    onTap: () => onTabSelected(2),
+                    child: _buildNavItem(context, Symbols.person, "보관함", isSelected: selectedIndex == 2),
+                  ),
+                ],
+              ),
+            ),
+
+                if (isPlaying && currentThumbnail != null) ...[
+                  const SizedBox(width: 16),
+                  GestureDetector(
+                    onTap: _enterPodcast,
+                    child: Container(
+                      width: navBarHeight,
+                      height: navBarHeight,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(16),
+                        image: DecorationImage(
+                          image: CachedNetworkImageProvider(currentThumbnail),
+                          fit: BoxFit.cover,
+                        ),
+                        border: Border.all(color: Colors.white10, width: 1),
+                        boxShadow: [
+                          BoxShadow(
+                          color: Colors.black.withOpacity(0.2),
+                          blurRadius: 8,
+                          offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
+
+Widget _buildNavItem(BuildContext context, IconData icon, String label, {bool isSelected = false}) {
+  final double screenWidth = MediaQuery.of(context).size.width;
+  final double itemWidth = (screenWidth * 0.21).clamp(70.0, 250.0);
+  final double itemHeight = (screenWidth * 0.1).clamp(43.0, 60.0);
+  final double iconSize = (screenWidth * 0.03).clamp(20.0, 26.0);
+  final double fontSize = (screenWidth * 0.015).clamp(10.0, 14.0);
+
+  return Container(
+    width: itemWidth,
+    height: itemHeight,
+    decoration: BoxDecoration(
+      color: isSelected ? const Color(0xFFA1A98F) : Colors.transparent,
+      borderRadius: BorderRadius.circular(itemHeight / 2),
+    ),
+    child: Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          icon,
+          size: iconSize,
+          color: isSelected ? const Color(0xFFB8FF00) : Colors.black87,
+        ),
+        const SizedBox(height: 2),
+        Text(
+          label,
+          style: TextStyle(
+            color: isSelected ? const Color(0xFFB8FF00) : Colors.black87,
+            fontSize: fontSize,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+          ),
+        ),
+      ],
+    ),
+  );
+}
 
   Widget _buildEpisodeSection() {
     if (_loading) {
@@ -224,17 +380,22 @@ class _MainScreenState extends State<MainScreen> {
         final episode = _episodes[index];
         final hasHeadline = episode.headline?.trim().isNotEmpty ?? false;
         final hasSubtitle = episode.subtitle?.trim().isNotEmpty ?? false;
-        return Container(
-          margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 20),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.3),
-                blurRadius: 10,
-                offset: const Offset(0, 5),
-              ),
-            ],
+
+        return GestureDetector(
+          onTap: _enterPodcast,
+          behavior: HitTestBehavior.opaque,
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 20),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.3),
+                  blurRadius: 10,
+                  offset: const Offset(0, 5),
+                ),
+              ],
+
             image: episode.thumbnailUrl != null
                 ? DecorationImage(
                     image: CachedNetworkImageProvider(
@@ -311,6 +472,7 @@ class _MainScreenState extends State<MainScreen> {
               ],
             ),
           ),
+        ),
         );
       },
     );
