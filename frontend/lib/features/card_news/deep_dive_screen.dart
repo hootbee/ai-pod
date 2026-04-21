@@ -175,7 +175,7 @@ class _DeepDiveScreenState extends State<DeepDiveScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0a0a14),
+      backgroundColor: const Color(0xFF1E211A),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -187,7 +187,7 @@ class _DeepDiveScreenState extends State<DeepDiveScreen> {
             } else {
               Navigator.of(context).pop();
             }
-          },
+          }
         ),
         title: const Text(
           'DEEP DIVE',

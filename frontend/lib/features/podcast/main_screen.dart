@@ -260,7 +260,7 @@ class _MainScreenState extends State<MainScreen> {
                     ),
                   ),
                   DeepDiveScreen(onBack: () => _onTabSelected(0)),
-                  const Center(child: Text('보관함', style: TextStyle(color: Colors.white70, fontSize: 18))),
+                  _buildLibraryTab(currentUser),
                 ],
               ),
               bottomNavigationBar: _buildBottomNavBar(context, isPlaying, currentThumbnail, _currentTabIndex, _onTabSelected),
@@ -325,7 +325,7 @@ class _MainScreenState extends State<MainScreen> {
                         border: Border.all(color: Colors.white10, width: 1),
                         boxShadow: [
                           BoxShadow(
-                          color: Colors.black.withOpacity(0.2),
+                          color: Colors.black.withValues(alpha:0.2),
                           blurRadius: 8,
                           offset: const Offset(0, 4),
                       ),
@@ -376,6 +376,152 @@ Widget _buildNavItem(BuildContext context, IconData icon, String label, {bool is
     ),
   );
 }
+
+Widget _buildLibraryTab(GoogleSignInAccount? user) {
+  final List<Map<String, String>> mockupData = [
+    {'title': '1', 'date': '2026-05-06'},
+    {'title': '2', 'date': '2026-06-07'},
+    {'title': '3', 'date': '2026-07-08'},
+  ];
+
+  return SafeArea(
+    child: Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 20, right: 30, top: 50, bottom: 20),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Image.asset('assets/images/aipod_logo.png', width: 130),
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white24, width: 1.5),
+                  color: Colors.grey[900],
+                ),
+                child: ClipOval(
+                  child: user?.photoUrl != null
+                      ? Image.network(user!.photoUrl!, fit: BoxFit.cover)
+                      : const Icon(Icons.person, color: Colors.white, size: 24),
+                ),
+              ),
+            ],
+          ),
+        ),
+    Expanded(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Column(
+              children: [
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 35, horizontal: 24), 
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF434A38),
+                    borderRadius: BorderRadius.circular(28),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 80,
+                        height: 80,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white24, width: 2),
+                          color: Colors.white.withValues(alpha: 0.1),
+                        ),
+                        child: ClipOval(
+                          child: user?.photoUrl != null
+                              ? Image.network(user!.photoUrl!, fit: BoxFit.cover)
+                              : const Icon(Icons.person, color: Colors.white, size: 50),
+                        ),
+                      ),
+                      const SizedBox(width: 20),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              user?.displayName ?? "로그인이 필요합니다",
+                              style: const TextStyle(
+                                color: Colors.white, 
+                                fontSize: 20, 
+                                fontWeight: FontWeight.bold
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              user?.email ?? "계정 정보를 불러올 수 없습니다",
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.5), 
+                                fontSize: 14
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 25),
+
+          Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF434A38),
+                      borderRadius: BorderRadius.circular(28),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Row(
+                          children: [
+                            Icon(Symbols.stacks, color: Colors.white, size: 25),
+                            SizedBox(width: 10),
+                            Text('기록', style: TextStyle(color: Colors.white, fontSize: 15)),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+                        Expanded(
+                          child: ListView.separated(
+                            itemCount: mockupData.length,
+                            separatorBuilder: (context, index) => Divider(color: Colors.white.withValues(alpha: 0.1), height: 30),
+                            itemBuilder: (context, index) {
+                              return Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    mockupData[index]['title']!,
+                                    style: const TextStyle(color: Colors.white, fontSize: 16),
+                                  ),
+                                  Text(
+                                    mockupData[index]['date']!,
+                                    style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 13),
+                                  ),
+                                ],
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+              ],
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
 
   Widget _buildEpisodeSection() {
     if (_loading) {
