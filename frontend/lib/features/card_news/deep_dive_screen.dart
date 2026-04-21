@@ -313,17 +313,17 @@ class _DeepDiveScreenState extends State<DeepDiveScreen> {
                       totalCards: day.cards.length,
                       sources: day.sources,
                     ),
-                          );
-                },
-                        ),
-            ),
-                      ],
-                  );
-                },
+                    );
+                  },
+                ),
               ),
-            );
-      }
+            ],
+          );
+        },
+      ),
+    );
   }
+}
 
 
 // ─── 카드 렌더러 ────────────────────────────────────────────────────────────────
