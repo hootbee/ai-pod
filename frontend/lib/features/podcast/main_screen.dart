@@ -9,6 +9,7 @@ import 'podcast_player_screen.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:just_audio/just_audio.dart';
 import '../../services/audio_handler.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -179,59 +180,95 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final GoogleSignIn googleSignIn = GoogleSignIn();
+
     return StreamBuilder<PlayerState>(
       stream: AudioHandler.instance.player.playerStateStream,
       builder: (context, snapshot) {
-        final playerState = snapshot.data;
-        final bool isPlaying = playerState?.playing ?? false;
+        final bool isPlaying = snapshot.data?.playing ?? false;
+        String? currentThumbnail = _episodes.isNotEmpty ? _episodes[_currentIndex].thumbnailUrl : null;
 
-        String? currentThumbnail = _episodes.isNotEmpty
-            ? _episodes[_currentIndex].thumbnailUrl
-            : null;
+        return StreamBuilder<GoogleSignInAccount?>(
+          stream: googleSignIn.onCurrentUserChanged,
+          initialData: googleSignIn.currentUser, 
+          builder: (context, userSnapshot) {
+            final currentUser = userSnapshot.data;
 
-    return Scaffold(
-      backgroundColor: const Color(0xFF1E211A),
-      body: PageView(
-        controller: _tabPageController,
-        physics: const NeverScrollableScrollPhysics(),
-        children: [
-          SafeArea(
-            child: Column(
-              children: [
-                const SizedBox(height: 20),
-                Expanded(child: _buildEpisodeSection()),
-                GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onHorizontalDragEnd: (details) {
-                    if (details.primaryVelocity! < -300) {
-                      _onTabSelected(1);
-                    }
-                  },
-                  child: const SizedBox(
-                    width: double.infinity,
-                    height: 50,),
-                ),
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 60, top: 40),
-                  child: ClickWheel(
-                    onScrollRight: _nextPodcast,
-                    onScrollLeft: _previousPodcast,
-                    onCenterTap: _enterPodcast,
+            return Scaffold(
+              backgroundColor: const Color(0xFF1E211A),
+              body: PageView(
+                controller: _tabPageController,
+                physics: const NeverScrollableScrollPhysics(),
+                children: [
+                  SafeArea(
+                    child: Column(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.only(left: 20, right: 30, top: 50, bottom: 0),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Image.asset('assets/images/aipod_logo.png', width: 130),
+                            
+                              Container(
+                                width: 44,
+                                height: 44,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: Colors.white24, width: 1.5),
+                                  color: Colors.grey[900],
+                                ),
+                                child: ClipOval(
+                                  child: (currentUser?.photoUrl != null)
+                                      ? Image.network(
+                                          currentUser!.photoUrl!,
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (context, error, stackTrace) => 
+                                            const Icon(Icons.person, color: Colors.white, size: 24),
+                                        )
+                                      : const Icon(Icons.person, color: Colors.white, size: 24),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Expanded(
+                          flex: 4,
+                          child: _buildEpisodeSection(),
+                        ),
+                        GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onHorizontalDragEnd: (details) {
+                            if (details.primaryVelocity! < -300) {
+                              _onTabSelected(1);
+                            }
+                          },
+                          child: const SizedBox(
+                            width: double.infinity,
+                            height: 40,
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 50),
+                          child: ClickWheel(
+                            onScrollRight: _nextPodcast,
+                            onScrollLeft: _previousPodcast,
+                            onCenterTap: _enterPodcast,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  DeepDiveScreen(onBack: () => _onTabSelected(0)),
+                  const Center(child: Text('보관함', style: TextStyle(color: Colors.white70, fontSize: 18))),
+                ],
               ),
-            ),
-          ],
-        ),
-      ),
-      DeepDiveScreen(
-        onBack: () => _onTabSelected(0),
-      ),
-      const Center(child: Text('보관함', style: TextStyle(color: Colors.white70, fontSize: 18))),
-        ],
-      ),
-      bottomNavigationBar: _buildBottomNavBar(context, isPlaying, currentThumbnail, _currentTabIndex, _onTabSelected),
+              bottomNavigationBar: _buildBottomNavBar(context, isPlaying, currentThumbnail, _currentTabIndex, _onTabSelected),
+            );
+          },
+        );
+      },
     );
-  },
-  );
   }
 
   Widget _buildBottomNavBar(BuildContext context, bool isPlaying, String? currentThumbnail, int selectedIndex, Function(int) onTabSelected) {
@@ -385,7 +422,7 @@ Widget _buildNavItem(BuildContext context, IconData icon, String label, {bool is
           onTap: _enterPodcast,
           behavior: HitTestBehavior.opaque,
           child: Container(
-            margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 20),
+            margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(24),
               boxShadow: [
@@ -423,11 +460,12 @@ Widget _buildNavItem(BuildContext context, IconData icon, String label, {bool is
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (hasHeadline) ...[
-                  Container(
+                Flexible(
+                  child: Container(
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(
                       horizontal: 14,
-                      vertical: 12,
+                      vertical: 8,
                     ),
                     decoration: BoxDecoration(
                       color: Colors.black.withValues(alpha: 0.42),
@@ -444,10 +482,12 @@ Widget _buildNavItem(BuildContext context, IconData icon, String label, {bool is
                       ),
                     ),
                   ),
+                ),
                 ],
                 if (hasSubtitle) ...[
                   SizedBox(height: hasHeadline ? 10 : 0),
-                  Container(
+                  Flexible(
+                    child: Container(
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(
                       horizontal: 14,
@@ -466,6 +506,7 @@ Widget _buildNavItem(BuildContext context, IconData icon, String label, {bool is
                         fontWeight: FontWeight.w500,
                         color: Color(0xFFECECEC),
                       ),
+                    ),
                     ),
                   ),
                 ],
