@@ -33,6 +33,14 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
   StreamSubscription<Duration>? _positionSubscription;
   String? _audioError;
   bool _audioReady = false;
+  String _formatDuration(Duration? duration) {
+    if (duration == null) return "00:00";
+    String twoDigits(int n) => n.toString().padLeft(2, '0');
+    final minutes = twoDigits(duration.inMinutes.remainder(60));
+    final seconds = twoDigits(duration.inSeconds.remainder(60));
+    return "$minutes:$seconds";
+  }
+
   bool _audioInitializing = false;
   bool _subtitleCuesLoading = false;
   List<SubtitleCue> _subtitleCues = [];
@@ -152,9 +160,10 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
       Object? lastError;
       for (int attempt = 1; attempt <= maxRetries; attempt++) {
         try {
+          await _audioPlayer.stop();
           final source = await NetworkCacheService.instance
               .getCachedAudioSource(targetUrl, headers: headers, tag: mediaTag);
-          await _audioPlayer.setAudioSource(source);
+          await _audioPlayer.setAudioSource(source, preload: true);
 
           AudioHandler.instance.currentEpisodeId = widget.episode.id;
 
@@ -396,6 +405,7 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
               ),
             ),
           ),
+
           if (_subtitleCuesLoading)
             Padding(
               padding: const EdgeInsets.only(bottom: 12),
@@ -407,6 +417,51 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
                 ),
               ),
             ),
+
+            StreamBuilder<Duration?>(
+            stream: _audioPlayer.positionStream,
+            builder: (context, snapshot) {
+              final position = snapshot.data ?? Duration.zero;
+              final duration = _audioPlayer.duration ?? Duration.zero;
+
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 40.0),
+                child: Column(
+                  children: [
+                    SliderTheme(
+                      data: SliderTheme.of(context).copyWith(
+                        trackHeight: 10.5,
+                        trackShape: const RoundedRectSliderTrackShape(),
+                        thumbShape: SliderComponentShape.noThumb,
+                        overlayShape: SliderComponentShape.noOverlay,
+                        activeTrackColor: const Color(0xFF4F7C2D),
+                        inactiveTrackColor: const Color(0xFF344D1C),
+                      ),
+                      child: Slider(
+                        min: 0.0,
+                        max: duration.inMilliseconds.toDouble(),
+                        value: position.inMilliseconds.toDouble().clamp(0.0, duration.inMilliseconds.toDouble()),
+                        onChanged: (value) {
+                          _audioPlayer.seek(Duration(milliseconds: value.toInt()));
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 7),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(_formatDuration(position), style: const TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w500)),
+                          Text(_formatDuration(duration), style: const TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w500)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
 
           Padding(
             padding: const EdgeInsets.only(bottom: 50.0, top: 20.0),
