@@ -297,12 +297,14 @@ class _DeepDiveScreenState extends State<DeepDiveScreen> {
             ),
             Expanded(
               child: PageView.builder(
+                key: ValueKey('pageview_$dayIndex'),
                 scrollDirection: Axis.horizontal,
                 controller: _controllerFor(dayIndex),
                 onPageChanged: (slideIndex) => _onSlideChanged(dayIndex, slideIndex),
                 itemCount: day.cards.length,
                 itemBuilder: (context, slideIndex) {
                   final card = day.cards[slideIndex];
+
                   return Padding(
                     padding: const EdgeInsets.fromLTRB(8, 16, 10, 24),
                     child: _DeepDiveCardView(
@@ -311,17 +313,18 @@ class _DeepDiveScreenState extends State<DeepDiveScreen> {
                       totalCards: day.cards.length,
                       sources: day.sources,
                     ),
+                          );
+                },
+                        ),
+            ),
+                      ],
                   );
                 },
               ),
-            ),
-          ],
-        );
-      },
-    ),   // PageView.builder
-    ); // RefreshIndicator
+            );
+      }
   }
-}
+
 
 // ─── 카드 렌더러 ────────────────────────────────────────────────────────────────
 
@@ -634,26 +637,29 @@ class _ContentCard extends StatelessWidget {
                   color: const Color(0xFF16162a),
                   borderRadius: BorderRadius.circular(20),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    for (var i = 0; i < paragraphs.length; i++) ...[
-                      if (i > 0) const SizedBox(height: 14),
-                      Text(
-                        paragraphs[i],
-                        style: TextStyle(
-                          color: i == 0
-                              ? Colors.white
-                              : i == 1
-                                  ? accent
-                                  : Colors.white.withValues(alpha: 0.72),
-                          fontSize: i == 0 ? 17 : 15,
-                          fontWeight: i == 0 ? FontWeight.w700 : FontWeight.w500,
-                          height: 1.6,
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      for (var i = 0; i < paragraphs.length; i++) ...[
+                        if (i > 0) const SizedBox(height: 14),
+                        Text(
+                          paragraphs[i],
+                          style: TextStyle(
+                            color: i == 0
+                                ? Colors.white
+                                : i == 1
+                                    ? accent
+                                    : Colors.white.withValues(alpha: 0.72),
+                            fontSize: i == 0 ? 17 : 15,
+                            fontWeight: i == 0 ? FontWeight.w700 : FontWeight.w500,
+                            height: 1.6,
+                          ),
                         ),
-                      ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
               ),
             ),
