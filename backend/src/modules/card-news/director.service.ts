@@ -37,40 +37,41 @@ export class DirectorService implements IDirectorService {
     });
 
     const prompt = `
-당신은 IT 테크 미디어의 수석 크리에이티브 디렉터입니다.
-아래 팟캐스트 대본을 읽고, 멀티 슬라이드 카드뉴스 구성을 JSON으로만 답하세요.
-오늘 날짜: ${today}
+You are the chief creative director of an IT tech media company.
+Read the podcast script below and respond with ONLY JSON for a multi-slide card news layout.
+Today's date: ${today}
 
-[슬라이드 구성 규칙]
-1. 첫 번째 슬라이드 (type: "cover")
-   - title: "오늘의 테크 브리핑" 또는 주제를 아우르는 한국어 헤드라인 (최대 20자)
-   - body: "${today} · 주요 테크 뉴스 N가지" 형식
-   - imageKeyword: 전체 주제를 대표하는 영어 단어 1개 (예: "technology")
+[Slide Composition Rules]
+1. First slide (type: "cover")
+   - title: "오늘의 테크 브리핑" or a headline encompassing the topic (max 20 Korean chars)
+   - body: Format "${today} · 주요 테크 뉴스 N가지"
+   - imageKeyword: One English word representing the overall topic (e.g., "technology")
 
-2. 중간 슬라이드들 (type: "topic") - 대본의 핵심 주제를 최대 4개까지 추출
-   - 대본에 다루는 뉴스 주제 수만큼 생성 (최소 1개, 최대 4개)
-   - 각 topic 슬라이드:
-   - title: 해당 뉴스의 핵심 헤드라인 (최대 20자)
-   - body: 아래 3줄 구조로 작성, 총 공백 포함 100~150자
-     · 첫 줄: 해당 주제의 가장 중요한 팩트 (1문장)
-     · 중간 줄: 수치나 구체적인 근거 (신뢰도 향상, 1문장)
-     · 마지막 줄: 시사점 또는 결론 (1문장)
-     예시: "오픈AI가 차세대 AI 모델 GPT-5 개발을 공식 확인했습니다.\n학습 비용만 1조 원 이상이 투입될 예정입니다.\nAI 패권 경쟁이 새로운 국면에 접어들었습니다."
-   - imageKeyword: Unsplash에서 반드시 검색되는 보편적인 영어 단어 1개
-     (구체적인 복합어 금지! 예: "gaming ai" ❌ → "gaming" ✅, "nuclear energy" ❌ → "nuclear" ✅)
-   - hashtags: 주제 관련 한국어 해시태그 2~3개 (예: ["#에너지", "#지속가능성", "#원자력"])
+2. Middle slides (type: "topic") - Extract key topics from the script
+   - Generate one per news topic (min 1, max 4)
+   - Each topic slide:
+   - title: Core headline for that news item (max 20 Korean chars)
+   - body: 3-line structure, 100~150 total chars including spaces
+     · Line 1: The single most important fact (1 sentence)
+     · Line 2: Specific figures or evidence for credibility (1 sentence)
+     · Line 3: Implication or conclusion (1 sentence)
+     Example: "오픈AI가 차세대 AI 모델 GPT-5 개발을 공식 확인했습니다.\n학습 비용만 1조 원 이상이 투입될 예정입니다.\nAI 패권 경쟁이 새로운 국면에 접어들었습니다."
+   - imageKeyword: One common English word guaranteed to return results on Unsplash
+     (No compound words! "gaming ai" ❌ → "gaming" ✅, "nuclear energy" ❌ → "nuclear" ✅)
+   - hashtags: 2~3 Korean hashtags for the topic (e.g., ["#에너지", "#지속가능성", "#원자력"])
 
-3. 마지막 슬라이드 (type: "closing")
-   - title: "더 자세히 들어보세요" 고정
+3. Last slide (type: "closing")
+   - title: "더 자세히 들어보세요" (fixed)
    - body: "오늘의 테크 브리핑 전체 내용은 AiPod 팟캐스트에서 확인하세요."
    - imageKeyword: "podcast"
 
-[공통 규칙]
-- theme: 전반적 분위기에 따라 'dark' 또는 'light'
+[Common Rules]
+- theme: 'dark' or 'light' based on overall tone
 - mood: 'serious' | 'bright' | 'urgent'
-- 각 슬라이드의 accentColor: 슬라이드마다 어울리는 hex 색상 (표지는 브랜드색, 주제마다 다른 색)
+- accentColor per slide: appropriate hex color (brand color for cover, different colors per topic)
 
-반드시 아래 JSON 형식으로만 응답하세요 (마크다운 없이):
+IMPORTANT: Write ALL Korean text fields (title, body, hashtags) in Korean.
+Respond ONLY in the following JSON format (no markdown):
 {
   "theme": "dark",
   "mood": "serious",
@@ -154,44 +155,46 @@ ${script.slice(0, 3000)}
 
   async analyzeDeepDive(script: string): Promise<DeepDiveScript> {
     const prompt = `
-당신은 IT 테크 미디어의 수석 에디터입니다.
-아래 팟캐스트 대본에서 가장 임팩트 있는 주제 하나를 골라, 4장짜리 딥다이브 카드뉴스를 JSON으로만 작성하세요.
+You are the chief editor of an IT tech media company.
+Read the podcast script below, choose the single most impactful topic,
+and write a 4-card deep-dive card news in JSON format only.
 
-[카드 구성 규칙]
-카드 1 (type: "deep-thumbnail") — 자극적 표지
-  - title: 독자가 멈추게 만드는 자극적이고 충격적인 한국어 제목 (최대 22자, 의문문·감탄문·숫자 활용)
-    예: "AI가 개발자를 전멸시킨다?", "애플 주가 하루 만에 20% 증발", "이것 모르면 도태됩니다"
-  - subtitle: 제목을 보완하는 도발적인 부제 (최대 40자, 독자의 궁금증 자극)
-    예: "빅테크 3사가 동시에 감원을 발표한 진짜 이유", "침묵하던 젠슨 황이 입을 열었다"
-  - body: 이 카드뉴스에서 다룰 내용 한줄 티저 (최대 60자)
-  - imageKeyword: Unsplash에서 반드시 검색되는 보편적 영어 단어 1개 (예: "technology", "ai", "code")
-  - accentColor: 강렬하고 눈에 띄는 hex 색상
+[Card Composition Rules]
+Card 1 (type: "deep-thumbnail") — Provocative cover
+  - title: Shocking, attention-stopping Korean title (max 22 chars, use questions/numbers/exclamations)
+    Examples: "AI가 개발자를 전멸시킨다?", "애플 주가 하루 만에 20% 증발", "이것 모르면 도태됩니다"
+  - subtitle: Provocative Korean subtitle (max 40 chars, sparks reader curiosity)
+    Examples: "빅테크 3사가 동시에 감원을 발표한 진짜 이유", "침묵하던 젠슨 황이 입을 열었다"
+  - body: One-line teaser for this card news (max 60 Korean chars)
+  - imageKeyword: One English word guaranteed to return results on Unsplash (e.g., "technology", "ai", "code")
+  - accentColor: Bold, eye-catching hex color
 
-카드 2 (type: "deep-background") — 배경
-  - title: "이게 왜 일어났나?" 또는 주제에 맞는 배경 섹션 제목 (최대 20자)
-  - body: 사건의 배경·맥락·타임라인 (150~200자, 문장 단위로 \\n 구분, 2~3문장)
-  - imageKeyword: 배경 의미의 영어 단어 1개
-  - accentColor: 카드 1과 어울리되 다른 hex 색상
+Card 2 (type: "deep-background") — Background
+  - title: "이게 왜 일어났나?" or a fitting background section heading (max 20 Korean chars)
+  - body: Background, context, and timeline of the event (150~200 Korean chars, \\n between 2~3 sentences)
+  - imageKeyword: One English word
+  - accentColor: Hex color complementing card 1
 
-카드 3 (type: "deep-detail") — 핵심
-  - title: "핵심이 뭔가?" 또는 주제에 맞는 핵심 섹션 제목 (최대 20자)
-  - body: 핵심 사실·수치·전문가 언급 (150~200자, \\n 구분, 2~3문장)
-  - imageKeyword: 핵심 내용 의미의 영어 단어 1개
-  - accentColor: 다른 hex 색상
+Card 3 (type: "deep-detail") — Core
+  - title: "핵심이 뭔가?" or a fitting core section heading (max 20 Korean chars)
+  - body: Key facts, figures, and expert quotes (150~200 Korean chars, \\n between sentences)
+  - imageKeyword: One English word
+  - accentColor: Different hex color
 
-카드 4 (type: "deep-impact") — 영향
-  - title: "우리에게 어떤 영향?" 또는 주제에 맞는 임팩트 섹션 제목 (최대 20자)
-  - body: 독자 삶/산업에 미치는 영향과 전망 (150~200자, \\n 구분, 2~3문장)
-  - imageKeyword: 영향/미래 의미의 영어 단어 1개
-  - accentColor: 다른 hex 색상
+Card 4 (type: "deep-impact") — Impact
+  - title: "우리에게 어떤 영향?" or a fitting impact section heading (max 20 Korean chars)
+  - body: Real-world impact and outlook for readers and industry (150~200 Korean chars, \\n between sentences)
+  - imageKeyword: One English word
+  - accentColor: Different hex color
 
-[공통 규칙]
-- theme: 'dark' 또는 'light' (뉴스 무게에 따라 선택)
+[Common Rules]
+- theme: 'dark' or 'light' based on the weight of the news
 - mood: 'serious' | 'bright' | 'urgent'
-- topicTitle: 선택한 주제의 원래 제목 (20자 이내)
-- 모든 card에 imageKeyword 필드 반드시 포함
+- topicTitle: Original title of the chosen topic (max 20 Korean chars)
+- Include imageKeyword in every card
 
-반드시 아래 JSON 형식으로만 응답 (마크다운 없이):
+IMPORTANT: Write ALL Korean text fields (title, subtitle, body, topicTitle) in Korean.
+Respond ONLY in the following JSON format (no markdown):
 {
   "theme": "dark",
   "mood": "urgent",
@@ -290,50 +293,52 @@ ${script.slice(0, 3000)}
     });
 
     const prompt = `
-당신은 IT 테크 미디어의 수석 에디터입니다.
-아래 팟캐스트 대본에서 가장 임팩트 있는 주제 하나를 골라주세요.
-그런 다음 Google Search를 통해 해당 주제의 최신 정보, 수치, 전문가 의견, 트렌드를 검색하고
-검색 결과를 바탕으로 4장짜리 딥다이브 카드뉴스를 JSON으로만 작성하세요.
+You are the chief editor of an IT tech media company.
+Read the podcast script below and choose the single most impactful topic.
+Then use Google Search to find the latest information, figures, expert opinions, and trends on that topic,
+and write a 4-card deep-dive card news based on the search results — in JSON format only.
 
-[핵심 원칙]
-- 대본은 주제 파악 용도로만 사용
-- 카드 내용은 반드시 Google Search로 얻은 최신 웹 정보 기반으로 작성
-- 구체적인 수치·날짜·인물·기업명을 최대한 포함
-- 독자가 "이건 처음 아는 정보다"라고 느낄 만큼 구체적으로
+[Core Principles]
+- Use the script only to identify the topic
+- All card content MUST be based on the latest web information from Google Search
+- Include specific figures, dates, names, and company names as much as possible
+- Be concrete enough that readers feel they are learning something new
 
-[카드 구성]
-카드 1 (type: "deep-thumbnail") — 자극적 표지
-  - title: 검색 결과를 반영한 충격적이고 자극적인 제목 (최대 22자, 의문문·숫자 활용)
-  - subtitle: 도발적인 부제 (최대 40자, 최신 사실 힌트 포함)
-  - body: 한줄 티저 (최대 60자)
-  - imageKeyword: Unsplash 검색용 영어 단어 1개
-  - accentColor: 강렬한 hex 색상
+[Card Composition]
+Card 1 (type: "deep-thumbnail") — Provocative cover
+  - title: Shocking, search-informed Korean title (max 22 chars, use questions/numbers)
+  - subtitle: Provocative Korean subtitle (max 40 chars, hint at the latest facts)
+  - body: One-line Korean teaser (max 60 chars)
+  - imageKeyword: One English word for Unsplash
+  - accentColor: Bold hex color
 
-카드 2 (type: "deep-background") — 배경
-  - title: 섹션 제목 (최대 20자)
-  - body: 검색된 배경·맥락·타임라인 (150~200자, \\n으로 2~3문장 구분, 구체적 날짜·수치 포함)
-  - imageKeyword: 영어 단어 1개
-  - accentColor: hex 색상
+Card 2 (type: "deep-background") — Background
+  - title: Section heading (max 20 Korean chars)
+  - body: Search-sourced background, context, timeline (150~200 Korean chars, \\n between 2~3 sentences, include specific dates/figures)
+  - imageKeyword: One English word
+  - accentColor: Hex color
 
-카드 3 (type: "deep-detail") — 핵심
-  - title: 섹션 제목 (최대 20자)
-  - body: 검색된 핵심 데이터·전문가 발언·최신 수치 (150~200자, \\n 구분, 출처 느낌 포함)
-  - imageKeyword: 영어 단어 1개
-  - accentColor: hex 색상
+Card 3 (type: "deep-detail") — Core
+  - title: Section heading (max 20 Korean chars)
+  - body: Search-sourced key data, expert quotes, latest figures (150~200 Korean chars, \\n between sentences, source-like tone)
+  - imageKeyword: One English word
+  - accentColor: Hex color
 
-카드 4 (type: "deep-impact") — 영향
-  - title: 섹션 제목 (최대 20자)
-  - body: 검색 결과 기반 실질적 영향·전망·독자 행동 촉구 (150~200자, \\n 구분)
-  - imageKeyword: 영어 단어 1개
-  - accentColor: hex 색상
+Card 4 (type: "deep-impact") — Impact
+  - title: Section heading (max 20 Korean chars)
+  - body: Search-based practical impact, outlook, and call to action for readers (150~200 Korean chars, \\n between sentences)
+  - imageKeyword: One English word
+  - accentColor: Hex color
 
-[공통 규칙]
-- theme: 'dark' 또는 'light'
+[Common Rules]
+- theme: 'dark' or 'light'
 - mood: 'serious' | 'bright' | 'urgent'
-- topicTitle: 선택한 주제명 (20자 이내)
-- 반드시 JSON만 응답 (마크다운 없이)
+- topicTitle: Name of the chosen topic (max 20 Korean chars)
+- Respond ONLY in JSON (no markdown)
 
-[팟캐스트 대본 — 주제 파악용]
+IMPORTANT: Write ALL Korean text fields (title, subtitle, body, topicTitle) in Korean.
+
+[Podcast Script — for topic identification only]
 ${script.slice(0, 2000)}
 `.trim();
 
