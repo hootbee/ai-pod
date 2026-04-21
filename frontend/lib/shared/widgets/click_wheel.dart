@@ -52,7 +52,6 @@ class _ClickWheelState extends State<ClickWheel> {
   }
 
   double _calculateAngle(Offset localPosition) {
-    // ★ 터치 영역이 다이얼 크기(220)로 딱 맞춰졌으므로 중심점은 (110, 110) 입니다.
     const Offset center = Offset(110, 110);
     return math.atan2(
       localPosition.dy - center.dy,
@@ -66,8 +65,6 @@ class _ClickWheelState extends State<ClickWheel> {
       width: double.infinity,
       height: 220,
       alignment: Alignment.center,
-      // ★ 핵심: 다이얼을 덮고 있는 컨테이너 안으로 GestureDetector를 옮겼습니다!
-      // 이제 빈 여백을 터치해도 다이얼이 돌아가거나 반응하지 않습니다.
       child: GestureDetector(
         onPanStart: _onPanStart,
         onPanUpdate: _onPanUpdate,
@@ -89,11 +86,32 @@ class _ClickWheelState extends State<ClickWheel> {
                     padding: const EdgeInsets.only(top: 20),
                     child: IgnorePointer(
                       child: Container(
-                        width: 16,
-                        height: 16,
+                        width: 20,
+                        height: 20,
                         decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.15),
                           shape: BoxShape.circle,
+                          color: const Color(0xFFC0C0C0), 
+                            boxShadow: [
+                            BoxShadow(
+                              color: Colors.white.withValues(alpha: 0.8),
+                              offset: const Offset(1, 1),
+                              blurRadius: 1,
+                            ),
+                            BoxShadow(
+                              color: Colors.white.withValues(alpha: 0.4),
+                              offset: const Offset(-1, -1),
+                              blurRadius: 1,
+                            ),
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.4),
+                              offset: const Offset(-1, -1),
+                              blurRadius: 2, 
+                            ),
+                          ],
+                          border: Border.all(
+                            color: Colors.black.withValues(alpha: 0.1),
+                            width: 0.5,
+                          ),
                         ),
                       ),
                     ),
