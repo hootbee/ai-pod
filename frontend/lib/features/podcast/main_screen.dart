@@ -555,116 +555,20 @@ Widget _buildLibraryTab(GoogleSignInAccount? user) {
         }
       },
       itemBuilder: (context, index) {
-        // 로딩 인디케이터 아이템
-        if (index == _episodes.length) {
-          return const Center(child: CircularProgressIndicator());
-        }
-
-        final episode = _episodes[index];
-        final hasHeadline = episode.headline?.trim().isNotEmpty ?? false;
-        final hasSubtitle = episode.subtitle?.trim().isNotEmpty ?? false;
-
-        return GestureDetector(
-          onTap: _enterPodcast,
-          behavior: HitTestBehavior.opaque,
-          child: Container(
-            margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(24),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.3),
-                  blurRadius: 10,
-                  offset: const Offset(0, 5),
-                ),
-              ],
-
-            image: episode.thumbnailUrl != null
-                ? DecorationImage(
-                    image: CachedNetworkImageProvider(
-                      episode.thumbnailUrl!,
-                      cacheManager: AppImageCacheManager.instance,
-                    ),
-                    fit: BoxFit.cover,
-                  )
-                : null,
-            color: episode.thumbnailUrl == null ? Colors.blueGrey : null,
-          ),
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(24),
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Colors.transparent, Colors.black.withValues(alpha: 0.72)],
-              ),
-            ),
-            alignment: Alignment.bottomLeft,
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (hasHeadline) ...[
-                Flexible(
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.42),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      episode.headline!,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ),
-                ],
-                if (hasSubtitle) ...[
-                  SizedBox(height: hasHeadline ? 10 : 0),
-                  Flexible(
-                    child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 12,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.3),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      episode.subtitle!,
-                      softWrap: true,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        height: 1.65,
-                        fontWeight: FontWeight.w500,
-                        color: Color(0xFFECECEC),
-                      ),
-                    ),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ),
-        );
-      },
-    );
+  if (index == _episodes.length) {
+    return const Center(child: CircularProgressIndicator());
   }
-}
+
+  final episode = _episodes[index];
+
+  return FlipThumbnailCard(
+    episode: episode,
+    onTap: _enterPodcast,
+  );
+},
+    );
+      }
+  }
 
 class PodcastEpisodeItem {
   final String id;
@@ -752,5 +656,178 @@ class PodcastEpisodeItem {
       default:
         return 'mp3';
     }
+  }
+}
+
+class FlipThumbnailCard extends StatefulWidget {
+  final PodcastEpisodeItem episode;
+  final VoidCallback onTap;
+
+  const FlipThumbnailCard({
+    super.key, 
+    required this.episode, 
+    required this.onTap,
+  });
+
+  @override
+  State<FlipThumbnailCard> createState() => _FlipThumbnailCardState();
+}
+
+class _FlipThumbnailCardState extends State<FlipThumbnailCard> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: widget.onTap,
+      onLongPressStart: (_) => _controller.forward(), 
+      onLongPressEnd: (_) => _controller.reverse(),
+      onLongPressCancel: () => _controller.reverse(), 
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, child) {
+          final angle = _controller.value * 3.141592; 
+          return Transform(
+            transform: Matrix4.identity()
+              ..setEntry(3, 2, 0.001)
+              ..rotateY(angle),
+            alignment: Alignment.center,
+            child: angle < 3.141592 / 2
+                ? _buildFront() 
+                : Transform(
+                    transform: Matrix4.identity()..rotateY(3.141592),
+                    alignment: Alignment.center,
+                    child: _buildBack(),
+                  ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildFront() {
+    final hasHeadline = widget.episode.headline?.trim().isNotEmpty ?? false;
+    final hasSubtitle = widget.episode.subtitle?.trim().isNotEmpty ?? false;
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 10),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        image: widget.episode.thumbnailUrl != null
+            ? DecorationImage(
+                image: CachedNetworkImageProvider(widget.episode.thumbnailUrl!),
+                fit: BoxFit.cover, 
+              )
+            : null,
+        color: widget.episode.thumbnailUrl == null ? Colors.blueGrey : null,
+      ),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(24),
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter, 
+            colors: [Colors.transparent, Colors.black.withValues(alpha: 0.72)],
+          ),
+        ),
+        alignment: Alignment.bottomLeft,
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (hasHeadline) ...[
+              Flexible(
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.42), 
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    widget.episode.headline!,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+            if (hasSubtitle) ...[
+              SizedBox(height: hasHeadline ? 10 : 0),
+              Flexible(
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.3), 
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    widget.episode.subtitle!,
+                    softWrap: true,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      height: 1.65,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFFECECEC),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBack() {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF2A2D24),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.white10, width: 1),
+      ),
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.menu_book_rounded, color: Color(0xFFD6E36F), size: 40),
+          const SizedBox(height: 16),
+          Text(
+            widget.episode.title,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            "이 팟캐스트 에피소드는 OO에 대해 다룹니다.",
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.5),
+          ),
+        ],
+      ),
+    );
   }
 }
