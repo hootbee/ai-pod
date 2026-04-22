@@ -10,6 +10,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:just_audio/just_audio.dart';
 import '../../services/audio_handler.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'dart:ui';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -864,11 +865,57 @@ class _FlipThumbnailCardState extends State<FlipThumbnailCard> with SingleTicker
               ),
             ),
           ),
-        ],
-      ),
+          Positioned(
+              top: 16,
+              right: 16,
+              child: StreamBuilder<String?>(
+                stream: AudioHandler.instance.player.sequenceStateStream.map((_) => AudioHandler.instance.currentEpisodeId),
+                builder: (context, idSnapshot) {
+                  final bool isCurrent = idSnapshot.data == widget.episode.id;
+
+                  return StreamBuilder<PlayerState>(
+                    stream: AudioHandler.instance.player.playerStateStream,
+                    builder: (context, stateSnapshot) {
+                      final bool isPlaying = isCurrent && (stateSnapshot.data?.playing ?? false);
+
+                      return GestureDetector(
+                        onTap: () {
+                          if (isCurrent) {
+                            isPlaying ? AudioHandler.instance.player.pause() : AudioHandler.instance.player.play();
+                          } else {
+                            AudioHandler.instance.playEpisode(widget.episode);
+                          }
+                        },
+                        child: ClipOval(
+                          child: BackdropFilter(
+                            filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
+                            child: Container(
+                              width: 44,
+                              height: 44,
+                              decoration: BoxDecoration(
+                                color: Colors.black.withValues(alpha: 0.3),
+                                shape: BoxShape.circle,
+                                border: Border.all(color: Colors.white.withValues(alpha: 0.2), width: 1),
+                              ),
+                              child: Icon(
+                                isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                                color: const Color(0xFFD6E36F),
+                                size: 28,
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
     ),
-  );
-}
+    );  
+  }
 
   Widget _buildBack() {
     return Container(

@@ -98,10 +98,9 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
       _audioReady = true;
     }); 
   } else {
-    _initAudio().then((_) {
-      _audioPlayer.seek(Duration.zero);
-      _audioPlayer.play();
-    });
+    AudioHandler.instance.playEpisode(widget.episode).then((_) {
+        if (mounted) setState(() => _audioReady = true);
+      });
   }
 }
 
