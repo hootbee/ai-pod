@@ -308,7 +308,6 @@ class _DeepDiveScreenState extends State<DeepDiveScreen> {
                               fontSize: 18, 
                               fontWeight: FontWeight.w800,
                               height: 1.3,
-                              letterSpacing: -0.5,
                             ),
                           ),
                         ),
