@@ -13,6 +13,7 @@ import '../../core/app_config.dart';
 import '../../services/network_cache_service.dart';
 import '../../shared/widgets/source_info_bottom_sheet.dart';
 import 'main_screen.dart';
+import 'package:share_plus/share_plus.dart';
 
 class PodcastPlayerScreen extends StatefulWidget {
   final PodcastEpisodeItem episode;
@@ -362,8 +363,12 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
             ),*/
           IconButton(
             icon: const Icon(Icons.ios_share, color: Colors.white),
-            onPressed: () {},
+            onPressed: () {
+              final String shareText = '[aipod] ${widget.episode.title}\n\n지금 이 에피소드를 들어보세요!\n\n${widget.episode.streamUrl}';
+              SharePlus.instance.share(ShareParams(text: shareText, subject: widget.episode.title));
+            },
           ),
+          const SizedBox(width: 5),
         ],
       ),
       body: Column(
