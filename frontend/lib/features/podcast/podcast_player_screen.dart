@@ -350,7 +350,7 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
           ),
         ),
         actions: [
-          if (widget.episode.sources.isNotEmpty)
+          /*if (widget.episode.sources.isNotEmpty)
             IconButton(
               icon: const Icon(Icons.link, color: Colors.white),
               tooltip: '원문 출처',
@@ -359,7 +359,7 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
                 sources: widget.episode.sources,
                 thumbnailUrl: widget.episode.thumbnailUrl,
               ),
-            ),
+            ),*/
           IconButton(
             icon: const Icon(Icons.ios_share, color: Colors.white),
             onPressed: () {},
@@ -505,8 +505,17 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
                   onPressed: () => _seekRelative(10),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.nights_stay, color: Colors.white70),
-                  onPressed: () {},
+                  icon: Icon(
+                    Icons.link, 
+                    color: widget.episode.sources.isNotEmpty ? Colors.white70 : Colors.white24,
+                  ),
+                  onPressed: widget.episode.sources.isNotEmpty 
+                    ? () => showSourceInfoBottomSheet(
+                        context,
+                        sources: widget.episode.sources,
+                        thumbnailUrl: widget.episode.thumbnailUrl,
+                      )
+                    : null,
                 ),
               ],
             ),
