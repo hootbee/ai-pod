@@ -160,13 +160,15 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
-  // 가운데 버튼 클릭 시 상세 화면으로 이동
-  void _enterPodcast() {
-    if (_episodes.isEmpty || _currentIndex >= _episodes.length) return;
+  void _enterPodcast({PodcastEpisodeItem? targetEpisode}) {
+    if (_episodes.isEmpty) return;
+
+    final episode = targetEpisode ?? (_currentIndex < _episodes.length ? _episodes[_currentIndex] : null);
+    if (episode == null) return;
+
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (context) =>
-            PodcastPlayerScreen(episode: _episodes[_currentIndex]),
+        builder: (context) => PodcastPlayerScreen(episode: episode),
       ),
     );
   }
@@ -174,7 +176,7 @@ class _MainScreenState extends State<MainScreen> {
   @override
   void dispose() {
     _tabPageController.dispose();
-    _pageController.dispose(); // 메모리 누수 방지
+    _pageController.dispose();
     super.dispose();
   }
 
@@ -186,7 +188,19 @@ class _MainScreenState extends State<MainScreen> {
       stream: AudioHandler.instance.player.playerStateStream,
       builder: (context, snapshot) {
         final bool isPlaying = snapshot.data?.playing ?? false;
-        String? currentThumbnail = _episodes.isNotEmpty ? _episodes[_currentIndex].thumbnailUrl : null;
+
+        PodcastEpisodeItem? currentEpisode;
+        if (isPlaying && _episodes.isNotEmpty) {
+          try {
+            currentEpisode = _episodes.firstWhere(
+              (e) => e.id == AudioHandler.instance.currentEpisodeId,
+            );
+          } catch (_) {
+            currentEpisode = _currentIndex < _episodes.length ? _episodes[_currentIndex] : null;
+          }
+        } else {
+          currentEpisode = _episodes.isNotEmpty && _currentIndex < _episodes.length ? _episodes[_currentIndex] : null;
+        }
 
         return StreamBuilder<GoogleSignInAccount?>(
           stream: googleSignIn.onCurrentUserChanged,
@@ -263,7 +277,7 @@ class _MainScreenState extends State<MainScreen> {
                   _buildLibraryTab(currentUser),
                 ],
               ),
-              bottomNavigationBar: _buildBottomNavBar(context, isPlaying, currentThumbnail, _currentTabIndex, _onTabSelected),
+              bottomNavigationBar: _buildBottomNavBar(context, isPlaying, currentEpisode, _currentTabIndex, _onTabSelected),
             );
           },
         );
@@ -271,8 +285,8 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
-  Widget _buildBottomNavBar(BuildContext context, bool isPlaying, String? currentThumbnail, int selectedIndex, Function(int) onTabSelected) {
-  final double screenWidth = MediaQuery.of(context).size.width;
+  Widget _buildBottomNavBar(BuildContext context, bool isPlaying, PodcastEpisodeItem? currentEpisode, int selectedIndex, Function(int) onTabSelected) {
+    final double screenWidth = MediaQuery.of(context).size.width;
   final double navBarHeight = (screenWidth * 0.08).clamp(56.0, 70.0);
   final double navBarWidth = screenWidth - 40 - 16 - navBarHeight;
 
@@ -309,18 +323,18 @@ class _MainScreenState extends State<MainScreen> {
               ),
             ),
 
-                if (isPlaying && currentThumbnail != null) ...[
-                  const SizedBox(width: 16),
-                  GestureDetector(
-                    onTap: _enterPodcast,
-                    child: Container(
-                      width: navBarHeight,
-                      height: navBarHeight,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(16),
-                        image: DecorationImage(
-                          image: CachedNetworkImageProvider(currentThumbnail),
-                          fit: BoxFit.cover,
+                if (isPlaying && currentEpisode?.thumbnailUrl != null) ...[
+                const SizedBox(width: 16),
+                GestureDetector(
+                  onTap: () => _enterPodcast(targetEpisode: currentEpisode),
+                  child: Container(
+                    width: navBarHeight,
+                    height: navBarHeight,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      image: DecorationImage(
+                        image: CachedNetworkImageProvider(currentEpisode!.thumbnailUrl!),
+                        fit: BoxFit.cover,
                         ),
                         border: Border.all(color: Colors.white10, width: 1),
                         boxShadow: [
