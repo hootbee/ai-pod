@@ -740,81 +740,101 @@ class _FlipThumbnailCardState extends State<FlipThumbnailCard> with SingleTicker
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 10),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        image: widget.episode.thumbnailUrl != null
-            ? DecorationImage(
-                image: CachedNetworkImageProvider(widget.episode.thumbnailUrl!),
-                fit: BoxFit.cover, 
-              )
-            : null,
-        color: widget.episode.thumbnailUrl == null ? Colors.blueGrey : null,
-      ),
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(24),
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter, 
-            colors: [Colors.transparent, Colors.black.withValues(alpha: 0.72)],
+      child: ClipRRect(
+      borderRadius: BorderRadius.circular(24),
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: CachedNetworkImage(
+              imageUrl: widget.episode.thumbnailUrl ?? '',
+              fit: BoxFit.cover,
+              placeholder: (context, url) => Container(
+                color: Colors.blueGrey.shade900,
+                child: const Center(
+                  child: CircularProgressIndicator(
+                    color: Color(0xFFD6E36F),
+                    strokeWidth: 4,
+                  ),
+                ),
+              ),
+              errorWidget: (context, url, error) => Container(
+                color: Colors.blueGrey.shade900,
+                child: const Center(
+                  child: Icon(Icons.broken_image, color: Colors.white24, size: 40),
+                ),
+              ),
+            ),
           ),
-        ),
-        alignment: Alignment.bottomLeft,
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (hasHeadline) ...[
-              Flexible(
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.42), 
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    widget.episode.headline!,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white,
-                    ),
-                  ),
+
+          Positioned.fill(
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Colors.transparent, Colors.black.withValues(alpha: 0.72)],
                 ),
               ),
-            ],
-            if (hasSubtitle) ...[
-              SizedBox(height: hasHeadline ? 10 : 0),
-              Flexible(
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.3), 
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    widget.episode.subtitle!,
-                    softWrap: true,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      height: 1.65,
-                      fontWeight: FontWeight.w500,
-                      color: Color(0xFFECECEC),
+              alignment: Alignment.bottomLeft,
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (hasHeadline) ...[
+                    Flexible(
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.42),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          widget.episode.headline!,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
-                ),
+                  ],
+                  if (hasSubtitle) ...[
+                    SizedBox(height: hasHeadline ? 10 : 0),
+                    Flexible(
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.3),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          widget.episode.subtitle!,
+                          softWrap: true,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            height: 1.65,
+                            fontWeight: FontWeight.w500,
+                            color: Color(0xFFECECEC),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
               ),
-            ],
-          ],
-        ),
+            ),
+          ),
+        ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildBack() {
     return Container(
