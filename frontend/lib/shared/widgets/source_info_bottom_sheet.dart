@@ -1,9 +1,9 @@
-import 'package:cached_network_image/cached_network_image.dart';
+//import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/episode_source.dart';
-import '../../services/network_cache_service.dart';
+//import '../../services/network_cache_service.dart';
 
 void showSourceInfoBottomSheet(
   BuildContext context, {
@@ -23,7 +23,7 @@ void showSourceInfoBottomSheet(
   );
 }
 
-class SourceInfoBottomSheet extends StatelessWidget {
+class SourceInfoBottomSheet extends StatefulWidget {
   final List<EpisodeSource> sources;
   final String? thumbnailUrl;
 
@@ -34,62 +34,99 @@ class SourceInfoBottomSheet extends StatelessWidget {
   });
 
   @override
+  State<SourceInfoBottomSheet> createState() => _SourceInfoBottomSheetState();
+}
+
+class _SourceInfoBottomSheetState extends State<SourceInfoBottomSheet> {
+  bool _isExpanded = false;
+  final int _initialCount = 5;
+
+  @override
   Widget build(BuildContext context) {
-    final maxHeight = MediaQuery.of(context).size.height * 0.75;
+    final maxHeight = MediaQuery.of(context).size.height * 0.8;
+    
+    final bool hasMore = widget.sources.length > _initialCount;
+
+    final int displayCount = (_isExpanded || !hasMore) 
+        ? widget.sources.length 
+        : _initialCount;
 
     return Container(
       constraints: BoxConstraints(maxHeight: maxHeight),
       decoration: const BoxDecoration(
-        color: Color(0xFF2A2D24),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        color: Color(0xFF1E211A),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // 드래그 핸들
           Padding(
-            padding: const EdgeInsets.only(top: 12, bottom: 8),
+            padding: const EdgeInsets.symmetric(vertical: 16),
             child: Container(
-              width: 40,
-              height: 4,
+              width: 40, height: 4,
               decoration: BoxDecoration(
-                color: Colors.white24,
+                color: Colors.white.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
           ),
-          // 헤더
-          const Padding(
-            padding: EdgeInsets.fromLTRB(20, 4, 20, 16),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
             child: Row(
               children: [
-                Icon(Icons.link, color: Color(0xFFD6E36F), size: 18),
-                SizedBox(width: 8),
-                Text(
+                const Icon(Icons.link_rounded, color: Color(0xFFD6E36F), size: 24),
+                const SizedBox(width: 10),
+                const Text(
                   '원문 출처',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 17,
-                    fontWeight: FontWeight.w700,
-                  ),
+                  style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800),
+                ),
+                const Spacer(),
+                Text(
+                  '${widget.sources.length}개',
+                  style: const TextStyle(color: Color(0xFFD6E36F), fontWeight: FontWeight.bold),
                 ),
               ],
             ),
           ),
-          const Divider(height: 1, color: Colors.white12),
-          // 출처 목록
-          Flexible(
-            child: ListView.separated(
-              shrinkWrap: true,
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-              itemCount: sources.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 20),
+          const SizedBox(height: 12),
+          
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
+              itemCount: displayCount + (hasMore && !_isExpanded ? 1 : 0),
               itemBuilder: (context, index) {
-                final src = sources[index];
-                return _SourceItem(
-                  source: src,
-                  thumbnailUrl: thumbnailUrl,
-                );
+                if (hasMore && !_isExpanded && index == _initialCount) {
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: InkWell(
+                      onTap: () => setState(() => _isExpanded = true),
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              '더보기',
+                              style: const TextStyle(
+                                color: Color(0xFFD6E36F),
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFFD6E36F)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                }
+                return _SourceItem(source: widget.sources[index]);
               },
             ),
           ),
@@ -101,9 +138,8 @@ class SourceInfoBottomSheet extends StatelessWidget {
 
 class _SourceItem extends StatelessWidget {
   final EpisodeSource source;
-  final String? thumbnailUrl;
 
-  const _SourceItem({required this.source, this.thumbnailUrl});
+  const _SourceItem({required this.source});
 
   Future<void> _openUrl() async {
     final uri = Uri.tryParse(source.link);
@@ -115,97 +151,71 @@ class _SourceItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 썸네일
-            ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: SizedBox(
-                width: 80,
-                height: 80,
-                child: thumbnailUrl != null
-                    ? CachedNetworkImage(
-                        imageUrl: thumbnailUrl!,
-                        cacheManager: AppImageCacheManager.instance,
-                        fit: BoxFit.cover,
-                        placeholder: (_, __) => const ColoredBox(
-                          color: Color(0xFF3A3E33),
-                        ),
-                        errorWidget: (_, __, ___) =>
-                            _SourcePlaceholder(source: source.source),
-                      )
-                    : _SourcePlaceholder(source: source.source),
-              ),
-            ),
-            const SizedBox(width: 14),
-            // 제목 + 출처명
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    source.title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      height: 1.45,
-                    ),
+    return GestureDetector(
+      onTap: _openUrl,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.04),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        ),
+        child: IntrinsicHeight( 
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(
+                width: 4,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFD6E36F),
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(16),
+                    bottomLeft: Radius.circular(16),
                   ),
-                  const SizedBox(height: 6),
-                  Row(
+                ),
+              ),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(Icons.public, color: Color(0xFF9CA38F), size: 12),
-                      const SizedBox(width: 4),
                       Text(
-                        source.source,
+                        source.source.toUpperCase(),
                         style: const TextStyle(
-                          color: Color(0xFF9CA38F),
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
+                          color: Color(0xFFD6E36F),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        source.title,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          height: 1.4,
                         ),
                       ),
                     ],
                   ),
-                ],
+                ),
               ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        // 원문 읽기 버튼
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton.icon(
-            onPressed: source.link.isNotEmpty ? _openUrl : null,
-            icon: const Icon(Icons.open_in_new, size: 16),
-            label: const Text('기사 전문 보러 가기'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFD6E36F),
-              foregroundColor: const Color(0xFF1E211A),
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
+              const Padding(
+                padding: EdgeInsets.only(right: 12),
+                child: Icon(Icons.chevron_right_rounded, color: Colors.white24),
               ),
-              textStyle: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
+            ],
           ),
         ),
-      ],
+      ),
     );
   }
 }
 
-class _SourcePlaceholder extends StatelessWidget {
+/*class _SourcePlaceholder extends StatelessWidget {
   final String source;
 
   const _SourcePlaceholder({required this.source});
@@ -227,4 +237,4 @@ class _SourcePlaceholder extends StatelessWidget {
       ),
     );
   }
-}
+}*/
