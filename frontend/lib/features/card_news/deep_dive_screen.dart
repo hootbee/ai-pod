@@ -175,7 +175,7 @@ class _DeepDiveScreenState extends State<DeepDiveScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0a0a14),
+      backgroundColor: const Color(0xFF1E211A),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -187,7 +187,7 @@ class _DeepDiveScreenState extends State<DeepDiveScreen> {
             } else {
               Navigator.of(context).pop();
             }
-          },
+          }
         ),
         title: const Text(
           'DEEP DIVE',
@@ -271,38 +271,61 @@ class _DeepDiveScreenState extends State<DeepDiveScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     day.dayLabel,
-                    style: const TextStyle(
-                      color: Color(0xFF666680),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
+                    style: TextStyle(
+                      color: Colors.white54, 
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      letterSpacing: 0.5,
                     ),
                   ),
+                  const SizedBox(height: 2),
+
                   if (day.topicTitle.isNotEmpty)
-                    Text(
-                      day.topicTitle,
-                      style: const TextStyle(
-                        color: Color(0xFFAAAACC),
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                      ),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          width: 4,
+                          height: 22, 
+                          margin: const EdgeInsets.only(top: 3),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFD6E36F), 
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            day.topicTitle,
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 18, 
+                              fontWeight: FontWeight.w800,
+                              height: 1.3,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                 ],
               ),
             ),
             Expanded(
               child: PageView.builder(
+                key: ValueKey('pageview_$dayIndex'),
                 scrollDirection: Axis.horizontal,
                 controller: _controllerFor(dayIndex),
                 onPageChanged: (slideIndex) => _onSlideChanged(dayIndex, slideIndex),
                 itemCount: day.cards.length,
                 itemBuilder: (context, slideIndex) {
                   final card = day.cards[slideIndex];
+
                   return Padding(
                     padding: const EdgeInsets.fromLTRB(8, 16, 10, 24),
                     child: _DeepDiveCardView(
@@ -311,17 +334,18 @@ class _DeepDiveScreenState extends State<DeepDiveScreen> {
                       totalCards: day.cards.length,
                       sources: day.sources,
                     ),
-                  );
-                },
+                    );
+                  },
+                ),
               ),
-            ),
-          ],
-        );
-      },
-    ),   // PageView.builder
-    ); // RefreshIndicator
+            ],
+          );
+        },
+      ),
+    );
   }
 }
+
 
 // ─── 카드 렌더러 ────────────────────────────────────────────────────────────────
 
@@ -438,7 +462,7 @@ class _ThumbnailCard extends StatelessWidget {
                   ],
                 ),
 
-                const Spacer(),
+                const SizedBox(height: 150),
 
                 // Breaking 레이블
                 Text(
@@ -457,7 +481,7 @@ class _ThumbnailCard extends StatelessWidget {
                   card.title,
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 36,
+                    fontSize: 33,
                     fontWeight: FontWeight.w800,
                     height: 1.16,
                   ),
@@ -487,32 +511,42 @@ class _ThumbnailCard extends StatelessWidget {
                     ),
                   ),
 
-                const SizedBox(height: 24),
+                const SizedBox(height: 12),
 
                 // 하단: 티저 + 링크
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Expanded(
-                      child: Text(
-                        card.body,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.65),
-                          fontSize: 13,
-                          height: 1.5,
-                        ),
+                      child: Container(
+                        alignment: Alignment.topLeft,
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                card.body,
+                                maxLines: 3, 
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.65),
+                                  fontSize: 13, 
+                                  height: 1.5,
+                                      ),
+                                    ),
+                                  ),
+                                  if (sources.isNotEmpty)
+                                    IconButton(
+                                      icon: const Icon(Icons.link, color: Colors.white54, size: 18),
+                                      padding: const EdgeInsets.all(4),
+                                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                                      onPressed: () =>
+                                          showSourceInfoBottomSheet(context, sources: sources),
+                                    ),
+                                ],
+                              ),
                       ),
                     ),
-                    if (sources.isNotEmpty)
-                      IconButton(
-                        icon: const Icon(Icons.link, color: Colors.white54, size: 18),
-                        padding: const EdgeInsets.all(4),
-                        constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                        onPressed: () =>
-                            showSourceInfoBottomSheet(context, sources: sources),
-                      ),
                   ],
                 ),
               ],
@@ -634,26 +668,29 @@ class _ContentCard extends StatelessWidget {
                   color: const Color(0xFF16162a),
                   borderRadius: BorderRadius.circular(20),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    for (var i = 0; i < paragraphs.length; i++) ...[
-                      if (i > 0) const SizedBox(height: 14),
-                      Text(
-                        paragraphs[i],
-                        style: TextStyle(
-                          color: i == 0
-                              ? Colors.white
-                              : i == 1
-                                  ? accent
-                                  : Colors.white.withValues(alpha: 0.72),
-                          fontSize: i == 0 ? 17 : 15,
-                          fontWeight: i == 0 ? FontWeight.w700 : FontWeight.w500,
-                          height: 1.6,
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      for (var i = 0; i < paragraphs.length; i++) ...[
+                        if (i > 0) const SizedBox(height: 14),
+                        Text(
+                          paragraphs[i],
+                          style: TextStyle(
+                            color: i == 0
+                                ? Colors.white
+                                : i == 1
+                                    ? accent
+                                    : Colors.white.withValues(alpha: 0.72),
+                            fontSize: i == 0 ? 17 : 15,
+                            fontWeight: i == 0 ? FontWeight.w700 : FontWeight.w500,
+                            height: 1.6,
+                          ),
                         ),
-                      ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
               ),
             ),

@@ -13,6 +13,7 @@ import '../../core/app_config.dart';
 import '../../services/network_cache_service.dart';
 import '../../shared/widgets/source_info_bottom_sheet.dart';
 import 'main_screen.dart';
+import 'package:share_plus/share_plus.dart';
 
 class PodcastPlayerScreen extends StatefulWidget {
   final PodcastEpisodeItem episode;
@@ -33,6 +34,14 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
   StreamSubscription<Duration>? _positionSubscription;
   String? _audioError;
   bool _audioReady = false;
+  String _formatDuration(Duration? duration) {
+    if (duration == null) return "00:00";
+    String twoDigits(int n) => n.toString().padLeft(2, '0');
+    final minutes = twoDigits(duration.inMinutes.remainder(60));
+    final seconds = twoDigits(duration.inSeconds.remainder(60));
+    return "$minutes:$seconds";
+  }
+
   bool _audioInitializing = false;
   bool _subtitleCuesLoading = false;
   List<SubtitleCue> _subtitleCues = [];
@@ -89,10 +98,9 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
       _audioReady = true;
     }); 
   } else {
-    _initAudio().then((_) {
-      _audioPlayer.seek(Duration.zero);
-      _audioPlayer.play();
-    });
+    AudioHandler.instance.playEpisode(widget.episode).then((_) {
+        if (mounted) setState(() => _audioReady = true);
+      });
   }
 }
 
@@ -152,9 +160,10 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
       Object? lastError;
       for (int attempt = 1; attempt <= maxRetries; attempt++) {
         try {
+          await _audioPlayer.stop();
           final source = await NetworkCacheService.instance
               .getCachedAudioSource(targetUrl, headers: headers, tag: mediaTag);
-          await _audioPlayer.setAudioSource(source);
+          await _audioPlayer.setAudioSource(source, preload: true);
 
           AudioHandler.instance.currentEpisodeId = widget.episode.id;
 
@@ -341,7 +350,7 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
           ),
         ),
         actions: [
-          if (widget.episode.sources.isNotEmpty)
+          /*if (widget.episode.sources.isNotEmpty)
             IconButton(
               icon: const Icon(Icons.link, color: Colors.white),
               tooltip: '원문 출처',
@@ -350,11 +359,15 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
                 sources: widget.episode.sources,
                 thumbnailUrl: widget.episode.thumbnailUrl,
               ),
-            ),
+            ),*/
           IconButton(
             icon: const Icon(Icons.ios_share, color: Colors.white),
-            onPressed: () {},
+            onPressed: () {
+              final String shareText = '[aipod] ${widget.episode.title}\n\n지금 이 에피소드를 들어보세요!\n\n${widget.episode.streamUrl}';
+              SharePlus.instance.share(ShareParams(text: shareText, subject: widget.episode.title));
+            },
           ),
+          const SizedBox(width: 5),
         ],
       ),
       body: Column(
@@ -396,6 +409,7 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
               ),
             ),
           ),
+
           if (_subtitleCuesLoading)
             Padding(
               padding: const EdgeInsets.only(bottom: 12),
@@ -407,6 +421,51 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
                 ),
               ),
             ),
+
+            StreamBuilder<Duration?>(
+            stream: _audioPlayer.positionStream,
+            builder: (context, snapshot) {
+              final position = snapshot.data ?? Duration.zero;
+              final duration = _audioPlayer.duration ?? Duration.zero;
+
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 40.0),
+                child: Column(
+                  children: [
+                    SliderTheme(
+                      data: SliderTheme.of(context).copyWith(
+                        trackHeight: 10.5,
+                        trackShape: const RoundedRectSliderTrackShape(),
+                        thumbShape: SliderComponentShape.noThumb,
+                        overlayShape: SliderComponentShape.noOverlay,
+                        activeTrackColor: const Color(0xFF4F7C2D),
+                        inactiveTrackColor: const Color(0xFF344D1C),
+                      ),
+                      child: Slider(
+                        min: 0.0,
+                        max: duration.inMilliseconds.toDouble(),
+                        value: position.inMilliseconds.toDouble().clamp(0.0, duration.inMilliseconds.toDouble()),
+                        onChanged: (value) {
+                          _audioPlayer.seek(Duration(milliseconds: value.toInt()));
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 7),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(_formatDuration(position), style: const TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w500)),
+                          Text(_formatDuration(duration), style: const TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w500)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
 
           Padding(
             padding: const EdgeInsets.only(bottom: 50.0, top: 20.0),
@@ -450,8 +509,17 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
                   onPressed: () => _seekRelative(10),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.nights_stay, color: Colors.white70),
-                  onPressed: () {},
+                  icon: Icon(
+                    Icons.link, 
+                    color: widget.episode.sources.isNotEmpty ? Colors.white70 : Colors.white24,
+                  ),
+                  onPressed: widget.episode.sources.isNotEmpty 
+                    ? () => showSourceInfoBottomSheet(
+                        context,
+                        sources: widget.episode.sources,
+                        thumbnailUrl: widget.episode.thumbnailUrl,
+                      )
+                    : null,
                 ),
               ],
             ),

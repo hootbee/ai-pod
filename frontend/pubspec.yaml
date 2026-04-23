@@ -48,6 +48,7 @@ dependencies:
   path_provider: ^2.0.0
   url_launcher: ^6.3.0
   material_symbols_icons: ^4.2928.1
+  share_plus: ^13.1.0
 
 dev_dependencies:
   flutter_test:
@@ -80,6 +81,7 @@ flutter:
   # To add assets to your application, add an assets section, like this:
   assets:
     - assets/images/splash.png
+    - assets/images/aipod_logo.png
   
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
