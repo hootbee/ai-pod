@@ -55,20 +55,21 @@ export class HeadlineService {
 
   private async callLlm(script: string): Promise<HeadlineResult> {
     const prompt = `
-당신은 자극적인 유튜브·SNS 썸네일 제목을 쓰는 전문 카피라이터입니다.
-아래 팟캐스트 대본을 읽고, 가장 충격적이거나 흥미로운 토픽 하나를 골라
-클릭베이트 스타일의 제목과 부제를 작성하세요.
+You are a professional copywriter specializing in provocative YouTube and SNS thumbnail titles.
+Read the podcast script below, choose the single most shocking or interesting topic,
+and write a clickbait-style title and subtitle.
 
-[규칙]
-- headline (제목): 최대 30자, 궁금증·놀라움을 유발하는 한국어 문장. 마치 뉴스 속보나 유튜브 썸네일처럼.
-  예시) "핫도그 많이 먹기 금메달리스트 되는 법" / "GPT-5 나온다는데 CEO가 하루 만에 도망?!"
-- subtitle (부제): 30~60자, 제목에 대한 호기심을 증폭시키되 결론은 말하지 않는 문장.
-  예시) "핫도그를 많이 먹을 필요도 없어요. 어쩌면 아예 먹을 필요도. 하지만 많이 먹은 사람이 되는 법을 확인해보세요."
+[Rules]
+- headline: Max 30 Korean characters. A sentence that provokes curiosity or surprise — like a breaking news headline or YouTube thumbnail.
+  Examples) "핫도그 많이 먹기 금메달리스트 되는 법" / "GPT-5 나온다는데 CEO가 하루 만에 도망?!"
+- subtitle: 30~60 Korean characters. Amplifies curiosity about the title without revealing the conclusion.
+  Examples) "핫도그를 많이 먹을 필요도 없어요. 어쩌면 아예 먹을 필요도. 하지만 많이 먹은 사람이 되는 법을 확인해보세요."
 
-반드시 아래 JSON 형식으로만 응답 (마크다운 없이):
+IMPORTANT: Write ALL text values in Korean.
+Respond ONLY in the following JSON format (no markdown):
 {"headline": "...", "subtitle": "..."}
 
-[팟캐스트 대본 (앞 3000자)]
+[Podcast Script (first 3000 chars)]
 ${script.slice(0, 3000)}
 `.trim();
 

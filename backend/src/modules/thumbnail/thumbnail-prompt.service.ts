@@ -30,15 +30,15 @@ export class ThumbnailPromptService implements IThumbnailPromptService {
 
   async buildPrompt(headline: string, subtitle: string): Promise<string> {
     const systemPrompt = `
-당신은 테크 팟캐스트 썸네일 이미지 프롬프트 전문가입니다.
-아래 팟캐스트 헤드라인과 부제를 읽고, 이미지 생성 프롬프트의 빈칸을 채워주세요.
+You are an expert at writing image generation prompts for tech podcast thumbnails.
+Read the podcast headline and subtitle below, then fill in the bracketed placeholders in the image generation prompt template.
 
-헤드라인: ${headline}
-부제: ${subtitle}
+Headline: ${headline}
+Subtitle: ${subtitle}
 
-아래 템플릿의 대괄호 [] 항목을 채워 완성된 프롬프트 문자열만 반환하세요 (설명 없이):
+Fill in each [placeholder] in the template below and return ONLY the completed prompt string (no explanation):
 
-A vibrant, strictly NO TEXT podcast thumbnail for a tech news channel in a clean, stylized 3D render style. Soft, bright studio lighting. The central scene is [핵심 오브젝트: 헤드라인을 상징하는 물체/캐릭터, 영어]. It displays [상황 묘사: 역동적이고 흥미로운 장면, 영어]. Floating [상징적인 아이콘 2~3가지, 영어 쉼표 구분] are around it. Whimsical, puzzling, and curious atmosphere. Clean [메인 색상 2가지, 영어 ex: deep blue and electric yellow] color palette with high clarity. 8k resolution, detailed textures, Unreal Engine 5 render, sharp focus. Aspect ratio 1:1.
+A vibrant, strictly NO TEXT podcast thumbnail for a tech news channel in a clean, stylized 3D render style. Soft, bright studio lighting. The central scene is [main object: item/character symbolizing the headline, in English]. It displays [scene description: dynamic and engaging situation, in English]. Floating [2~3 symbolic icons related to the topic, comma-separated in English] are around it. Whimsical, puzzling, and curious atmosphere. Clean [2 main colors in English, e.g. deep blue and electric yellow] color palette with high clarity. 8k resolution, detailed textures, Unreal Engine 5 render, sharp focus. Aspect ratio 1:1.
 `.trim();
 
     const response = await fetch(this.baseUrl, {
