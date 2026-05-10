@@ -462,7 +462,7 @@ class _ThumbnailCard extends StatelessWidget {
                   ],
                 ),
 
-                const SizedBox(height: 150),
+                const Spacer(),
 
                 // Breaking 레이블
                 Text(
