@@ -295,6 +295,8 @@ class _MainScreenState extends State<MainScreen> {
           ),
           bottomNavigationBar: _buildBottomNavBar(context, isPlaying, currentEpisode, _currentTabIndex, _onTabSelected),
         );
+      },
+    );
   }
 
   Widget _buildBottomNavBar(BuildContext context, bool isPlaying, PodcastEpisodeItem? currentEpisode, int selectedIndex, Function(int) onTabSelected) {
