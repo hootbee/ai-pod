@@ -10,6 +10,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:just_audio/just_audio.dart';
 import '../../services/audio_handler.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import '../auth/auth_service.dart';
 import 'dart:ui';
 
 class MainScreen extends StatefulWidget {
@@ -21,6 +22,7 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int _currentTabIndex = 0;
+  GoogleSignIn get _googleSignIn => AuthService.googleSignIn;
 
   late PageController _tabPageController;
 
@@ -183,8 +185,6 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final GoogleSignIn googleSignIn = GoogleSignIn();
-
     return StreamBuilder<PlayerState>(
       stream: AudioHandler.instance.player.playerStateStream,
       builder: (context, snapshot) {
@@ -204,8 +204,8 @@ class _MainScreenState extends State<MainScreen> {
         }
 
         return StreamBuilder<GoogleSignInAccount?>(
-          stream: googleSignIn.onCurrentUserChanged,
-          initialData: googleSignIn.currentUser, 
+          stream: _googleSignIn.onCurrentUserChanged,
+          initialData: _googleSignIn.currentUser,
           builder: (context, userSnapshot) {
             final currentUser = userSnapshot.data;
 
@@ -579,6 +579,7 @@ Widget _buildLibraryTab(GoogleSignInAccount? user) {
   return FlipThumbnailCard(
     episode: episode,
     onTap: _enterPodcast,
+    onCardNewsTap: () => _onTabSelected(1),
   );
 },
     );
@@ -677,11 +678,13 @@ class PodcastEpisodeItem {
 class FlipThumbnailCard extends StatefulWidget {
   final PodcastEpisodeItem episode;
   final VoidCallback onTap;
+  final VoidCallback? onCardNewsTap;
 
   const FlipThumbnailCard({
-    super.key, 
-    required this.episode, 
+    super.key,
+    required this.episode,
     required this.onTap,
+    this.onCardNewsTap,
   });
 
   @override
@@ -690,6 +693,7 @@ class FlipThumbnailCard extends StatefulWidget {
 
 class _FlipThumbnailCardState extends State<FlipThumbnailCard> with SingleTickerProviderStateMixin {
   late AnimationController _controller;
+  bool _isFlipped = false;
 
   @override
   void initState() {
@@ -706,13 +710,21 @@ class _FlipThumbnailCardState extends State<FlipThumbnailCard> with SingleTicker
     super.dispose();
   }
 
+  void _flipToBack() {
+    _isFlipped = true;
+    _controller.forward();
+  }
+
+  void _flipToFront() {
+    _isFlipped = false;
+    _controller.reverse();
+  }
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: widget.onTap,
-      onLongPressStart: (_) => _controller.forward(), 
-      onLongPressEnd: (_) => _controller.reverse(),
-      onLongPressCancel: () => _controller.reverse(), 
+      onTap: _isFlipped ? _flipToFront : widget.onTap,
+      onLongPress: _isFlipped ? null : _flipToBack,
       child: AnimatedBuilder(
         animation: _controller,
         builder: (context, child) {
@@ -918,28 +930,54 @@ class _FlipThumbnailCardState extends State<FlipThumbnailCard> with SingleTicker
   }
 
   Widget _buildBack() {
+    final date = widget.episode.createdAt;
+    final dateStr = date != null
+        ? '${date.year}.${date.month.toString().padLeft(2, '0')}.${date.day.toString().padLeft(2, '0')}'
+        : '';
+
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFF2A2D24),
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: Colors.white10, width: 1),
       ),
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(28),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.menu_book_rounded, color: Color(0xFFD6E36F), size: 40),
-          const SizedBox(height: 16),
+          if (dateStr.isNotEmpty)
+            Text(
+              dateStr,
+              style: const TextStyle(color: Color(0xFFD6E36F), fontSize: 13, fontWeight: FontWeight.w600),
+            ),
+          const SizedBox(height: 10),
           Text(
             widget.episode.title,
-            textAlign: TextAlign.center,
-            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 17, height: 1.4),
           ),
-          const SizedBox(height: 12),
-          const Text(
-            "이 팟캐스트 에피소드는 OO에 대해 다룹니다.",
-            textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.5),
+          const Spacer(),
+          GestureDetector(
+            onTap: widget.onCardNewsTap,
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFD6E36F),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.auto_awesome_mosaic_rounded, color: Color(0xFF1A1C17), size: 18),
+                  SizedBox(width: 8),
+                  Text(
+                    '카드뉴스 보기',
+                    style: TextStyle(color: Color(0xFF1A1C17), fontWeight: FontWeight.bold, fontSize: 14),
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
       ),

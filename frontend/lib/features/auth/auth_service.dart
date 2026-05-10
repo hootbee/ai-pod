@@ -17,7 +17,7 @@ class AuthService {
   static const _keyAccessToken = 'access_token';
   static const _keyRefreshToken = 'refresh_token';
 
-  static final GoogleSignIn _googleSignIn = kIsWeb
+  static final GoogleSignIn googleSignIn = kIsWeb
       ? GoogleSignIn(clientId: _googleClientId)
       : GoogleSignIn(serverClientId: _googleClientId);
 
@@ -60,7 +60,7 @@ class AuthService {
 
   /// Google 로그인 + 백엔드 JWT 발급
   Future<Map<String, dynamic>> loginWithGoogle() async {
-    final account = await _googleSignIn.signIn();
+    final account = await googleSignIn.signIn();
     if (account == null) throw Exception('Google 로그인 취소됨');
 
     final auth = await account.authentication;
@@ -127,7 +127,7 @@ class AuthService {
         body: jsonEncode({'refreshToken': _refreshToken}),
       );
     }
-    await _googleSignIn.signOut();
+    await googleSignIn.signOut();
     await _clearTokens();
   }
 
