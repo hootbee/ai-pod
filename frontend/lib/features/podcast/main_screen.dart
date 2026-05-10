@@ -3,14 +3,15 @@ import 'package:flutter/material.dart';
 import '../../core/app_config.dart';
 import '../../services/network_cache_service.dart';
 import '../../shared/models/episode_source.dart';
+import '../../shared/models/user_profile.dart';
 import '../../shared/widgets/click_wheel.dart';
+import '../auth/auth_service.dart';
+import '../auth/login_screen.dart';
 import '../card_news/deep_dive_screen.dart';
 import 'podcast_player_screen.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:just_audio/just_audio.dart';
 import '../../services/audio_handler.dart';
-import 'package:google_sign_in/google_sign_in.dart';
-import '../auth/auth_service.dart';
 import 'dart:ui';
 
 class MainScreen extends StatefulWidget {
@@ -22,7 +23,6 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int _currentTabIndex = 0;
-  GoogleSignIn get _googleSignIn => AuthService.googleSignIn;
 
   late PageController _tabPageController;
 
@@ -37,6 +37,7 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
   final PageController _pageController = PageController(viewportFraction: 0.85);
+  UserProfile? _userProfile;
   List<PodcastEpisodeItem> _episodes = [];
   int _currentIndex = 0;
   bool _loading = true;
@@ -52,6 +53,27 @@ class _MainScreenState extends State<MainScreen> {
     super.initState();
     _tabPageController = PageController(initialPage: 0);
     _loadEpisodes();
+    _loadUserProfile();
+  }
+
+  Future<void> _loadUserProfile() async {
+    try {
+      final profile = await AuthService().fetchUserProfile();
+      if (!mounted) return;
+      setState(() => _userProfile = profile);
+    } catch (_) {}
+  }
+
+  Future<void> _logout() async {
+    await AuthService().logout();
+    if (!mounted) return;
+    Navigator.of(context).pushReplacement(
+      PageRouteBuilder(
+        pageBuilder: (_, __, ___) => const LoginScreen(),
+        transitionsBuilder: (_, animation, __, child) =>
+            FadeTransition(opacity: animation, child: child),
+      ),
+    );
   }
 
   Future<void> _loadEpisodes() async {
@@ -203,87 +225,76 @@ class _MainScreenState extends State<MainScreen> {
           currentEpisode = _episodes.isNotEmpty && _currentIndex < _episodes.length ? _episodes[_currentIndex] : null;
         }
 
-        return StreamBuilder<GoogleSignInAccount?>(
-          stream: _googleSignIn.onCurrentUserChanged,
-          initialData: _googleSignIn.currentUser,
-          builder: (context, userSnapshot) {
-            final currentUser = userSnapshot.data;
-
-            return Scaffold(
-              backgroundColor: const Color(0xFF1E211A),
-              body: PageView(
-                controller: _tabPageController,
-                physics: const NeverScrollableScrollPhysics(),
-                children: [
-                  SafeArea(
-                    child: Column(
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.only(left: 20, right: 30, top: 50, bottom: 0),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Image.asset('assets/images/aipod_logo.png', width: 130),
-                            
-                              Container(
-                                width: 44,
-                                height: 44,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  border: Border.all(color: Colors.white24, width: 1.5),
-                                  color: Colors.grey[900],
-                                ),
-                                child: ClipOval(
-                                  child: (currentUser?.photoUrl != null)
-                                      ? Image.network(
-                                          currentUser!.photoUrl!,
-                                          fit: BoxFit.cover,
-                                          errorBuilder: (context, error, stackTrace) => 
-                                            const Icon(Icons.person, color: Colors.white, size: 24),
-                                        )
-                                      : const Icon(Icons.person, color: Colors.white, size: 24),
-                                ),
-                              ),
-                            ],
+        return Scaffold(
+          backgroundColor: const Color(0xFF1E211A),
+          body: PageView(
+            controller: _tabPageController,
+            physics: const NeverScrollableScrollPhysics(),
+            children: [
+              SafeArea(
+                child: Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(left: 20, right: 30, top: 50, bottom: 0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Image.asset('assets/images/aipod_logo.png', width: 130),
+                          Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white24, width: 1.5),
+                              color: Colors.grey[900],
+                            ),
+                            child: ClipOval(
+                              child: _userProfile?.profileImageUrl != null
+                                  ? CachedNetworkImage(
+                                      imageUrl: _userProfile!.profileImageUrl!,
+                                      fit: BoxFit.cover,
+                                      errorWidget: (_, __, ___) =>
+                                          const Icon(Icons.person, color: Colors.white, size: 24),
+                                    )
+                                  : const Icon(Icons.person, color: Colors.white, size: 24),
+                            ),
                           ),
-                        ),
-                        Expanded(
-                          flex: 4,
-                          child: _buildEpisodeSection(),
-                        ),
-                        GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onHorizontalDragEnd: (details) {
-                            if (details.primaryVelocity! < -300) {
-                              _onTabSelected(1);
-                            }
-                          },
-                          child: const SizedBox(
-                            width: double.infinity,
-                            height: 40,
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 50),
-                          child: ClickWheel(
-                            onScrollRight: _nextPodcast,
-                            onScrollLeft: _previousPodcast,
-                            onCenterTap: _enterPodcast,
-                          ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                  DeepDiveScreen(onBack: () => _onTabSelected(0)),
-                  _buildLibraryTab(currentUser),
-                ],
+                    Expanded(
+                      flex: 4,
+                      child: _buildEpisodeSection(),
+                    ),
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onHorizontalDragEnd: (details) {
+                        if (details.primaryVelocity! < -300) {
+                          _onTabSelected(1);
+                        }
+                      },
+                      child: const SizedBox(
+                        width: double.infinity,
+                        height: 40,
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 50),
+                      child: ClickWheel(
+                        onScrollRight: _nextPodcast,
+                        onScrollLeft: _previousPodcast,
+                        onCenterTap: _enterPodcast,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              bottomNavigationBar: _buildBottomNavBar(context, isPlaying, currentEpisode, _currentTabIndex, _onTabSelected),
-            );
-          },
+              DeepDiveScreen(onBack: () => _onTabSelected(0)),
+              _buildLibraryTab(),
+            ],
+          ),
+          bottomNavigationBar: _buildBottomNavBar(context, isPlaying, currentEpisode, _currentTabIndex, _onTabSelected),
         );
-      },
-    );
   }
 
   Widget _buildBottomNavBar(BuildContext context, bool isPlaying, PodcastEpisodeItem? currentEpisode, int selectedIndex, Function(int) onTabSelected) {
@@ -392,13 +403,7 @@ Widget _buildNavItem(BuildContext context, IconData icon, String label, {bool is
   );
 }
 
-Widget _buildLibraryTab(GoogleSignInAccount? user) {
-  final List<Map<String, String>> mockupData = [
-    {'title': '1', 'date': '2026-05-06'},
-    {'title': '2', 'date': '2026-06-07'},
-    {'title': '3', 'date': '2026-07-08'},
-  ];
-
+Widget _buildLibraryTab() {
   return SafeArea(
     child: Column(
       children: [
@@ -417,22 +422,27 @@ Widget _buildLibraryTab(GoogleSignInAccount? user) {
                   color: Colors.grey[900],
                 ),
                 child: ClipOval(
-                  child: user?.photoUrl != null
-                      ? Image.network(user!.photoUrl!, fit: BoxFit.cover)
+                  child: _userProfile?.profileImageUrl != null
+                      ? CachedNetworkImage(
+                          imageUrl: _userProfile!.profileImageUrl!,
+                          fit: BoxFit.cover,
+                          errorWidget: (_, __, ___) =>
+                              const Icon(Icons.person, color: Colors.white, size: 24),
+                        )
                       : const Icon(Icons.person, color: Colors.white, size: 24),
                 ),
               ),
             ],
           ),
         ),
-    Expanded(
+        Expanded(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24),
             child: Column(
               children: [
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 35, horizontal: 24), 
+                  padding: const EdgeInsets.symmetric(vertical: 35, horizontal: 24),
                   decoration: BoxDecoration(
                     color: const Color(0xFF434A38),
                     borderRadius: BorderRadius.circular(28),
@@ -448,8 +458,13 @@ Widget _buildLibraryTab(GoogleSignInAccount? user) {
                           color: Colors.white.withValues(alpha: 0.1),
                         ),
                         child: ClipOval(
-                          child: user?.photoUrl != null
-                              ? Image.network(user!.photoUrl!, fit: BoxFit.cover)
+                          child: _userProfile?.profileImageUrl != null
+                              ? CachedNetworkImage(
+                                  imageUrl: _userProfile!.profileImageUrl!,
+                                  fit: BoxFit.cover,
+                                  errorWidget: (_, __, ___) =>
+                                      const Icon(Icons.person, color: Colors.white, size: 50),
+                                )
                               : const Icon(Icons.person, color: Colors.white, size: 50),
                         ),
                       ),
@@ -460,19 +475,19 @@ Widget _buildLibraryTab(GoogleSignInAccount? user) {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(
-                              user?.displayName ?? "로그인이 필요합니다",
+                              _userProfile?.nickname ?? '로그인이 필요합니다',
                               style: const TextStyle(
-                                color: Colors.white, 
-                                fontSize: 20, 
-                                fontWeight: FontWeight.bold
+                                color: Colors.white,
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
                             const SizedBox(height: 6),
                             Text(
-                              user?.email ?? "계정 정보를 불러올 수 없습니다",
+                              _userProfile?.email ?? '계정 정보를 불러올 수 없습니다',
                               style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.5), 
-                                fontSize: 14
+                                color: Colors.white.withValues(alpha: 0.5),
+                                fontSize: 14,
                               ),
                             ),
                           ],
@@ -484,7 +499,7 @@ Widget _buildLibraryTab(GoogleSignInAccount? user) {
 
                 const SizedBox(height: 25),
 
-          Expanded(
+                Expanded(
                   child: Container(
                     padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(
@@ -501,33 +516,50 @@ Widget _buildLibraryTab(GoogleSignInAccount? user) {
                             Text('기록', style: TextStyle(color: Colors.white, fontSize: 15)),
                           ],
                         ),
-                        const SizedBox(height: 20),
                         Expanded(
-                          child: ListView.separated(
-                            itemCount: mockupData.length,
-                            separatorBuilder: (context, index) => Divider(color: Colors.white.withValues(alpha: 0.1), height: 30),
-                            itemBuilder: (context, index) {
-                              return Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    mockupData[index]['title']!,
-                                    style: const TextStyle(color: Colors.white, fontSize: 16),
+                          child: Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Symbols.history,
+                                  color: Colors.white.withValues(alpha: 0.3),
+                                  size: 48,
+                                ),
+                                const SizedBox(height: 12),
+                                Text(
+                                  '아직 청취 기록이 없습니다',
+                                  style: TextStyle(
+                                    color: Colors.white.withValues(alpha: 0.4),
+                                    fontSize: 14,
                                   ),
-                                  Text(
-                                    mockupData[index]['date']!,
-                                    style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 13),
-                                  ),
-                                ],
-                              );
-                            },
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ],
                     ),
                   ),
                 ),
-                const SizedBox(height: 20),
+
+                const SizedBox(height: 16),
+
+                GestureDetector(
+                  onTap: _logout,
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Text(
+                      '로그아웃',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.35),
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 4),
               ],
             ),
           ),

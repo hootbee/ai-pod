@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import '../../core/app_config.dart';
+import '../../shared/models/user_profile.dart';
 
 class AuthService {
   // URL은 AppConfig에서 환경별로 자동 결정됨
@@ -129,6 +130,27 @@ class AuthService {
     }
     await googleSignIn.signOut();
     await _clearTokens();
+  }
+
+  Future<UserProfile?> fetchUserProfile() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString(_keyAccessToken);
+    if (token == null) return null;
+
+    try {
+      final response = await http
+          .get(
+            Uri.parse('$_backendUrl/auth/me'),
+            headers: {'Authorization': 'Bearer $token'},
+          )
+          .timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        return UserProfile.fromJson(
+            jsonDecode(response.body) as Map<String, dynamic>);
+      }
+    } catch (_) {}
+    return null;
   }
 
   Future<void> _saveTokens() async {
