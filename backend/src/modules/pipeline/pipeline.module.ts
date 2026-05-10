@@ -4,7 +4,7 @@ import { BullModule } from '@nestjs/bull';
 import { PipelineService } from './pipeline.service';
 import { PipelineScheduler } from './pipeline.scheduler';
 import { PipelineController } from './pipeline.controller';
-import { CrawlerModule } from '../crawler/crawler.module';
+import { GroundingModule } from '../grounding/grounding.module';
 import { AiProcessorModule } from '../ai-processor/ai-processor.module';
 import { EpisodesModule } from '../episodes/episodes.module';
 import { CardNewsModule } from '../card-news/card-news.module';
@@ -15,7 +15,7 @@ import { TTS_QUEUE } from '../tts/tts.constants';
   imports: [
     ScheduleModule.forRoot(),
     BullModule.registerQueue({ name: TTS_QUEUE }),
-    CrawlerModule,
+    GroundingModule,
     AiProcessorModule,
     EpisodesModule,
     CardNewsModule,

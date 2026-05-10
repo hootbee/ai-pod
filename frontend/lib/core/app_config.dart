@@ -45,7 +45,7 @@ class AppConfig {
   }
 
   static String get _devUrl {
-    if (kIsWeb) return 'http://192.168.0.18:3000';
+    if (kIsWeb) return 'http://localhost:3000';
     const devHost = String.fromEnvironment('DEV_HOST', defaultValue: '');
 
     // Android emulator localhost 우회

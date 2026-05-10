@@ -5,7 +5,7 @@ import Redis from 'ioredis';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { DataSource } from 'typeorm';
-import { CrawlerService } from '../crawler/crawler.service';
+import { GroundingService } from '../grounding/grounding.service';
 import { AiProcessorService } from '../ai-processor/ai-processor.service';
 import { EpisodesService } from '../episodes/episodes.service';
 import { HeadlineService } from '../episodes/headline.service';
@@ -31,7 +31,7 @@ export class PipelineService {
   private readonly logger = new Logger(PipelineService.name);
 
   constructor(
-    private readonly crawlerService: CrawlerService,
+    private readonly groundingService: GroundingService,
     private readonly aiProcessorService: AiProcessorService,
     private readonly episodesService: EpisodesService,
     private readonly headlineService: HeadlineService,
@@ -57,8 +57,8 @@ export class PipelineService {
       }
     }
 
-    // ── 1. 크롤링 ────────────────────────────────────────────────────────
-    this.logger.log('[Pipeline] 크롤링 시작');
+    // ── 1. 기사 수집 (Gemini Grounding) ─────────────────────────────────
+    this.logger.log('[Pipeline] Grounding 검색 시작');
     const { articles, sources } = await this.collectArticlesSafely();
 
     const minArticles = Number(process.env.MIN_ARTICLES ?? 3);
@@ -158,31 +158,12 @@ export class PipelineService {
 
   // ── private helpers ───────────────────────────────────────────────────
 
-  /** 개별 기사 fetch 실패 시 skip, 성공한 것만 반환 */
+  /** Gemini Grounding으로 오늘의 테크 기사 수집 */
   private async collectArticlesSafely(): Promise<{
     articles: BriefingArticle[];
     sources: Array<{ title: string; source: string; link: string }>;
   }> {
-    const LIMIT_PER_SOURCE = 5;
-    const MAX_ARTICLES = 15;
-
-    const items = await this.crawlerService.fetchLatest(LIMIT_PER_SOURCE);
-    const candidates = items.slice(0, MAX_ARTICLES);
-
-    const articles: BriefingArticle[] = [];
-    const sources: Array<{ title: string; source: string; link: string }> = [];
-    for (const item of candidates) {
-      try {
-        const content = await this.crawlerService.fetchArticleContent(item.link, item.sourceId);
-        if (!content) continue;
-        articles.push({ title: item.title, content: content.slice(0, 1500), source: item.source });
-        sources.push({ title: item.title, source: item.source, link: item.link });
-        await this.crawlerService.markProcessed(item);
-      } catch {
-        this.logger.warn(`[Pipeline] 기사 fetch 실패, skip: ${item.link}`);
-      }
-    }
-    return { articles, sources };
+    return this.groundingService.fetchLatestTechArticles();
   }
 
   /** Promise에 timeout + retryCount 적용 */
