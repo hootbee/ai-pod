@@ -1,6 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 import 'package:just_audio/just_audio.dart';
 import 'package:just_audio_background/just_audio_background.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../core/app_config.dart';
 import '../features/podcast/main_screen.dart';
 
 class AudioHandler {
@@ -30,8 +35,24 @@ class AudioHandler {
 
       await player.setAudioSource(source);
       player.play();
+      unawaited(_incrementPlayCount(episode.id));
     } catch (e) {
       debugPrint('오디오 재생 실패: $e');
+    }
+  }
+
+  Future<void> _incrementPlayCount(String episodeId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('access_token');
+      if (token == null) return;
+
+      await http.post(
+        Uri.parse('${AppConfig.apiBaseUrl}/episodes/$episodeId/audio-play-count'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+    } catch (e) {
+      debugPrint('청취 기록 저장 실패: $e');
     }
   }
 }

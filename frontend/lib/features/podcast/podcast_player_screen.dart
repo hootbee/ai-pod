@@ -6,10 +6,8 @@ import 'package:just_audio_background/just_audio_background.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'package:just_audio/just_audio.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
-import '../../core/app_config.dart';
 import '../../services/network_cache_service.dart';
 import '../../shared/widgets/source_info_bottom_sheet.dart';
 import 'main_screen.dart';
@@ -28,7 +26,6 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
   static const List<double> _playbackSpeeds = [1.0, 1.2, 1.5, 2.0];
 
   double _playbackSpeed = 1.0;
-  bool _playCountIncremented = false;
 
   late AudioPlayer _audioPlayer;
   StreamSubscription<Duration>? _positionSubscription;
@@ -84,25 +81,24 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
   void initState() {
     super.initState();
     _audioPlayer = AudioHandler.instance.player;
-  
+
     _positionSubscription = _audioPlayer.positionStream.listen(
       _handlePlaybackPositionChanged,
     );
     _loadSubtitleCues();
 
     final bool isPlaying = _audioPlayer.playing;
-    final bool isSameEpisode = AudioHandler.instance.currentEpisodeId == widget.episode.id;
+    final bool isSameEpisode =
+        AudioHandler.instance.currentEpisodeId == widget.episode.id;
 
-  if (isSameEpisode && isPlaying) {
-    setState(() {
-      _audioReady = true;
-    }); 
-  } else {
-    AudioHandler.instance.playEpisode(widget.episode).then((_) {
+    if (isSameEpisode && isPlaying) {
+      setState(() => _audioReady = true);
+    } else {
+      AudioHandler.instance.playEpisode(widget.episode).then((_) {
         if (mounted) setState(() => _audioReady = true);
       });
+    }
   }
-}
 
   Future<void> _loadSubtitleCues() async {
     final subtitleCuesUrl = widget.episode.subtitleCuesUrl;
@@ -258,17 +254,6 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
     if (playing) {
       await _audioPlayer.pause();
     } else {
-      if (!_playCountIncremented) {
-        _playCountIncremented = true;
-        SharedPreferences.getInstance().then((prefs) {
-          final token = prefs.getString('access_token');
-          if (token == null) return;
-          http.post(
-            Uri.parse('${AppConfig.apiBaseUrl}/episodes/${widget.episode.id}/audio-play-count'),
-            headers: {'Authorization': 'Bearer $token'},
-          ).ignore();
-        });
-      }
       await _audioPlayer.play();
     }
   }

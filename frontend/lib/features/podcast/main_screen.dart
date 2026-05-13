@@ -1,5 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:dio/dio.dart' show Options;
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/app_config.dart';
 import '../../services/network_cache_service.dart';
 import '../../shared/models/episode_source.dart';
@@ -27,14 +29,13 @@ class _MainScreenState extends State<MainScreen> {
   late PageController _tabPageController;
 
   void _onTabSelected(int index) {
-    setState(() {
-      _currentTabIndex = index;
-    });
+    setState(() => _currentTabIndex = index);
     _tabPageController.animateToPage(
       index,
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeInOut,
     );
+    if (index == 2) _loadHistory();
   }
   final PageController _pageController = PageController(viewportFraction: 0.85);
   UserProfile? _userProfile;
@@ -45,6 +46,10 @@ class _MainScreenState extends State<MainScreen> {
   bool _hasNextPage = false;
   int _offset = 0;
   String? _error;
+
+  List<_HistoryEntry> _historyItems = [];
+  bool _historyLoading = false;
+  bool _historyLoaded = false;
 
   static const int _pageLimit = 10;
 
@@ -186,16 +191,50 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   void _enterPodcast({PodcastEpisodeItem? targetEpisode}) {
-    if (_episodes.isEmpty) return;
-
-    final episode = targetEpisode ?? (_currentIndex < _episodes.length ? _episodes[_currentIndex] : null);
+    final episode = targetEpisode ??
+        (_episodes.isNotEmpty && _currentIndex < _episodes.length ? _episodes[_currentIndex] : null);
     if (episode == null) return;
 
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => PodcastPlayerScreen(episode: episode),
-      ),
-    );
+    Navigator.of(context)
+        .push(MaterialPageRoute(
+          builder: (context) => PodcastPlayerScreen(episode: episode),
+        ))
+        .then((_) => setState(() => _historyLoaded = false));
+  }
+
+  Future<void> _loadHistory() async {
+    if (_historyLoaded) return;
+    setState(() => _historyLoading = true);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('access_token');
+      final response = await NetworkCacheService.instance.dio.get<dynamic>(
+        '${AppConfig.apiBaseUrl}/users/me/history',
+        queryParameters: {'limit': 20, 'offset': 0},
+        options: Options(
+          headers: token != null ? {'Authorization': 'Bearer $token'} : null,
+        ),
+      );
+      final body = _toPaginatedBody(response.data);
+      final items = (body['data'] as List<dynamic>? ?? []).map((item) {
+        final json = item as Map<String, dynamic>;
+        return _HistoryEntry(
+          episode: PodcastEpisodeItem.fromJson(json),
+          lastPlayedAt:
+              DateTime.tryParse(json['lastPlayedAt'] as String? ?? '') ??
+              DateTime.now(),
+        );
+      }).toList();
+      if (!mounted) return;
+      setState(() {
+        _historyItems = items;
+        _historyLoading = false;
+        _historyLoaded = true;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _historyLoading = false);
+    }
   }
 
   @override
@@ -519,26 +558,57 @@ Widget _buildLibraryTab() {
                           ],
                         ),
                         Expanded(
-                          child: Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Symbols.history,
-                                  color: Colors.white.withValues(alpha: 0.3),
-                                  size: 48,
-                                ),
-                                const SizedBox(height: 12),
-                                Text(
-                                  '아직 청취 기록이 없습니다',
-                                  style: TextStyle(
-                                    color: Colors.white.withValues(alpha: 0.4),
-                                    fontSize: 14,
+                          child: _historyLoading
+                              ? const Center(
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white54,
+                                    strokeWidth: 2,
                                   ),
-                                ),
-                              ],
-                            ),
-                          ),
+                                )
+                              : _historyItems.isEmpty
+                                  ? Center(
+                                      child: Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          Icon(
+                                            Symbols.history,
+                                            color: Colors.white
+                                                .withValues(alpha: 0.3),
+                                            size: 48,
+                                          ),
+                                          const SizedBox(height: 12),
+                                          Text(
+                                            '아직 청취 기록이 없습니다',
+                                            style: TextStyle(
+                                              color: Colors.white
+                                                  .withValues(alpha: 0.4),
+                                              fontSize: 14,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    )
+                                  : ListView.separated(
+                                      padding:
+                                          const EdgeInsets.only(top: 12),
+                                      itemCount: _historyItems.length,
+                                      separatorBuilder: (_, __) => Divider(
+                                        color: Colors.white
+                                            .withValues(alpha: 0.08),
+                                        height: 1,
+                                      ),
+                                      itemBuilder: (context, index) {
+                                        final entry =
+                                            _historyItems[index];
+                                        return _HistoryListTile(
+                                          entry: entry,
+                                          onTap: () => _enterPodcast(
+                                              targetEpisode:
+                                                  entry.episode),
+                                        );
+                                      },
+                                    ),
                         ),
                       ],
                     ),
@@ -1015,6 +1085,108 @@ class _FlipThumbnailCardState extends State<FlipThumbnailCard> with SingleTicker
           ),
         ],
       ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 청취 기록 데이터 모델
+// ─────────────────────────────────────────────────────────────────────────────
+class _HistoryEntry {
+  final PodcastEpisodeItem episode;
+  final DateTime lastPlayedAt;
+
+  _HistoryEntry({required this.episode, required this.lastPlayedAt});
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 청취 기록 목록 아이템
+// ─────────────────────────────────────────────────────────────────────────────
+class _HistoryListTile extends StatelessWidget {
+  final _HistoryEntry entry;
+  final VoidCallback onTap;
+
+  const _HistoryListTile({required this.entry, required this.onTap});
+
+  String _relativeDate(DateTime dt) {
+    final diff = DateTime.now().difference(dt);
+    if (diff.inDays == 0) return '오늘';
+    if (diff.inDays == 1) return '어제';
+    if (diff.inDays < 7) return '${diff.inDays}일 전';
+    if (diff.inDays < 30) return '${(diff.inDays / 7).floor()}주 전';
+    if (diff.inDays < 365) return '${(diff.inDays / 30).floor()}달 전';
+    return '${(diff.inDays / 365).floor()}년 전';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ep = entry.episode;
+    return InkWell(
+      onTap: onTap,
+      splashColor: Colors.white.withValues(alpha: 0.05),
+      highlightColor: Colors.transparent,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+        child: Row(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: ep.thumbnailUrl != null
+                  ? CachedNetworkImage(
+                      imageUrl: ep.thumbnailUrl!,
+                      width: 56,
+                      height: 56,
+                      fit: BoxFit.cover,
+                      cacheManager: AppImageCacheManager.instance,
+                      errorWidget: (_, __, ___) => _placeholder(),
+                    )
+                  : _placeholder(),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    ep.headline ?? ep.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      height: 1.35,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    _relativeDate(entry.lastPlayedAt),
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.45),
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Icon(
+              Icons.chevron_right,
+              color: Colors.white.withValues(alpha: 0.25),
+              size: 20,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _placeholder() {
+    return Container(
+      width: 56,
+      height: 56,
+      color: const Color(0xFF2E3228),
+      child: const Icon(Icons.headphones, color: Colors.white38, size: 24),
     );
   }
 }
