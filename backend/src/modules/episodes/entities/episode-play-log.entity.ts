@@ -12,6 +12,9 @@ export class EpisodePlayLog {
   @Column({ type: 'uuid' })
   episodeId: string;
 
+  @Column({ type: 'timestamptz', nullable: true })
+  lastPlayedAt: Date | null;
+
   @CreateDateColumn({ type: 'timestamptz' })
   createdAt: Date;
 }

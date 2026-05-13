@@ -86,11 +86,55 @@ export class EpisodesService {
 
   async incrementAudioPlayCount(id: string, userId: string): Promise<{ alreadyCounted: boolean }> {
     const existing = await this.playLogRepository.findOne({ where: { userId, episodeId: id } });
-    if (existing) return { alreadyCounted: true };
+    if (existing) {
+      await this.playLogRepository.update({ id: existing.id }, { lastPlayedAt: new Date() });
+      return { alreadyCounted: true };
+    }
 
-    await this.playLogRepository.save(this.playLogRepository.create({ userId, episodeId: id }));
+    await this.playLogRepository.save(
+      this.playLogRepository.create({ userId, episodeId: id, lastPlayedAt: new Date() }),
+    );
     await this.episodesRepository.increment({ id }, 'audioPlayCount', 1);
     return { alreadyCounted: false };
+  }
+
+  async getListeningHistory(
+    userId: string,
+    limit: number,
+    offset: number,
+  ): Promise<PaginatedResponse<PodcastEpisodeWithMedia & { lastPlayedAt: Date }>> {
+    const [logs, totalCount] = await this.playLogRepository.findAndCount({
+      where: { userId },
+      order: { lastPlayedAt: 'DESC' },
+      take: limit,
+      skip: offset,
+    });
+
+    if (logs.length === 0) {
+      return toPaginatedResponse([], totalCount, limit, offset);
+    }
+
+    const episodeIds = logs.map((l) => l.episodeId);
+    const [episodes, thumbnails] = await Promise.all([
+      this.episodesRepository.find({ where: { id: In(episodeIds) } }),
+      this.thumbnailsRepository.find({ where: { episodeId: In(episodeIds) } }),
+    ]);
+
+    const episodeMap = new Map(episodes.map((e) => [e.id, e]));
+    const thumbnailMap = new Map(thumbnails.map((t) => [t.episodeId, t]));
+
+    const data = logs
+      .map((log) => {
+        const episode = episodeMap.get(log.episodeId);
+        if (!episode) return null;
+        return {
+          ...this.withMedia(episode, thumbnailMap.get(episode.id)?.imagePath),
+          lastPlayedAt: log.lastPlayedAt ?? log.createdAt,
+        };
+      })
+      .filter((item): item is NonNullable<typeof item> => item !== null);
+
+    return toPaginatedResponse(data, totalCount, limit, offset);
   }
 
   async getAudioPlayCount(id: string): Promise<{ episodeId: string; audioPlayCount: number }> {
