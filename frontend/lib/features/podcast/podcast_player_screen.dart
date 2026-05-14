@@ -308,104 +308,61 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF1E211A),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        title: const Text('', style: TextStyle(color: Colors.white)),
-        titleTextStyle: const TextStyle(
-          color: Colors.white,
-          fontSize: 18,
-          fontWeight: FontWeight.w600,
-        ),
-        centerTitle: false,
-        titleSpacing: 0,
-        flexibleSpace: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.only(left: 56, right: 16, top: 12),
-            child: Text(
-              _screenTitle,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: Colors.white, fontSize: 18),
-            ),
-          ),
-        ),
-        actions: [
-          /*if (widget.episode.sources.isNotEmpty)
-            IconButton(
-              icon: const Icon(Icons.link, color: Colors.white),
-              tooltip: '원문 출처',
-              onPressed: () => showSourceInfoBottomSheet(
-                context,
-                sources: widget.episode.sources,
-                thumbnailUrl: widget.episode.thumbnailUrl,
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            _buildHeader(),
+            if (_audioError != null)
+              Padding(
+                padding: const EdgeInsets.all(12),
+                child: Text(
+                  _audioError!,
+                  style: const TextStyle(color: Colors.redAccent),
+                ),
               ),
-            ),*/
-          IconButton(
-            icon: const Icon(Icons.ios_share, color: Colors.white),
-            onPressed: () {
-              final String shareText = '[aipod] ${widget.episode.title}\n\n지금 이 에피소드를 들어보세요!\n\n${widget.episode.streamUrl}';
-              SharePlus.instance.share(ShareParams(text: shareText, subject: widget.episode.title));
-            },
-          ),
-          const SizedBox(width: 5),
-        ],
-      ),
-      body: Column(
-        children: [
-          if (_audioError != null)
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Text(
-                _audioError!,
-                style: const TextStyle(color: Colors.redAccent),
-              ),
-            ),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 24.0,
-                vertical: 16.0,
-              ),
-              child: ScrollablePositionedList.separated(
-                itemScrollController: _itemScrollController,
-                itemPositionsListener: _itemPositionsListener,
-                itemCount: _displayLines.length,
-                separatorBuilder: (context, index) =>
-                    const SizedBox(height: 16),
-                itemBuilder: (context, index) {
-                  final isActive = index == _currentCueIndex;
-                  return Text(
-                    _displayLines[index],
-                    style: TextStyle(
-                      fontSize: 20,
-                      height: 1.5,
-                      fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-                      color: isActive
-                          ? const Color(0xFFD6E36F)
-                          : Colors.white.withValues(alpha: 0.8),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ),
-
-          if (_subtitleCuesLoading)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Text(
-                '자막 싱크 로딩 중...',
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.65),
-                  fontSize: 13,
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24.0,
+                  vertical: 16.0,
+                ),
+                child: ScrollablePositionedList.separated(
+                  itemScrollController: _itemScrollController,
+                  itemPositionsListener: _itemPositionsListener,
+                  itemCount: _displayLines.length,
+                  separatorBuilder: (context, index) =>
+                      const SizedBox(height: 16),
+                  itemBuilder: (context, index) {
+                    final isActive = index == _currentCueIndex;
+                    return Text(
+                      _displayLines[index],
+                      style: TextStyle(
+                        fontSize: 20,
+                        height: 1.5,
+                        fontWeight:
+                            isActive ? FontWeight.w700 : FontWeight.w500,
+                        color: isActive
+                            ? const Color(0xFFD6E36F)
+                            : Colors.white.withValues(alpha: 0.8),
+                      ),
+                    );
+                  },
                 ),
               ),
             ),
+
+            if (_subtitleCuesLoading)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Text(
+                  '자막 싱크 로딩 중...',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.65),
+                    fontSize: 13,
+                  ),
+                ),
+              ),
 
             StreamBuilder<Duration?>(
             stream: _audioPlayer.positionStream,
@@ -520,7 +477,91 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
               ),
             ),
           ),
-        ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(18, 12, 18, 8),
+      child: SizedBox(
+        height: 48,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Align(
+              alignment: Alignment.centerLeft,
+              child: _HeaderCircleButton(
+                icon: Icons.arrow_back_ios_new_rounded,
+                onTap: () => Navigator.of(context).pop(),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 58),
+              child: Text(
+                _screenTitle,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                  height: 1.2,
+                ),
+              ),
+            ),
+            Align(
+              alignment: Alignment.centerRight,
+              child: _HeaderCircleButton(
+                icon: Icons.ios_share_rounded,
+                onTap: () {
+                  final String shareText =
+                      '[aipod] ${widget.episode.title}\n\n지금 이 에피소드를 들어보세요!\n\n${widget.episode.streamUrl}';
+                  SharePlus.instance.share(
+                    ShareParams(
+                      text: shareText,
+                      subject: widget.episode.title,
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HeaderCircleButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _HeaderCircleButton({
+    required this.icon,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white.withValues(alpha: 0.12),
+      shape: const CircleBorder(),
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onTap,
+        child: SizedBox(
+          width: 42,
+          height: 42,
+          child: Icon(
+            icon,
+            color: Colors.white,
+            size: 21,
+          ),
+        ),
       ),
     );
   }
