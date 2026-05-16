@@ -1,7 +1,9 @@
-import { Controller, Get, Param, Post } from '@nestjs/common';
+import { Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ThumbnailService } from './thumbnail.service';
 
 @Controller('thumbnail')
+@UseGuards(JwtAuthGuard)
 export class ThumbnailController {
   constructor(private readonly thumbnailService: ThumbnailService) {}
 

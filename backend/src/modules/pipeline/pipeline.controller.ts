@@ -1,7 +1,9 @@
-import { Body, Controller, Param, Post, Query } from '@nestjs/common';
+import { Body, Controller, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { PipelineService } from './pipeline.service';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @Controller('pipeline')
+@UseGuards(JwtAuthGuard)
 export class PipelineController {
   constructor(private readonly pipelineService: PipelineService) {}
 

@@ -1,7 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:dio/dio.dart' show Options;
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/app_config.dart';
 import '../../services/network_cache_service.dart';
 import '../../shared/models/episode_source.dart';
@@ -206,8 +205,7 @@ class _MainScreenState extends State<MainScreen> {
     if (_historyLoaded) return;
     setState(() => _historyLoading = true);
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('access_token');
+      final token = await AuthService.readAccessToken();
       final response = await NetworkCacheService.instance.dio.get<dynamic>(
         '${AppConfig.apiBaseUrl}/users/me/history',
         queryParameters: {'limit': 20, 'offset': 0},
