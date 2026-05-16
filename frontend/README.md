@@ -88,7 +88,7 @@ flutter run -d chrome --web-port 7357 \
   --dart-define=API_URL=http://3.36.120.247:3000 \
   --dart-define=GOOGLE_CLIENT_ID=826440481147-effr7vmiuqh5d0tujtne4e726ft14ttr.apps.googleusercontent.com
 ```
-
+flutter run -d chrome --web-port 7357 --dart-define=ENV=production --dart-define=API_URL=http://3.36.120.247:3000 --dart-define=GOOGLE_CLIENT_ID=826440481147-effr7vmiuqh5d0tujtne4e726ft14ttr.apps.googleusercontent.com
 - 로컬 개발 서버 붙여서 테스트:
 
 ```bash

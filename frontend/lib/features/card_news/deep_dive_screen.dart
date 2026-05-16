@@ -6,6 +6,7 @@ import '../../core/app_config.dart';
 import '../auth/auth_service.dart';
 import '../../services/network_cache_service.dart';
 import '../../shared/models/episode_source.dart';
+import '../../shared/models/user_profile.dart';
 import '../../shared/widgets/source_info_bottom_sheet.dart';
 
 class DeepDiveScreen extends StatefulWidget {
@@ -22,6 +23,7 @@ class _DeepDiveScreenState extends State<DeepDiveScreen> {
   bool _hasNextPage = false;
   int _offset = 0;
   String? _error;
+  UserProfile? _userProfile;
   List<DeepDiveDay> _days = [];
   final Map<int, PageController> _slideControllers = {};
   final Set<String> _viewCountedIds = {};
@@ -31,6 +33,7 @@ class _DeepDiveScreenState extends State<DeepDiveScreen> {
   void initState() {
     super.initState();
     _load();
+    _loadUserProfile();
   }
 
   @override
@@ -175,30 +178,18 @@ class _DeepDiveScreenState extends State<DeepDiveScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF1E211A),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
-          onPressed: () {
-            if (widget.onBack != null) {
-              widget.onBack!();
-            } else {
-              Navigator.of(context).pop();
-            }
-          }
-        ),
-        title: const Text(
-          'DEEP DIVE',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w800,
-            letterSpacing: 2,
-          ),
-        ),
-      ),
       body: _buildBody(),
     );
+  }
+
+  Future<void> _loadUserProfile() async {
+    try {
+      final profile = await AuthService().fetchUserProfile();
+      if (!mounted) return;
+      setState(() => _userProfile = profile);
+    } catch (_) {
+      // Profile is decorative here, so keep the fallback avatar on failure.
+    }
   }
 
   Widget _buildBody() {
@@ -253,93 +244,91 @@ class _DeepDiveScreenState extends State<DeepDiveScreen> {
         await _load();
       },
       child: PageView.builder(
-      scrollDirection: Axis.vertical,
-      itemCount: itemCount,
-      onPageChanged: (i) {
-        if (i >= _days.length - 1) _loadMore();
-      },
-      itemBuilder: (context, dayIndex) {
-        if (dayIndex == _days.length) {
-          return const Center(
-            child: CircularProgressIndicator(color: Colors.white),
-          );
-        }
+        scrollDirection: Axis.vertical,
+        itemCount: itemCount,
+        onPageChanged: (i) {
+          if (i >= _days.length - 1) _loadMore();
+        },
+        itemBuilder: (context, dayIndex) {
+          if (dayIndex == _days.length) {
+            return const Center(
+              child: CircularProgressIndicator(color: Colors.white),
+            );
+          }
 
-        final day = _days[dayIndex];
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    day.dayLabel,
-                    style: TextStyle(
-                      color: Colors.white54, 
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                      letterSpacing: 0.5,
-                    ),
+          final day = _days[dayIndex];
+          return SafeArea(
+            bottom: false,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildHeader(),
+                Expanded(
+                  child: PageView.builder(
+                    key: ValueKey('pageview_$dayIndex'),
+                    scrollDirection: Axis.horizontal,
+                    controller: _controllerFor(dayIndex),
+                    onPageChanged: (slideIndex) =>
+                        _onSlideChanged(dayIndex, slideIndex),
+                    itemCount: day.cards.length,
+                    itemBuilder: (context, slideIndex) {
+                      final card = day.cards[slideIndex];
+
+                      return Padding(
+                        padding: const EdgeInsets.fromLTRB(8, 16, 10, 24),
+                        child: _DeepDiveCardView(
+                          card: card,
+                          cardIndex: slideIndex + 1,
+                          totalCards: day.cards.length,
+                          sources: day.sources,
+                        ),
+                      );
+                    },
                   ),
-                  const SizedBox(height: 2),
-
-                  if (day.topicTitle.isNotEmpty)
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          width: 4,
-                          height: 22, 
-                          margin: const EdgeInsets.only(top: 3),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFD6E36F), 
-                            borderRadius: BorderRadius.circular(2),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            day.topicTitle,
-                            style: const TextStyle(
-                              color: Colors.white70,
-                              fontSize: 18, 
-                              fontWeight: FontWeight.w800,
-                              height: 1.3,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: PageView.builder(
-                key: ValueKey('pageview_$dayIndex'),
-                scrollDirection: Axis.horizontal,
-                controller: _controllerFor(dayIndex),
-                onPageChanged: (slideIndex) => _onSlideChanged(dayIndex, slideIndex),
-                itemCount: day.cards.length,
-                itemBuilder: (context, slideIndex) {
-                  final card = day.cards[slideIndex];
-
-                  return Padding(
-                    padding: const EdgeInsets.fromLTRB(8, 16, 10, 24),
-                    child: _DeepDiveCardView(
-                      card: card,
-                      cardIndex: slideIndex + 1,
-                      totalCards: day.cards.length,
-                      sources: day.sources,
-                    ),
-                    );
-                  },
                 ),
-              ),
-            ],
+              ],
+            ),
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Padding(
+      padding: const EdgeInsets.only(left: 20, right: 30, top: 50, bottom: 6),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          const Text(
+            '카드뉴스',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 34,
+              fontWeight: FontWeight.w800,
+              height: 1.05,
+            ),
+          ),
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white24, width: 1.5),
+              color: Colors.grey[900],
+            ),
+            child: ClipOval(
+              child: _userProfile?.profileImageUrl != null
+                  ? CachedNetworkImage(
+                      imageUrl: _userProfile!.profileImageUrl!,
+                      fit: BoxFit.cover,
+                      errorWidget: (_, __, ___) =>
+                          const Icon(Icons.person, color: Colors.white, size: 24),
+                    )
+                  : const Icon(Icons.person, color: Colors.white, size: 24),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -796,6 +785,14 @@ class DeepDiveCardMeta {
   });
 
   Color get accentColorValue {
+    const fixedTypeColors = {
+      'deep-background': Color(0xFF66BB6A),
+      'deep-detail': Color(0xFFFDD835),
+      'deep-impact': Color(0xFFEF5350),
+    };
+    final fixedColor = fixedTypeColors[type];
+    if (fixedColor != null) return fixedColor;
+
     try {
       final hex = accentColor.replaceAll('#', '');
       return Color(int.parse('FF$hex', radix: 16));
