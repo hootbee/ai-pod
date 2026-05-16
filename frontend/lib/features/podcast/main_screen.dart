@@ -23,18 +23,15 @@ class MainScreen extends StatefulWidget {
   State<MainScreen> createState() => _MainScreenState();
 }
 
-class _MainScreenState extends State<MainScreen> {
+class _MainScreenState extends State<MainScreen>
+    with SingleTickerProviderStateMixin {
   int _currentTabIndex = 0;
-
-  late PageController _tabPageController;
+  late final AnimationController _tabTransitionController;
 
   void _onTabSelected(int index) {
+    if (index == _currentTabIndex) return;
     setState(() => _currentTabIndex = index);
-    _tabPageController.animateToPage(
-      index,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
-    );
+    _tabTransitionController.forward(from: 0);
     if (index == 2) _loadHistory();
   }
   final PageController _pageController = PageController(viewportFraction: 0.85);
@@ -56,7 +53,11 @@ class _MainScreenState extends State<MainScreen> {
   @override
   void initState() {
     super.initState();
-    _tabPageController = PageController(initialPage: 0);
+    _tabTransitionController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 240),
+      value: 1,
+    );
     _loadEpisodes();
     _loadUserProfile();
   }
@@ -202,6 +203,25 @@ class _MainScreenState extends State<MainScreen> {
         .then((_) => setState(() => _historyLoaded = false));
   }
 
+  Future<void> _toggleCurrentPodcast() async {
+    if (_episodes.isEmpty || _currentIndex >= _episodes.length) return;
+
+    final episode = _episodes[_currentIndex];
+    final player = AudioHandler.instance.player;
+    final isCurrent = AudioHandler.instance.currentEpisodeId == episode.id;
+
+    if (isCurrent) {
+      if (player.playing) {
+        await player.pause();
+      } else {
+        await player.play();
+      }
+      return;
+    }
+
+    await AudioHandler.instance.playEpisode(episode);
+  }
+
   Future<void> _loadHistory() async {
     if (_historyLoaded) return;
     setState(() => _historyLoading = true);
@@ -239,7 +259,7 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   void dispose() {
-    _tabPageController.dispose();
+    _tabTransitionController.dispose();
     _pageController.dispose();
     super.dispose();
   }
@@ -266,75 +286,92 @@ class _MainScreenState extends State<MainScreen> {
 
         return Scaffold(
           backgroundColor: const Color(0xFF1E211A),
-          body: PageView(
-            controller: _tabPageController,
-            physics: const NeverScrollableScrollPhysics(),
-            children: [
-              SafeArea(
-                child: Column(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.only(left: 20, right: 30, top: 50, bottom: 0),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Image.asset('assets/images/aipod_logo.png', width: 130),
-                          Container(
-                            width: 44,
-                            height: 44,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(color: Colors.white24, width: 1.5),
-                              color: Colors.grey[900],
-                            ),
-                            child: ClipOval(
-                              child: _userProfile?.profileImageUrl != null
-                                  ? CachedNetworkImage(
-                                      imageUrl: _userProfile!.profileImageUrl!,
-                                      fit: BoxFit.cover,
-                                      errorWidget: (_, __, ___) =>
-                                          const Icon(Icons.person, color: Colors.white, size: 24),
-                                    )
-                                  : const Icon(Icons.person, color: Colors.white, size: 24),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Expanded(
-                      flex: 4,
-                      child: _buildEpisodeSection(),
-                    ),
-                    GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onHorizontalDragEnd: (details) {
-                        if (details.primaryVelocity! < -300) {
-                          _onTabSelected(1);
-                        }
-                      },
-                      child: const SizedBox(
-                        width: double.infinity,
-                        height: 40,
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 50),
-                      child: ClickWheel(
-                        onScrollRight: _nextPodcast,
-                        onScrollLeft: _previousPodcast,
-                        onCenterTap: _enterPodcast,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              DeepDiveScreen(onBack: () => _onTabSelected(0)),
-              _buildLibraryTab(),
-            ],
-          ),
+          body: _buildTabSurface(isPlaying),
           bottomNavigationBar: _buildBottomNavBar(context, isPlaying, currentEpisode, _currentTabIndex, _onTabSelected),
         );
       },
+    );
+  }
+
+  Widget _buildTabSurface(bool isPlaying) {
+    return AnimatedBuilder(
+      animation: _tabTransitionController,
+      builder: (context, child) {
+        final value =
+            Curves.easeOutCubic.transform(_tabTransitionController.value);
+        final scale = 0.985 + (0.015 * value);
+        final verticalOffset =
+            MediaQuery.of(context).size.height * 0.018 * (1 - value);
+
+        return FadeTransition(
+          opacity: AlwaysStoppedAnimation(value),
+          child: Transform.translate(
+            offset: Offset(0, verticalOffset),
+            child: Transform.scale(
+              scale: scale,
+              alignment: Alignment.bottomCenter,
+              child: child,
+            ),
+          ),
+        );
+      },
+      child: IndexedStack(
+        index: _currentTabIndex,
+        children: [
+          _buildHomeTab(isPlaying),
+          DeepDiveScreen(onBack: () => _onTabSelected(0)),
+          _buildLibraryTab(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHomeTab(bool isPlaying) {
+    return SafeArea(
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(
+              left: 20,
+              right: 30,
+              top: 50,
+              bottom: 24,
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _buildHeaderTitle('홈'),
+                _buildProfileAvatar(),
+              ],
+            ),
+          ),
+          Expanded(
+            flex: 4,
+            child: _buildEpisodeSection(),
+          ),
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onHorizontalDragEnd: (details) {
+              if (details.primaryVelocity! < -300) {
+                _onTabSelected(1);
+              }
+            },
+            child: const SizedBox(
+              width: double.infinity,
+              height: 40,
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 50),
+            child: ClickWheel(
+              onScrollRight: _nextPodcast,
+              onScrollLeft: _previousPodcast,
+              onCenterTap: _toggleCurrentPodcast,
+              isPlaying: isPlaying,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -444,6 +481,40 @@ Widget _buildNavItem(BuildContext context, IconData icon, String label, {bool is
   );
 }
 
+Widget _buildHeaderTitle(String title) {
+  return Text(
+    title,
+    style: const TextStyle(
+      color: Colors.white,
+      fontSize: 34,
+      fontWeight: FontWeight.w800,
+      height: 1.05,
+    ),
+  );
+}
+
+Widget _buildProfileAvatar() {
+  return Container(
+    width: 44,
+    height: 44,
+    decoration: BoxDecoration(
+      shape: BoxShape.circle,
+      border: Border.all(color: Colors.white24, width: 1.5),
+      color: Colors.grey[900],
+    ),
+    child: ClipOval(
+      child: _userProfile?.profileImageUrl != null
+          ? CachedNetworkImage(
+              imageUrl: _userProfile!.profileImageUrl!,
+              fit: BoxFit.cover,
+              errorWidget: (_, __, ___) =>
+                  const Icon(Icons.person, color: Colors.white, size: 24),
+            )
+          : const Icon(Icons.person, color: Colors.white, size: 24),
+    ),
+  );
+}
+
 Widget _buildLibraryTab() {
   return SafeArea(
     child: Column(
@@ -453,26 +524,8 @@ Widget _buildLibraryTab() {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Image.asset('assets/images/aipod_logo.png', width: 130),
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white24, width: 1.5),
-                  color: Colors.grey[900],
-                ),
-                child: ClipOval(
-                  child: _userProfile?.profileImageUrl != null
-                      ? CachedNetworkImage(
-                          imageUrl: _userProfile!.profileImageUrl!,
-                          fit: BoxFit.cover,
-                          errorWidget: (_, __, ___) =>
-                              const Icon(Icons.person, color: Colors.white, size: 24),
-                        )
-                      : const Icon(Icons.person, color: Colors.white, size: 24),
-                ),
-              ),
+              _buildHeaderTitle('보관함'),
+              _buildProfileAvatar(),
             ],
           ),
         ),
