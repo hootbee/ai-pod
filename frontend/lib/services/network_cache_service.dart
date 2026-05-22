@@ -5,6 +5,8 @@ import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:just_audio/just_audio.dart' show AudioSource;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../core/app_config.dart';
+import '../security/network_transport_security.dart';
 import 'audio_cache_helper.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -113,6 +115,7 @@ class NetworkCacheService {
         validateStatus: (status) => status != null && status < 400,
       ),
     );
+    configurePinnedTlsForApi(_dio, AppConfig.apiBaseUrl);
     _dio.interceptors.add(_ETagCacheInterceptor());
   }
 

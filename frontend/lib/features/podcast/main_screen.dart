@@ -42,6 +42,7 @@ class _MainScreenState extends State<MainScreen>
   bool _hasNextPage = false;
   int _offset = 0;
   String? _error;
+  static const String _episodesLoadErrorMessage = '에피소드를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.';
 
   List<_HistoryEntry> _historyItems = [];
   bool _historyLoading = false;
@@ -101,10 +102,10 @@ class _MainScreenState extends State<MainScreen>
         _hasNextPage = body['hasNextPage'] as bool? ?? false;
         _loading = false;
       });
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
       setState(() {
-        _error = e.toString();
+        _error = _episodesLoadErrorMessage;
         _loading = false;
       });
     }

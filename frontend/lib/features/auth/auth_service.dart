@@ -65,13 +65,13 @@ class AuthService {
     }
 
     final account = await googleSignIn.signIn();
-    if (account == null) throw Exception('Google 로그인 취소됨');
+    if (account == null) throw Exception('Google 로그인이 취소되었습니다.');
 
     final auth = await account.authentication;
     final idToken = auth.idToken;
     final accessToken = auth.accessToken;
     if (idToken == null && accessToken == null) {
-      throw Exception('Google 토큰 획득 실패');
+      throw Exception(_genericAuthError);
     }
 
     final payload = <String, String>{};
@@ -86,9 +86,7 @@ class AuthService {
         )
         .timeout(const Duration(seconds: 15));
 
-    if (response.statusCode != 200) {
-      throw Exception('백엔드 로그인 실패: ${response.body}');
-    }
+    if (response.statusCode != 200) throw Exception(_genericAuthError);
 
     final data = jsonDecode(response.body) as Map<String, dynamic>;
     _accessToken = data['accessToken'] as String?;
@@ -101,7 +99,7 @@ class AuthService {
 
   /// Access Token 갱신
   Future<void> _refresh() async {
-    if (_refreshToken == null) throw Exception('로그인이 필요합니다');
+    if (_refreshToken == null) throw Exception('로그인이 필요합니다.');
 
     final response = await http
         .post(
@@ -111,7 +109,7 @@ class AuthService {
         )
         .timeout(const Duration(seconds: 10));
 
-    if (response.statusCode != 200) throw Exception('토큰 갱신 실패');
+    if (response.statusCode != 200) throw Exception('세션 갱신에 실패했습니다.');
 
     final data = jsonDecode(response.body) as Map<String, dynamic>;
     _accessToken = data['accessToken'] as String?;
@@ -175,3 +173,4 @@ class AuthService {
     return _secureStorage.read(key: _keyAccessToken);
   }
 }
+  static const String _genericAuthError = '로그인 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.';

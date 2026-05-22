@@ -65,7 +65,7 @@ class _DeepDiveScreenState extends State<DeepDiveScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.toString();
+        _error = '딥다이브 카드를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.';
         _loading = false;
       });
     }
