@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import '../../core/app_config.dart';
 import '../../shared/models/user_profile.dart';
@@ -11,12 +11,13 @@ class AuthService {
   static String get _backendUrl => AppConfig.apiBaseUrl;
   static const _googleClientId = String.fromEnvironment(
     'GOOGLE_CLIENT_ID',
-    defaultValue:
-        '826440481147-effr7vmiuqh5d0tujtne4e726ft14ttr.apps.googleusercontent.com',
+    defaultValue: '',
   );
 
   static const _keyAccessToken = 'access_token';
   static const _keyRefreshToken = 'refresh_token';
+  static const String _genericAuthError = '로그인 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.';
+  static const FlutterSecureStorage _secureStorage = FlutterSecureStorage();
 
   static final GoogleSignIn googleSignIn = kIsWeb
       ? GoogleSignIn(clientId: _googleClientId)
@@ -30,9 +31,8 @@ class AuthService {
 
   /// 앱 시작 시 저장된 토큰 로드 → 유효하면 true, 아니면 false
   Future<bool> tryAutoLogin() async {
-    final prefs = await SharedPreferences.getInstance();
-    _accessToken = prefs.getString(_keyAccessToken);
-    _refreshToken = prefs.getString(_keyRefreshToken);
+    _accessToken = await _secureStorage.read(key: _keyAccessToken);
+    _refreshToken = await _secureStorage.read(key: _keyRefreshToken);
 
     if (_accessToken == null) return false;
 
@@ -61,14 +61,18 @@ class AuthService {
 
   /// Google 로그인 + 백엔드 JWT 발급
   Future<Map<String, dynamic>> loginWithGoogle() async {
+    if (_googleClientId.isEmpty) {
+      throw StateError('GOOGLE_CLIENT_ID is required. Pass with --dart-define=GOOGLE_CLIENT_ID=...');
+    }
+
     final account = await googleSignIn.signIn();
-    if (account == null) throw Exception('Google 로그인 취소됨');
+    if (account == null) throw Exception('Google 로그인이 취소되었습니다.');
 
     final auth = await account.authentication;
     final idToken = auth.idToken;
     final accessToken = auth.accessToken;
     if (idToken == null && accessToken == null) {
-      throw Exception('Google 토큰 획득 실패');
+      throw Exception(_genericAuthError);
     }
 
     final payload = <String, String>{};
@@ -83,9 +87,7 @@ class AuthService {
         )
         .timeout(const Duration(seconds: 15));
 
-    if (response.statusCode != 200) {
-      throw Exception('백엔드 로그인 실패: ${response.body}');
-    }
+    if (response.statusCode != 200) throw Exception(_genericAuthError);
 
     final data = jsonDecode(response.body) as Map<String, dynamic>;
     _accessToken = data['accessToken'] as String?;
@@ -98,7 +100,7 @@ class AuthService {
 
   /// Access Token 갱신
   Future<void> _refresh() async {
-    if (_refreshToken == null) throw Exception('로그인이 필요합니다');
+    if (_refreshToken == null) throw Exception('로그인이 필요합니다.');
 
     final response = await http
         .post(
@@ -108,7 +110,7 @@ class AuthService {
         )
         .timeout(const Duration(seconds: 10));
 
-    if (response.statusCode != 200) throw Exception('토큰 갱신 실패');
+    if (response.statusCode != 200) throw Exception('세션 갱신에 실패했습니다.');
 
     final data = jsonDecode(response.body) as Map<String, dynamic>;
     _accessToken = data['accessToken'] as String?;
@@ -133,8 +135,7 @@ class AuthService {
   }
 
   Future<UserProfile?> fetchUserProfile() async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString(_keyAccessToken);
+    final token = await readAccessToken();
     if (token == null) return null;
 
     try {
@@ -154,20 +155,22 @@ class AuthService {
   }
 
   Future<void> _saveTokens() async {
-    final prefs = await SharedPreferences.getInstance();
     if (_accessToken != null) {
-      await prefs.setString(_keyAccessToken, _accessToken!);
+      await _secureStorage.write(key: _keyAccessToken, value: _accessToken!);
     }
     if (_refreshToken != null) {
-      await prefs.setString(_keyRefreshToken, _refreshToken!);
+      await _secureStorage.write(key: _keyRefreshToken, value: _refreshToken!);
     }
   }
 
   Future<void> _clearTokens() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_keyAccessToken);
-    await prefs.remove(_keyRefreshToken);
+    await _secureStorage.delete(key: _keyAccessToken);
+    await _secureStorage.delete(key: _keyRefreshToken);
     _accessToken = null;
     _refreshToken = null;
+  }
+
+  static Future<String?> readAccessToken() {
+    return _secureStorage.read(key: _keyAccessToken);
   }
 }

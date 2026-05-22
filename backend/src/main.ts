@@ -13,8 +13,16 @@ async function bootstrap() {
   // Gzip/Brotli 압축 — threshold 1KB 이상 응답만 압축 (텍스트 트래픽 절감)
   app.use(compression({ level: 6, threshold: 1024 }));
 
+  const corsOrigin = process.env.CORS_ORIGIN ?? '';
+  const isProd = (process.env.NODE_ENV ?? '').toLowerCase() === 'production';
+  if (isProd && (!corsOrigin || corsOrigin === '*')) {
+    throw new Error('CORS_ORIGIN must be set to a specific origin in production');
+  }
+  const allowedOrigins = corsOrigin
+    ? corsOrigin.split(',').map((origin) => origin.trim()).filter(Boolean)
+    : ['http://localhost:3000', 'http://localhost:7357', 'http://127.0.0.1:7357'];
   app.enableCors({
-    origin: process.env.CORS_ORIGIN ?? '*',
+    origin: allowedOrigins,
   });
   app.useGlobalPipes(
     new ValidationPipe({

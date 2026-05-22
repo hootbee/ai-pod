@@ -26,6 +26,7 @@ export class AuthService implements IAuthService {
     const issuedAccessToken = this.tokenService.generateAccessToken({
       sub: user.id,
       email: user.email,
+      role: user.role,
     });
     const refreshToken = await this.tokenService.generateRefreshToken(user.id);
 
@@ -62,6 +63,7 @@ export class AuthService implements IAuthService {
     const newAccessToken = this.tokenService.generateAccessToken({
       sub: user.id,
       email: user.email,
+      role: user.role,
     });
     const newRefreshToken = await this.tokenService.generateRefreshToken(user.id);
 

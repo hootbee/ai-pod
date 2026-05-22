@@ -4,8 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:just_audio/just_audio.dart';
 import 'package:just_audio_background/just_audio_background.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../core/app_config.dart';
+import '../features/auth/auth_service.dart';
 import '../features/podcast/main_screen.dart';
 
 class AudioHandler {
@@ -28,8 +28,11 @@ class AudioHandler {
         artUri: episode.thumbnailUrl != null ? Uri.tryParse(episode.thumbnailUrl!) : null,
       );
 
+      final token = await AuthService.readAccessToken();
+      final headers = token != null ? {'Authorization': 'Bearer $token'} : null;
       final source = AudioSource.uri(
         Uri.parse(episode.audioUrl ?? episode.streamUrl),
+        headers: headers,
         tag: mediaItem,
       );
 
@@ -43,8 +46,7 @@ class AudioHandler {
 
   Future<void> _incrementPlayCount(String episodeId) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('access_token');
+      final token = await AuthService.readAccessToken();
       if (token == null) return;
 
       await http.post(
