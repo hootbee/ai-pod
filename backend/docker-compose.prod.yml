@@ -6,7 +6,7 @@
 services:
   backend:
     build: .                                           # 로컬 빌드 (테스트용)
-    image: aipod-backend:latest                        # 로컬 이미지명 (Docker Hub push 시 직접 태그 변경)
+    image: hootbee/aipod-backend:latest                        # Docker Hub 이미지 사용
     container_name: aipod-backend
     restart: always
     ports:

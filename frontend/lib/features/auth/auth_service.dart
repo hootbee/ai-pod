@@ -16,6 +16,7 @@ class AuthService {
 
   static const _keyAccessToken = 'access_token';
   static const _keyRefreshToken = 'refresh_token';
+  static const String _genericAuthError = '로그인 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.';
   static const FlutterSecureStorage _secureStorage = FlutterSecureStorage();
 
   static final GoogleSignIn googleSignIn = kIsWeb
@@ -173,4 +174,3 @@ class AuthService {
     return _secureStorage.read(key: _keyAccessToken);
   }
 }
-  static const String _genericAuthError = '로그인 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.';
