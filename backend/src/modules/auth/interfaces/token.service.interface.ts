@@ -1,6 +1,9 @@
+import type { UserRole } from '../../users/entities/user.entity';
+
 export interface TokenPayload {
   sub: string; // userId
   email: string;
+  role: UserRole;
 }
 
 export interface TokenPair {

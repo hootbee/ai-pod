@@ -12,6 +12,9 @@ import type { Request, Response } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { TokenPayload } from '../auth/interfaces/token.service.interface';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { UserRole } from '../users/entities/user.entity';
 
 @Controller('episodes')
 export class EpisodesController {
@@ -23,6 +26,8 @@ export class EpisodesController {
   ) {}
 
   @Post()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
   create(@Body() createEpisodeDto: CreateEpisodeDto) {
     return this.episodesService.create(createEpisodeDto);
   }
@@ -38,6 +43,8 @@ export class EpisodesController {
   }
 
   @Patch(':id/audio-path')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
   updateAudioPath(@Param('id') id: string, @Body() updateAudioPathDto: UpdateAudioPathDto) {
     return this.episodesService.updateAudioPath(id, updateAudioPathDto);
   }
@@ -99,6 +106,8 @@ export class EpisodesController {
 
   /** TTS 생성 — Bull Queue 비동기 처리 */
   @Post(':id/generate-audio')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
   async generateAudio(@Param('id') id: string) {
     const job = await this.ttsQueue.add(TTS_JOB.GENERATE, { episodeId: id });
     return { jobId: job.id, status: 'queued', message: 'TTS 생성이 백그라운드에서 시작됐습니다.' };
@@ -106,6 +115,8 @@ export class EpisodesController {
 
   /** 클릭베이트 헤드라인 + 부제 생성 */
   @Post(':id/generate-headline')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
   generateHeadline(@Param('id') id: string) {
     return this.headlineService.generateAndSave(id);
   }

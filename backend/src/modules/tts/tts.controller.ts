@@ -2,10 +2,14 @@ import { InjectQueue } from '@nestjs/bull';
 import { Controller, Get, Param, Post, Body, UseGuards } from '@nestjs/common';
 import type { Queue } from 'bull';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { UserRole } from '../users/entities/user.entity';
 import { TTS_JOB, TTS_QUEUE } from './tts.constants';
 
 @Controller('tts')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(UserRole.ADMIN)
 export class TtsController {
   constructor(@InjectQueue(TTS_QUEUE) private readonly ttsQueue: Queue) {}
 
