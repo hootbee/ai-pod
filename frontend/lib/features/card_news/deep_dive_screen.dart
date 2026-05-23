@@ -12,7 +12,17 @@ import '../auth/auth_service.dart';
 
 class DeepDiveScreen extends StatefulWidget {
   final VoidCallback? onBack;
-  const DeepDiveScreen({super.key, this.onBack});
+  final String? initialEpisodeId;
+  final String? initialDayLabel;
+  final VoidCallback? onInitialFocusConsumed;
+
+  const DeepDiveScreen({
+    super.key,
+    this.onBack,
+    this.initialEpisodeId,
+    this.initialDayLabel,
+    this.onInitialFocusConsumed,
+  });
 
   @override
   State<DeepDiveScreen> createState() => _DeepDiveScreenState();
@@ -26,19 +36,47 @@ class _DeepDiveScreenState extends State<DeepDiveScreen> {
   String? _error;
   UserProfile? _userProfile;
   List<DeepDiveDay> _days = [];
+  final PageController _dayPageController = PageController();
   final Map<int, PageController> _slideControllers = {};
   final Set<String> _viewCountedIds = {};
   static const int _pageLimit = 10;
+  static const int _maxFocusLoadAttempts = 6;
+  String? _pendingInitialEpisodeId;
+  String? _pendingInitialDayLabel;
+  bool _initialFocusConsumed = false;
 
   @override
   void initState() {
     super.initState();
+    _pendingInitialEpisodeId = widget.initialEpisodeId;
+    _pendingInitialDayLabel = widget.initialDayLabel;
     _load();
     _loadUserProfile();
   }
 
   @override
+  void didUpdateWidget(covariant DeepDiveScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final incomingEpisodeId = widget.initialEpisodeId;
+    final incomingDayLabel = widget.initialDayLabel;
+    final hasNewFocusRequest = incomingEpisodeId != oldWidget.initialEpisodeId ||
+        incomingDayLabel != oldWidget.initialDayLabel;
+    if (!hasNewFocusRequest) return;
+    if ((incomingEpisodeId == null || incomingEpisodeId.isEmpty) &&
+        (incomingDayLabel == null || incomingDayLabel.isEmpty)) {
+      return;
+    }
+    _pendingInitialEpisodeId = incomingEpisodeId;
+    _pendingInitialDayLabel = incomingDayLabel;
+    _initialFocusConsumed = false;
+    if (!_loading) {
+      _attemptInitialFocusAfterLoad();
+    }
+  }
+
+  @override
   void dispose() {
+    _dayPageController.dispose();
     for (final c in _slideControllers.values) {
       c.dispose();
     }
@@ -63,6 +101,7 @@ class _DeepDiveScreenState extends State<DeepDiveScreen> {
         _disposeUnusedControllers(keepLength: _days.length);
         _loading = false;
       });
+      await _attemptInitialFocusAfterLoad();
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -72,9 +111,10 @@ class _DeepDiveScreenState extends State<DeepDiveScreen> {
     }
   }
 
-  Future<void> _loadMore() async {
-    if (_loadingMore || !_hasNextPage) return;
+  Future<bool> _loadMore() async {
+    if (_loadingMore || !_hasNextPage) return false;
     setState(() => _loadingMore = true);
+    var didAppend = false;
     try {
       final newOffset = _offset + _pageLimit;
       final res = await NetworkCacheService.instance.dio.get<dynamic>(
@@ -83,17 +123,67 @@ class _DeepDiveScreenState extends State<DeepDiveScreen> {
       );
       final body = _toPaginatedBody(res.data);
       final newDays = _parseDays(body['data'] as List<dynamic>? ?? []);
-      if (!mounted) return;
+      if (!mounted) return false;
       setState(() {
         _days = [..._days, ...newDays];
         _offset = newOffset;
         _hasNextPage = body['hasNextPage'] as bool? ?? false;
         _loadingMore = false;
       });
+      didAppend = newDays.isNotEmpty;
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted) return false;
       setState(() => _loadingMore = false);
     }
+    return didAppend;
+  }
+
+  Future<void> _attemptInitialFocusAfterLoad() async {
+    if (_initialFocusConsumed || !mounted) return;
+    final targetEpisodeId = _pendingInitialEpisodeId?.trim();
+    final targetDayLabel = _pendingInitialDayLabel?.trim();
+    if ((targetEpisodeId == null || targetEpisodeId.isEmpty) &&
+        (targetDayLabel == null || targetDayLabel.isEmpty)) {
+      _consumeInitialFocus();
+      return;
+    }
+
+    var matchIndex = _findFocusIndex(targetEpisodeId: targetEpisodeId, targetDayLabel: targetDayLabel);
+    var attempts = 0;
+    while (matchIndex < 0 && _hasNextPage && attempts < _maxFocusLoadAttempts) {
+      final appended = await _loadMore();
+      if (!appended) break;
+      attempts += 1;
+      matchIndex = _findFocusIndex(targetEpisodeId: targetEpisodeId, targetDayLabel: targetDayLabel);
+    }
+
+    if (matchIndex >= 0 && mounted) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !_dayPageController.hasClients) return;
+        _dayPageController.jumpToPage(matchIndex);
+      });
+    }
+
+    _consumeInitialFocus();
+  }
+
+  int _findFocusIndex({String? targetEpisodeId, String? targetDayLabel}) {
+    if (_days.isEmpty) return -1;
+    if (targetEpisodeId != null && targetEpisodeId.isNotEmpty) {
+      final byEpisode = _days.indexWhere((d) => d.episodeId == targetEpisodeId);
+      if (byEpisode >= 0) return byEpisode;
+    }
+    if (targetDayLabel != null && targetDayLabel.isNotEmpty) {
+      return _days.indexWhere((d) => d.dayLabel == targetDayLabel);
+    }
+    return -1;
+  }
+
+  void _consumeInitialFocus() {
+    _initialFocusConsumed = true;
+    _pendingInitialEpisodeId = null;
+    _pendingInitialDayLabel = null;
+    widget.onInitialFocusConsumed?.call();
   }
 
   Map<String, dynamic> _toPaginatedBody(dynamic raw) {
@@ -118,6 +208,7 @@ class _DeepDiveScreenState extends State<DeepDiveScreen> {
           .toList();
 
       final episode = item['episode'] as Map<String, dynamic>? ?? const {};
+      final episodeId = (episode['id'] as String?) ?? '';
       final createdAt =
           (episode['createdAt'] as String?) ?? (item['createdAt'] as String?) ?? '';
       final sourcesJson = episode['sources'] as List<dynamic>? ?? const [];
@@ -128,6 +219,7 @@ class _DeepDiveScreenState extends State<DeepDiveScreen> {
 
       days.add(DeepDiveDay(
         id: (item['id'] as String?) ?? '',
+        episodeId: episodeId,
         dayLabel: _toDayLabel(createdAt),
         topicTitle: topicTitle,
         cards: cards,
@@ -246,6 +338,7 @@ class _DeepDiveScreenState extends State<DeepDiveScreen> {
         await _load();
       },
       child: PageView.builder(
+        controller: _dayPageController,
         scrollDirection: Axis.vertical,
         itemCount: itemCount,
         onPageChanged: (i) {
@@ -755,6 +848,7 @@ class _DeepDiveBadge extends StatelessWidget {
 
 class DeepDiveDay {
   final String id;
+  final String episodeId;
   final String dayLabel;
   final String topicTitle;
   final List<DeepDiveCardMeta> cards;
@@ -762,6 +856,7 @@ class DeepDiveDay {
 
   const DeepDiveDay({
     required this.id,
+    required this.episodeId,
     required this.dayLabel,
     required this.topicTitle,
     required this.cards,
