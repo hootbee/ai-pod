@@ -26,12 +26,33 @@ class _MainScreenState extends State<MainScreen>
     with SingleTickerProviderStateMixin {
   int _currentTabIndex = 0;
   late final AnimationController _tabTransitionController;
+  String? _pendingCardNewsEpisodeId;
+  String? _pendingCardNewsDayLabel;
 
   void _onTabSelected(int index) {
     if (index == _currentTabIndex) return;
     setState(() => _currentTabIndex = index);
     _tabTransitionController.forward(from: 0);
     if (index == 2) _loadHistory();
+  }
+
+  void _openCardNewsForEpisode(PodcastEpisodeItem episode) {
+    final createdAt = episode.createdAt;
+    final dayLabel = createdAt == null ? null : createdAt.toIso8601String().substring(0, 10);
+    setState(() {
+      _pendingCardNewsEpisodeId = episode.id;
+      _pendingCardNewsDayLabel = dayLabel;
+    });
+    _onTabSelected(1);
+  }
+
+  void _consumeCardNewsFocusRequest() {
+    if (_pendingCardNewsEpisodeId == null && _pendingCardNewsDayLabel == null) return;
+    if (!mounted) return;
+    setState(() {
+      _pendingCardNewsEpisodeId = null;
+      _pendingCardNewsDayLabel = null;
+    });
   }
   final PageController _pageController = PageController(viewportFraction: 0.85);
   UserProfile? _userProfile;
@@ -318,7 +339,12 @@ class _MainScreenState extends State<MainScreen>
         index: _currentTabIndex,
         children: [
           _buildHomeTab(isPlaying),
-          DeepDiveScreen(onBack: () => _onTabSelected(0)),
+          DeepDiveScreen(
+            onBack: () => _onTabSelected(0),
+            initialEpisodeId: _pendingCardNewsEpisodeId,
+            initialDayLabel: _pendingCardNewsDayLabel,
+            onInitialFocusConsumed: _consumeCardNewsFocusRequest,
+          ),
           _buildLibraryTab(),
         ],
       ),
@@ -735,7 +761,7 @@ Widget _buildLibraryTab() {
   return FlipThumbnailCard(
     episode: episode,
     onTap: _enterPodcast,
-    onCardNewsTap: () => _onTabSelected(1),
+    onCardNewsTap: () => _openCardNewsForEpisode(episode),
   );
 },
     );
