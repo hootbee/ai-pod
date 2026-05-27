@@ -180,37 +180,95 @@ class _ClickWheelState extends State<ClickWheel> {
                   height: _centerButtonSize,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
+                    color: const Color(0xFF50583D),
                     gradient: const LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                       colors: [
-                        Color(0xFFF9F9F6),
-                        Color(0xFFD5D5CE),
+                        Color(0xFF3F4732),
+                        Color(0xFF566044),
+                        Color(0xFF687250),
                       ],
+                      stops: [0.0, 0.58, 1.0],
                     ),
                     border: Border.all(
-                      color: Colors.black.withValues(alpha: 0.07),
+                      color: Colors.black.withValues(alpha: 0.2),
                       width: 1,
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.22),
-                        blurRadius: 9,
-                        offset: const Offset(2, 4),
+                        color: Colors.black.withValues(alpha: 0.38),
+                        blurRadius: 8,
+                        offset: const Offset(-3, -3),
                       ),
                       BoxShadow(
-                        color: Colors.white.withValues(alpha: 0.8),
-                        blurRadius: 5,
-                        offset: const Offset(-2, -3),
+                        color: Colors.white.withValues(alpha: 0.35),
+                        blurRadius: 7,
+                        offset: const Offset(3, 4),
                       ),
                     ],
                   ),
-                  child: Icon(
-                    widget.isPlaying
-                        ? Icons.pause_rounded
-                        : Icons.play_arrow_rounded,
-                    color: const Color(0xFF7F8078),
-                    size: 38,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Positioned.fill(
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: RadialGradient(
+                              center: const Alignment(-0.34, -0.34),
+                              radius: 0.82,
+                              colors: [
+                                Colors.black.withValues(alpha: 0.24),
+                                Colors.transparent,
+                              ],
+                              stops: const [0.0, 0.72],
+                            ),
+                          ),
+                        ),
+                      ),
+                      Positioned.fill(
+                        child: Padding(
+                          padding: const EdgeInsets.all(4),
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: Colors.black.withValues(alpha: 0.2),
+                                width: 1.5,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      Positioned.fill(
+                        child: Padding(
+                          padding: const EdgeInsets.all(6),
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              gradient: LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [
+                                  Colors.black.withValues(alpha: 0.2),
+                                  Colors.transparent,
+                                  Colors.white.withValues(alpha: 0.16),
+                                ],
+                                stops: const [0.0, 0.55, 1.0],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      Icon(
+                        widget.isPlaying
+                            ? Icons.pause_rounded
+                            : Icons.play_arrow_rounded,
+                        color: Colors.white,
+                        size: 38,
+                      ),
+                    ],
                   ),
                 ),
               ),

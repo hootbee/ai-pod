@@ -5,11 +5,13 @@ import '../../core/app_config.dart';
 import '../../services/network_cache_service.dart';
 import '../../shared/models/episode_source.dart';
 import '../../shared/models/user_profile.dart';
+import '../../shared/theme/app_theme_controller.dart';
 import '../../shared/widgets/click_wheel.dart';
 import '../auth/auth_service.dart';
 import '../auth/login_screen.dart';
 import '../card_news/deep_dive_screen.dart';
 import 'podcast_player_screen.dart';
+import 'settings_screen.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:just_audio/just_audio.dart';
 import '../../services/audio_handler.dart';
@@ -264,7 +266,8 @@ class _MainScreenState extends State<MainScreen>
               DateTime.tryParse(json['lastPlayedAt'] as String? ?? '') ??
               DateTime.now(),
         );
-      }).toList();
+      }).toList()
+        ..sort((a, b) => b.lastPlayedAt.compareTo(a.lastPlayedAt));
       if (!mounted) return;
       setState(() {
         _historyItems = items;
@@ -286,28 +289,35 @@ class _MainScreenState extends State<MainScreen>
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<PlayerState>(
-      stream: AudioHandler.instance.player.playerStateStream,
-      builder: (context, snapshot) {
-        final bool isPlaying = snapshot.data?.playing ?? false;
+    return ValueListenableBuilder<bool>(
+      valueListenable: AppThemeController.isLightMode,
+      builder: (context, _, __) {
+        return StreamBuilder<PlayerState>(
+          stream: AudioHandler.instance.player.playerStateStream,
+          builder: (context, snapshot) {
+            final bool isPlaying = snapshot.data?.playing ?? false;
 
-        PodcastEpisodeItem? currentEpisode;
-        if (isPlaying && _episodes.isNotEmpty) {
-          try {
-            currentEpisode = _episodes.firstWhere(
-              (e) => e.id == AudioHandler.instance.currentEpisodeId,
+            PodcastEpisodeItem? currentEpisode;
+            if (isPlaying && _episodes.isNotEmpty) {
+              try {
+                currentEpisode = _episodes.firstWhere(
+                  (e) => e.id == AudioHandler.instance.currentEpisodeId,
+                );
+              } catch (_) {
+                currentEpisode = _currentIndex < _episodes.length
+                    ? _episodes[_currentIndex]
+                    : null;
+              }
+            } else {
+              currentEpisode = _currentIndex < _episodes.length ? _episodes[_currentIndex] : null;
+            }
+
+            return Scaffold(
+              backgroundColor: AppThemeController.backgroundColor,
+              body: _buildTabSurface(isPlaying),
+              bottomNavigationBar: _buildBottomNavBar(context, isPlaying, currentEpisode, _currentTabIndex, _onTabSelected),
             );
-          } catch (_) {
-            currentEpisode = _currentIndex < _episodes.length ? _episodes[_currentIndex] : null;
-          }
-        } else {
-          currentEpisode = _episodes.isNotEmpty && _currentIndex < _episodes.length ? _episodes[_currentIndex] : null;
-        }
-
-        return Scaffold(
-          backgroundColor: const Color(0xFF1E211A),
-          body: _buildTabSurface(isPlaying),
-          bottomNavigationBar: _buildBottomNavBar(context, isPlaying, currentEpisode, _currentTabIndex, _onTabSelected),
+          },
         );
       },
     );
@@ -341,6 +351,7 @@ class _MainScreenState extends State<MainScreen>
           _buildHomeTab(isPlaying),
           DeepDiveScreen(
             onBack: () => _onTabSelected(0),
+            onProfileTap: () => _onTabSelected(2),
             initialEpisodeId: _pendingCardNewsEpisodeId,
             initialDayLabel: _pendingCardNewsDayLabel,
             onInitialFocusConsumed: _consumeCardNewsFocusRequest,
@@ -365,7 +376,7 @@ class _MainScreenState extends State<MainScreen>
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                _buildHeaderTitle('홈'),
+                _buildHeaderLogo(),
                 _buildProfileAvatar(),
               ],
             ),
@@ -416,8 +427,13 @@ class _MainScreenState extends State<MainScreen>
             width: navBarWidth,
             height: navBarHeight,
             decoration: BoxDecoration(
-                color: const Color(0xFF50583D),
+                color: AppThemeController.navBarColor,
                 borderRadius: BorderRadius.circular(navBarHeight / 2),
+                border: Border.all(
+                  color: AppThemeController.surfaceBorderColor,
+                  width: 1,
+                ),
+                boxShadow: AppThemeController.raisedShadow,
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -451,7 +467,10 @@ class _MainScreenState extends State<MainScreen>
                         image: CachedNetworkImageProvider(currentEpisode!.thumbnailUrl!),
                         fit: BoxFit.cover,
                         ),
-                        border: Border.all(color: Colors.white10, width: 1),
+                        border: Border.all(
+                          color: AppThemeController.surfaceBorderColor,
+                          width: 1,
+                        ),
                         boxShadow: [
                           BoxShadow(
                           color: Colors.black.withValues(alpha:0.2),
@@ -480,7 +499,7 @@ Widget _buildNavItem(BuildContext context, IconData icon, String label, {bool is
     width: itemWidth,
     height: itemHeight,
     decoration: BoxDecoration(
-      color: isSelected ? const Color(0xFFA1A98F) : Colors.transparent,
+      color: isSelected ? AppThemeController.navSelectedColor : Colors.transparent,
       borderRadius: BorderRadius.circular(itemHeight / 2),
     ),
     child: Column(
@@ -490,13 +509,17 @@ Widget _buildNavItem(BuildContext context, IconData icon, String label, {bool is
         Icon(
           icon,
           size: iconSize,
-          color: isSelected ? const Color(0xFFB8FF00) : Colors.black87,
+          color: isSelected
+              ? AppThemeController.navSelectedTextColor
+              : AppThemeController.primaryTextColor,
         ),
         const SizedBox(height: 2),
         Text(
           label,
           style: TextStyle(
-            color: isSelected ? const Color(0xFFB8FF00) : Colors.black87,
+            color: isSelected
+                ? AppThemeController.navSelectedTextColor
+                : AppThemeController.primaryTextColor,
             fontSize: fontSize,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
           ),
@@ -509,8 +532,8 @@ Widget _buildNavItem(BuildContext context, IconData icon, String label, {bool is
 Widget _buildHeaderTitle(String title) {
   return Text(
     title,
-    style: const TextStyle(
-      color: Colors.white,
+    style: TextStyle(
+      color: AppThemeController.primaryTextColor,
       fontSize: 34,
       fontWeight: FontWeight.w800,
       height: 1.05,
@@ -518,24 +541,52 @@ Widget _buildHeaderTitle(String title) {
   );
 }
 
+Widget _buildHeaderLogo() {
+  return Image.asset(
+    'assets/images/aipod_logo.png',
+    height: 88,
+    fit: BoxFit.contain,
+    color: AppThemeController.isLightMode.value
+        ? AppThemeController.primaryTextColor
+        : null,
+    colorBlendMode:
+        AppThemeController.isLightMode.value ? BlendMode.srcIn : null,
+  );
+}
+
 Widget _buildProfileAvatar() {
-  return Container(
-    width: 44,
-    height: 44,
-    decoration: BoxDecoration(
-      shape: BoxShape.circle,
-      border: Border.all(color: Colors.white24, width: 1.5),
-      color: Colors.grey[900],
-    ),
-    child: ClipOval(
-      child: _userProfile?.profileImageUrl != null
-          ? CachedNetworkImage(
-              imageUrl: _userProfile!.profileImageUrl!,
-              fit: BoxFit.cover,
-              errorWidget: (_, __, ___) =>
-                  const Icon(Icons.person, color: Colors.white, size: 24),
-            )
-          : const Icon(Icons.person, color: Colors.white, size: 24),
+  return GestureDetector(
+    onTap: () => _onTabSelected(2),
+    child: Container(
+      width: 44,
+      height: 44,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: AppThemeController.secondaryTextColor(0.24),
+          width: 1.5,
+        ),
+        color: AppThemeController.isLightMode.value
+            ? const Color(0xFFE3E6DD)
+            : Colors.grey[900],
+      ),
+      child: ClipOval(
+        child: _userProfile?.profileImageUrl != null
+            ? CachedNetworkImage(
+                imageUrl: _userProfile!.profileImageUrl!,
+                fit: BoxFit.cover,
+                errorWidget: (_, __, ___) => Icon(
+                  Icons.person,
+                  color: AppThemeController.primaryTextColor,
+                  size: 24,
+                ),
+              )
+            : Icon(
+                Icons.person,
+                color: AppThemeController.primaryTextColor,
+                size: 24,
+              ),
+      ),
     ),
   );
 }
@@ -563,8 +614,10 @@ Widget _buildLibraryTab() {
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(vertical: 35, horizontal: 24),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF434A38),
+                    color: AppThemeController.elevatedSurfaceColor,
                     borderRadius: BorderRadius.circular(28),
+                    border: Border.all(color: AppThemeController.surfaceBorderColor),
+                    boxShadow: AppThemeController.raisedShadow,
                   ),
                   child: Row(
                     children: [
@@ -573,18 +626,28 @@ Widget _buildLibraryTab() {
                         height: 80,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white24, width: 2),
-                          color: Colors.white.withValues(alpha: 0.1),
+                          border: Border.all(
+                            color: AppThemeController.surfaceBorderColor,
+                            width: 2,
+                          ),
+                          color: AppThemeController.controlFillColor,
                         ),
                         child: ClipOval(
                           child: _userProfile?.profileImageUrl != null
                               ? CachedNetworkImage(
                                   imageUrl: _userProfile!.profileImageUrl!,
                                   fit: BoxFit.cover,
-                                  errorWidget: (_, __, ___) =>
-                                      const Icon(Icons.person, color: Colors.white, size: 50),
+                                  errorWidget: (_, __, ___) => Icon(
+                                    Icons.person,
+                                    color: AppThemeController.primaryTextColor,
+                                    size: 50,
+                                  ),
                                 )
-                              : const Icon(Icons.person, color: Colors.white, size: 50),
+                              : Icon(
+                                  Icons.person,
+                                  color: AppThemeController.primaryTextColor,
+                                  size: 50,
+                                ),
                         ),
                       ),
                       const SizedBox(width: 20),
@@ -595,8 +658,8 @@ Widget _buildLibraryTab() {
                           children: [
                             Text(
                               _userProfile?.nickname ?? '로그인이 필요합니다',
-                              style: const TextStyle(
-                                color: Colors.white,
+                              style: TextStyle(
+                                color: AppThemeController.primaryTextColor,
                                 fontSize: 20,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -605,7 +668,7 @@ Widget _buildLibraryTab() {
                             Text(
                               _userProfile?.email ?? '계정 정보를 불러올 수 없습니다',
                               style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.5),
+                                color: AppThemeController.secondaryTextColor(0.5),
                                 fontSize: 14,
                               ),
                             ),
@@ -616,30 +679,44 @@ Widget _buildLibraryTab() {
                   ),
                 ),
 
-                const SizedBox(height: 25),
+                const SizedBox(height: 16),
 
                 Expanded(
                   child: Container(
-                    padding: const EdgeInsets.all(24),
+                    padding: const EdgeInsets.fromLTRB(24, 22, 24, 0),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF434A38),
+                      color: AppThemeController.elevatedSurfaceColor,
                       borderRadius: BorderRadius.circular(28),
+                      border: Border.all(color: AppThemeController.surfaceBorderColor),
+                      boxShadow: AppThemeController.raisedShadow,
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Row(
+                        Row(
                           children: [
-                            Icon(Symbols.stacks, color: Colors.white, size: 25),
-                            SizedBox(width: 10),
-                            Text('기록', style: TextStyle(color: Colors.white, fontSize: 15)),
+                            Icon(
+                              Symbols.stacks,
+                              color: AppThemeController.primaryTextColor,
+                              size: 25,
+                            ),
+                            const SizedBox(width: 10),
+                            Text(
+                              '기록',
+                              style: TextStyle(
+                                color: AppThemeController.primaryTextColor,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
                           ],
                         ),
+                        const SizedBox(height: 12),
                         Expanded(
                           child: _historyLoading
-                              ? const Center(
+                              ? Center(
                                   child: CircularProgressIndicator(
-                                    color: Colors.white54,
+                                    color: AppThemeController.secondaryTextColor(0.54),
                                     strokeWidth: 2,
                                   ),
                                 )
@@ -651,16 +728,16 @@ Widget _buildLibraryTab() {
                                         children: [
                                           Icon(
                                             Symbols.history,
-                                            color: Colors.white
-                                                .withValues(alpha: 0.3),
+                                            color: AppThemeController
+                                                .secondaryTextColor(0.3),
                                             size: 48,
                                           ),
                                           const SizedBox(height: 12),
                                           Text(
                                             '아직 청취 기록이 없습니다',
                                             style: TextStyle(
-                                              color: Colors.white
-                                                  .withValues(alpha: 0.4),
+                                              color: AppThemeController
+                                                  .secondaryTextColor(0.4),
                                               fontSize: 14,
                                             ),
                                           ),
@@ -669,11 +746,11 @@ Widget _buildLibraryTab() {
                                     )
                                   : ListView.separated(
                                       padding:
-                                          const EdgeInsets.only(top: 12),
+                                          const EdgeInsets.only(bottom: 18),
                                       itemCount: _historyItems.length,
                                       separatorBuilder: (_, __) => Divider(
-                                        color: Colors.white
-                                            .withValues(alpha: 0.08),
+                                        color: AppThemeController
+                                            .secondaryTextColor(0.08),
                                         height: 1,
                                       ),
                                       itemBuilder: (context, index) {
@@ -695,26 +772,71 @@ Widget _buildLibraryTab() {
 
                 const SizedBox(height: 16),
 
-                GestureDetector(
-                  onTap: _logout,
-                  child: Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Text(
-                      '로그아웃',
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.35),
-                        fontSize: 13,
-                      ),
-                    ),
-                  ),
-                ),
+                _buildLibrarySettingsButton(),
 
-                const SizedBox(height: 4),
+                const SizedBox(height: 16),
               ],
             ),
           ),
         ),
       ],
+    ),
+  );
+}
+
+Widget _buildLibrarySettingsButton() {
+  return Material(
+    color: AppThemeController.elevatedSurfaceColor,
+    borderRadius: BorderRadius.circular(28),
+    shadowColor: AppThemeController.isLightMode.value
+        ? const Color(0xFF44502F).withValues(alpha: 0.16)
+        : Colors.transparent,
+    elevation: AppThemeController.isLightMode.value ? 3 : 0,
+    child: InkWell(
+      borderRadius: BorderRadius.circular(28),
+      onTap: () {
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => SettingsScreen(onLogout: _logout)),
+        );
+      },
+      child: Container(
+        width: double.infinity,
+        height: 68,
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: AppThemeController.controlFillColor,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.settings_rounded,
+                color: AppThemeController.primaryTextColor,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                '설정',
+                style: TextStyle(
+                  color: AppThemeController.primaryTextColor,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            Icon(
+              Icons.chevron_right_rounded,
+              color: AppThemeController.secondaryTextColor(0.35),
+              size: 24,
+            ),
+          ],
+        ),
+      ),
     ),
   );
 }
@@ -1201,7 +1323,7 @@ class _HistoryListTile extends StatelessWidget {
     final ep = entry.episode;
     return InkWell(
       onTap: onTap,
-      splashColor: Colors.white.withValues(alpha: 0.05),
+      splashColor: AppThemeController.secondaryTextColor(0.05),
       highlightColor: Colors.transparent,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
@@ -1230,17 +1352,16 @@ class _HistoryListTile extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      color: Colors.white,
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                       height: 1.35,
-                    ),
+                    ).copyWith(color: AppThemeController.primaryTextColor),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     _relativeDate(entry.lastPlayedAt),
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.45),
+                      color: AppThemeController.secondaryTextColor(0.45),
                       fontSize: 12,
                     ),
                   ),
@@ -1250,7 +1371,7 @@ class _HistoryListTile extends StatelessWidget {
             const SizedBox(width: 8),
             Icon(
               Icons.chevron_right,
-              color: Colors.white.withValues(alpha: 0.25),
+              color: AppThemeController.secondaryTextColor(0.25),
               size: 20,
             ),
           ],
@@ -1263,8 +1384,14 @@ class _HistoryListTile extends StatelessWidget {
     return Container(
       width: 56,
       height: 56,
-      color: const Color(0xFF2E3228),
-      child: const Icon(Icons.headphones, color: Colors.white38, size: 24),
+      color: AppThemeController.isLightMode.value
+          ? const Color(0xFFE3E6DD)
+          : const Color(0xFF2E3228),
+      child: Icon(
+        Icons.headphones,
+        color: AppThemeController.secondaryTextColor(0.38),
+        size: 24,
+      ),
     );
   }
 }
