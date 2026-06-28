@@ -1,7 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:dio/dio.dart' show Options;
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/app_config.dart';
 import '../../services/network_cache_service.dart';
 import '../../shared/models/episode_source.dart';
@@ -27,12 +26,33 @@ class _MainScreenState extends State<MainScreen>
     with SingleTickerProviderStateMixin {
   int _currentTabIndex = 0;
   late final AnimationController _tabTransitionController;
+  String? _pendingCardNewsEpisodeId;
+  String? _pendingCardNewsDayLabel;
 
   void _onTabSelected(int index) {
     if (index == _currentTabIndex) return;
     setState(() => _currentTabIndex = index);
     _tabTransitionController.forward(from: 0);
     if (index == 2) _loadHistory();
+  }
+
+  void _openCardNewsForEpisode(PodcastEpisodeItem episode) {
+    final createdAt = episode.createdAt;
+    final dayLabel = createdAt == null ? null : createdAt.toIso8601String().substring(0, 10);
+    setState(() {
+      _pendingCardNewsEpisodeId = episode.id;
+      _pendingCardNewsDayLabel = dayLabel;
+    });
+    _onTabSelected(1);
+  }
+
+  void _consumeCardNewsFocusRequest() {
+    if (_pendingCardNewsEpisodeId == null && _pendingCardNewsDayLabel == null) return;
+    if (!mounted) return;
+    setState(() {
+      _pendingCardNewsEpisodeId = null;
+      _pendingCardNewsDayLabel = null;
+    });
   }
   final PageController _pageController = PageController(viewportFraction: 0.85);
   UserProfile? _userProfile;
@@ -43,6 +63,7 @@ class _MainScreenState extends State<MainScreen>
   bool _hasNextPage = false;
   int _offset = 0;
   String? _error;
+  static const String _episodesLoadErrorMessage = '에피소드를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.';
 
   List<_HistoryEntry> _historyItems = [];
   bool _historyLoading = false;
@@ -102,10 +123,10 @@ class _MainScreenState extends State<MainScreen>
         _hasNextPage = body['hasNextPage'] as bool? ?? false;
         _loading = false;
       });
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
       setState(() {
-        _error = e.toString();
+        _error = _episodesLoadErrorMessage;
         _loading = false;
       });
     }
@@ -226,8 +247,7 @@ class _MainScreenState extends State<MainScreen>
     if (_historyLoaded) return;
     setState(() => _historyLoading = true);
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('access_token');
+      final token = await AuthService.readAccessToken();
       final response = await NetworkCacheService.instance.dio.get<dynamic>(
         '${AppConfig.apiBaseUrl}/users/me/history',
         queryParameters: {'limit': 20, 'offset': 0},
@@ -319,7 +339,12 @@ class _MainScreenState extends State<MainScreen>
         index: _currentTabIndex,
         children: [
           _buildHomeTab(isPlaying),
-          DeepDiveScreen(onBack: () => _onTabSelected(0)),
+          DeepDiveScreen(
+            onBack: () => _onTabSelected(0),
+            initialEpisodeId: _pendingCardNewsEpisodeId,
+            initialDayLabel: _pendingCardNewsDayLabel,
+            onInitialFocusConsumed: _consumeCardNewsFocusRequest,
+          ),
           _buildLibraryTab(),
         ],
       ),
@@ -736,7 +761,7 @@ Widget _buildLibraryTab() {
   return FlipThumbnailCard(
     episode: episode,
     onTap: _enterPodcast,
-    onCardNewsTap: () => _onTabSelected(1),
+    onCardNewsTap: () => _openCardNewsForEpisode(episode),
   );
 },
     );

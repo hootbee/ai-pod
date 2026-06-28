@@ -1,9 +1,9 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/app_config.dart';
+import '../auth/auth_service.dart';
 import '../../services/network_cache_service.dart';
 import '../../shared/models/episode_source.dart';
 import '../../shared/widgets/source_info_bottom_sheet.dart';
@@ -72,7 +72,7 @@ class _CardNewsScreenState extends State<CardNewsScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.toString();
+        _error = '카드뉴스를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.';
         _loading = false;
       });
     }
@@ -176,8 +176,7 @@ class _CardNewsScreenState extends State<CardNewsScreen> {
     final id = _days[dayIndex].id;
     if (id.isEmpty || _viewCountedIds.contains(id)) return;
     _viewCountedIds.add(id);
-    SharedPreferences.getInstance().then((prefs) {
-      final token = prefs.getString('access_token');
+    AuthService.readAccessToken().then((token) {
       if (token == null) return;
       http.post(
         Uri.parse('${AppConfig.apiBaseUrl}/card-news/$id/view-count'),

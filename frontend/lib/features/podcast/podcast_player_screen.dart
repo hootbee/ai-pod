@@ -3,11 +3,11 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:frontend/services/audio_handler.dart';
 import 'package:just_audio_background/just_audio_background.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
+import '../auth/auth_service.dart';
 import '../../services/network_cache_service.dart';
 import '../../shared/widgets/source_info_bottom_sheet.dart';
 import 'main_screen.dart';
@@ -136,8 +136,7 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
     _audioInitializing = true;
 
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('access_token');
+      final token = await AuthService.readAccessToken();
       final headers = token != null ? {'Authorization': 'Bearer $token'} : null;
 
       final String targetUrl =
