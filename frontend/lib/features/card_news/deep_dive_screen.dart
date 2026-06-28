@@ -7,10 +7,12 @@ import '../auth/auth_service.dart';
 import '../../services/network_cache_service.dart';
 import '../../shared/models/episode_source.dart';
 import '../../shared/models/user_profile.dart';
+import '../../shared/theme/app_theme_controller.dart';
 import '../../shared/widgets/source_info_bottom_sheet.dart';
 
 class DeepDiveScreen extends StatefulWidget {
   final VoidCallback? onBack;
+  final VoidCallback? onProfileTap;
   final String? initialEpisodeId;
   final String? initialDayLabel;
   final VoidCallback? onInitialFocusConsumed;
@@ -18,6 +20,7 @@ class DeepDiveScreen extends StatefulWidget {
   const DeepDiveScreen({
     super.key,
     this.onBack,
+    this.onProfileTap,
     this.initialEpisodeId,
     this.initialDayLabel,
     this.onInitialFocusConsumed,
@@ -268,9 +271,14 @@ class _DeepDiveScreenState extends State<DeepDiveScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF1E211A),
-      body: _buildBody(),
+    return ValueListenableBuilder<bool>(
+      valueListenable: AppThemeController.isLightMode,
+      builder: (context, _, __) {
+        return Scaffold(
+          backgroundColor: AppThemeController.backgroundColor,
+          body: _buildBody(),
+        );
+      },
     );
   }
 
@@ -286,7 +294,11 @@ class _DeepDiveScreenState extends State<DeepDiveScreen> {
 
   Widget _buildBody() {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator(color: Colors.white));
+      return Center(
+        child: CircularProgressIndicator(
+          color: AppThemeController.primaryTextColor,
+        ),
+      );
     }
     if (_error != null) {
       return Center(
@@ -295,26 +307,38 @@ class _DeepDiveScreenState extends State<DeepDiveScreen> {
           child: Text(
             '로드 실패\n$_error',
             textAlign: TextAlign.center,
-            style: const TextStyle(color: Colors.white70),
+            style: TextStyle(
+              color: AppThemeController.secondaryTextColor(0.7),
+            ),
           ),
         ),
       );
     }
     if (_days.isEmpty) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.article_outlined, color: Colors.white24, size: 56),
-            SizedBox(height: 16),
+            Icon(
+              Icons.article_outlined,
+              color: AppThemeController.secondaryTextColor(0.24),
+              size: 56,
+            ),
+            const SizedBox(height: 16),
             Text(
               '아직 딥다이브가 없어요',
-              style: TextStyle(color: Colors.white54, fontSize: 16),
+              style: TextStyle(
+                color: AppThemeController.secondaryTextColor(0.54),
+                fontSize: 16,
+              ),
             ),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             Text(
               '다음 에피소드부터 자동으로 생성됩니다',
-              style: TextStyle(color: Colors.white30, fontSize: 13),
+              style: TextStyle(
+                color: AppThemeController.secondaryTextColor(0.3),
+                fontSize: 13,
+              ),
             ),
           ],
         ),
@@ -344,8 +368,10 @@ class _DeepDiveScreenState extends State<DeepDiveScreen> {
         },
         itemBuilder: (context, dayIndex) {
           if (dayIndex == _days.length) {
-            return const Center(
-              child: CircularProgressIndicator(color: Colors.white),
+            return Center(
+              child: CircularProgressIndicator(
+                color: AppThemeController.primaryTextColor,
+              ),
             );
           }
 
@@ -393,32 +419,47 @@ class _DeepDiveScreenState extends State<DeepDiveScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          const Text(
+          Text(
             '카드뉴스',
             style: TextStyle(
-              color: Colors.white,
+              color: AppThemeController.primaryTextColor,
               fontSize: 34,
               fontWeight: FontWeight.w800,
               height: 1.05,
             ),
           ),
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white24, width: 1.5),
-              color: Colors.grey[900],
-            ),
-            child: ClipOval(
-              child: _userProfile?.profileImageUrl != null
-                  ? CachedNetworkImage(
-                      imageUrl: _userProfile!.profileImageUrl!,
-                      fit: BoxFit.cover,
-                      errorWidget: (_, __, ___) =>
-                          const Icon(Icons.person, color: Colors.white, size: 24),
-                    )
-                  : const Icon(Icons.person, color: Colors.white, size: 24),
+          GestureDetector(
+            onTap: widget.onProfileTap,
+            child: Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: AppThemeController.secondaryTextColor(0.24),
+                  width: 1.5,
+                ),
+                color: AppThemeController.isLightMode.value
+                    ? const Color(0xFFE3E6DD)
+                    : Colors.grey[900],
+              ),
+              child: ClipOval(
+                child: _userProfile?.profileImageUrl != null
+                    ? CachedNetworkImage(
+                        imageUrl: _userProfile!.profileImageUrl!,
+                        fit: BoxFit.cover,
+                        errorWidget: (_, __, ___) => Icon(
+                          Icons.person,
+                          color: AppThemeController.primaryTextColor,
+                          size: 24,
+                        ),
+                      )
+                    : Icon(
+                        Icons.person,
+                        color: AppThemeController.primaryTextColor,
+                        size: 24,
+                      ),
+              ),
             ),
           ),
         ],
