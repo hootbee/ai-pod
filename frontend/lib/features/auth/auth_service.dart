@@ -59,11 +59,16 @@ class AuthService {
     return false;
   }
 
-  /// Google 로그인 + 백엔드 JWT 발급
   Future<Map<String, dynamic>> loginWithGoogle() async {
     final account = await googleSignIn.signIn();
     if (account == null) throw Exception('Google 로그인 취소됨');
+    return loginWithGoogleAccount(account);
+  }
 
+  /// Google 계정 정보로 백엔드 JWT 발급
+  Future<Map<String, dynamic>> loginWithGoogleAccount(
+    GoogleSignInAccount account,
+  ) async {
     final auth = await account.authentication;
     final idToken = auth.idToken;
     final accessToken = auth.accessToken;

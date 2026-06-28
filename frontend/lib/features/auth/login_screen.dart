@@ -1,7 +1,13 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import '../auth/auth_service.dart';
 import '../podcast/main_screen.dart'; // 로그인 성공 시 이동할 메인 화면
+import 'google_sign_in_web_button_stub.dart'
+    if (dart.library.html) 'google_sign_in_web_button.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -12,9 +18,32 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false; // API 통신 중 로딩 상태를 관리할 변수
+  StreamSubscription<GoogleSignInAccount?>? _googleUserSub;
+  bool _googleLoginInProgress = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (kIsWeb) {
+      _googleUserSub = AuthService.googleSignIn.onCurrentUserChanged.listen(
+        (account) {
+          if (account == null) return;
+          unawaited(_completeGoogleLogin(account));
+        },
+      );
+      unawaited(AuthService.googleSignIn.signInSilently());
+    }
+  }
+
+  @override
+  void dispose() {
+    _googleUserSub?.cancel();
+    super.dispose();
+  }
 
   // 1. 구글 로그인 API 연동
   Future<void> _handleGoogleLogin() async {
+    if (_googleLoginInProgress) return;
     setState(() => _isLoading = true);
 
     try {
@@ -26,13 +55,47 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('로그인 실패: $e'),
+          content: Text('로그인 실패: ${_formatLoginError(e)}'),
           backgroundColor: Colors.red.shade700,
         ),
       );
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  Future<void> _completeGoogleLogin(GoogleSignInAccount account) async {
+    if (_googleLoginInProgress || !mounted) return;
+    _googleLoginInProgress = true;
+    if (mounted) setState(() => _isLoading = true);
+
+    try {
+      await AuthService().loginWithGoogleAccount(account);
+      if (!mounted) return;
+      _navigateToMain();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Google 로그인 실패: ${_formatLoginError(e)}'),
+          backgroundColor: Colors.red.shade700,
+        ),
+      );
+    } finally {
+      _googleLoginInProgress = false;
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  String _formatLoginError(Object error) {
+    final message = error.toString();
+    if (message.contains('popup_closed')) {
+      return '로그인 창이 닫혔습니다. 다시 시도해 주세요.';
+    }
+    if (message.contains('access_denied')) {
+      return 'Google 계정 접근이 거부되었습니다.';
+    }
+    return '로그인 처리 중 오류가 발생했습니다.';
   }
 
   // 2. 애플 로그인 API 연동을 위한 뼈대 함수
@@ -95,7 +158,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               width: 12,
                               height: 12,
                               decoration: BoxDecoration(
-                                color: Colors.black.withOpacity(0.15),
+                                color: Colors.black.withValues(alpha: 0.15),
                                 shape: BoxShape.circle,
                               ),
                             ),
@@ -128,12 +191,23 @@ class _LoginScreenState extends State<LoginScreen> {
                 Column(
                   children: [
                     // 구글 로그인 버튼
-                    _buildLoginButton(
-                      icon: FontAwesomeIcons.google,
-                      iconColor: Colors.blue, // 구글은 보통 컬러 로고를 씁니다
-                      text: 'Google로 계속하기',
-                      onPressed: _handleGoogleLogin,
-                    ),
+                    if (kIsWeb) ...[
+                      const GoogleSignInWebButton(),
+                      const SizedBox(height: 12),
+                      Text(
+                        '웹에서는 Google 버튼으로 로그인하세요.',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.7),
+                          fontSize: 13,
+                        ),
+                      ),
+                    ] else
+                      _buildLoginButton(
+                        icon: FontAwesomeIcons.google,
+                        iconColor: Colors.blue,
+                        text: 'Google로 계속하기',
+                        onPressed: _handleGoogleLogin,
+                      ),
                     const SizedBox(height: 16),
                     // 애플 로그인 버튼
                     _buildLoginButton(
