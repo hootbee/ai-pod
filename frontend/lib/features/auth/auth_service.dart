@@ -59,7 +59,6 @@ class AuthService {
     return false;
   }
 
-  /// Google 로그인 + 백엔드 JWT 발급
   Future<Map<String, dynamic>> loginWithGoogle() async {
     if (_googleClientId.isEmpty) {
       throw StateError('GOOGLE_CLIENT_ID is required. Pass with --dart-define=GOOGLE_CLIENT_ID=...');
@@ -67,7 +66,13 @@ class AuthService {
 
     final account = await googleSignIn.signIn();
     if (account == null) throw Exception('Google 로그인이 취소되었습니다.');
+    return loginWithGoogleAccount(account);
+  }
 
+  /// Google 계정 정보로 백엔드 JWT 발급
+  Future<Map<String, dynamic>> loginWithGoogleAccount(
+    GoogleSignInAccount account,
+  ) async {
     final auth = await account.authentication;
     final idToken = auth.idToken;
     final accessToken = auth.accessToken;
