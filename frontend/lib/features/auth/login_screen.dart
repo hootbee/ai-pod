@@ -31,7 +31,6 @@ class _LoginScreenState extends State<LoginScreen> {
           unawaited(_completeGoogleLogin(account));
         },
       );
-      unawaited(AuthService.googleSignIn.signInSilently());
     }
   }
 
@@ -191,23 +190,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 Column(
                   children: [
                     // 구글 로그인 버튼
-                    if (kIsWeb) ...[
-                      const GoogleSignInWebButton(),
-                      const SizedBox(height: 12),
-                      Text(
-                        '웹에서는 Google 버튼으로 로그인하세요.',
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.7),
-                          fontSize: 13,
-                        ),
-                      ),
-                    ] else
-                      _buildLoginButton(
-                        icon: FontAwesomeIcons.google,
-                        iconColor: Colors.blue,
-                        text: 'Google로 계속하기',
-                        onPressed: _handleGoogleLogin,
-                      ),
+                    _buildGoogleLoginButton(),
                     const SizedBox(height: 16),
                     // 애플 로그인 버튼
                     _buildLoginButton(
@@ -222,6 +205,35 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildGoogleLoginButton() {
+    if (kIsWeb) {
+      return Stack(
+        alignment: Alignment.center,
+        children: [
+          _buildLoginButton(
+            icon: FontAwesomeIcons.google,
+            iconColor: Colors.blue,
+            text: 'Google로 계속하기',
+            onPressed: () {},
+          ),
+          const Positioned.fill(
+            child: Opacity(
+              opacity: 0.02,
+              child: GoogleSignInWebButton(),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return _buildLoginButton(
+      icon: FontAwesomeIcons.google,
+      iconColor: Colors.blue,
+      text: 'Google로 계속하기',
+      onPressed: _handleGoogleLogin,
     );
   }
 
