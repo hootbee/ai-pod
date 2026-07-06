@@ -94,8 +94,12 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
     if (isSameEpisode && isPlaying) {
       setState(() => _audioReady = true);
     } else {
-      AudioHandler.instance.playEpisode(widget.episode).then((_) {
-        if (mounted) setState(() => _audioReady = true);
+      AudioHandler.instance.playEpisode(widget.episode).then((error) {
+        if (!mounted) return;
+        setState(() {
+          _audioReady = error == null;
+          _audioError = error;
+        });
       });
     }
   }

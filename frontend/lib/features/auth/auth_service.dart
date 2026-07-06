@@ -11,7 +11,7 @@ class AuthService {
   static String get _backendUrl => AppConfig.apiBaseUrl;
   static const _googleClientId = String.fromEnvironment(
     'GOOGLE_CLIENT_ID',
-    defaultValue: '',
+    defaultValue: '711427859481-ishgmphcatvfecfio6pqat1tfnbc7rl7.apps.googleusercontent.com',
   );
 
   static const _keyAccessToken = 'access_token';
@@ -64,8 +64,10 @@ class AuthService {
       throw StateError('GOOGLE_CLIENT_ID is required. Pass with --dart-define=GOOGLE_CLIENT_ID=...');
     }
 
+    debugPrint('Google sign-in: launching account picker');
     final account = await googleSignIn.signIn();
     if (account == null) throw Exception('Google 로그인이 취소되었습니다.');
+    debugPrint('Google sign-in: selected account=${account.email}');
     return loginWithGoogleAccount(account);
   }
 
@@ -73,9 +75,13 @@ class AuthService {
   Future<Map<String, dynamic>> loginWithGoogleAccount(
     GoogleSignInAccount account,
   ) async {
+    debugPrint('Google sign-in: requesting authentication tokens');
     final auth = await account.authentication;
     final idToken = auth.idToken;
     final accessToken = auth.accessToken;
+    debugPrint(
+      'Google sign-in: token availability idToken=${idToken != null} accessToken=${accessToken != null}',
+    );
     if (idToken == null && accessToken == null) {
       throw Exception(_genericAuthError);
     }
@@ -92,6 +98,7 @@ class AuthService {
         )
         .timeout(const Duration(seconds: 15));
 
+    debugPrint('Google sign-in: backend response status=${response.statusCode}');
     if (response.statusCode != 200) {
       throw Exception(_buildAuthErrorMessage(response.statusCode, response.body));
     }

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Web Client ID: 백엔드에서 Google ID Token 검증에 사용 -->
-    <string name="server_client_id">826440481147-effr7vmiuqh5d0tujtne4e726ft14ttr.apps.googleusercontent.com</string>
+    <string name="server_client_id">711427859481-ishgmphcatvfecfio6pqat1tfnbc7rl7.apps.googleusercontent.com</string>
 </resources>

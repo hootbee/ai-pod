@@ -15,12 +15,11 @@ class AudioHandler {
   final AudioPlayer player = AudioPlayer();
   String? currentEpisodeId;
 
-  Future<void> playEpisode(PodcastEpisodeItem episode) async {
+  Future<String?> playEpisode(PodcastEpisodeItem episode) async {
     try {
-      currentEpisodeId = episode.id;
       await player.stop();
 
-    //백그라운드 재생 시 뜨는 정보
+      // 백그라운드 재생 시 뜨는 정보
       final mediaItem = MediaItem(
         id: episode.id,
         title: episode.headline ?? episode.title,
@@ -37,10 +36,17 @@ class AudioHandler {
       );
 
       await player.setAudioSource(source);
-      player.play();
+      await player.play();
+      currentEpisodeId = episode.id;
       unawaited(_incrementPlayCount(episode.id));
+      return null;
     } catch (e) {
+      currentEpisodeId = null;
+      try {
+        await player.stop();
+      } catch (_) {}
       debugPrint('오디오 재생 실패: $e');
+      return '오디오 재생 실패: $e';
     }
   }
 
