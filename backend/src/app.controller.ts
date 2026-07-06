@@ -1,4 +1,11 @@
-import { BadRequestException, Body, Controller, Get, Post } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  Header,
+  Post,
+} from '@nestjs/common';
 import { AppService } from './app.service';
 import { AiProcessorService } from './modules/ai-processor/ai-processor.service';
 import { CrawlerService } from './modules/crawler/crawler.service';
@@ -30,6 +37,61 @@ export class AppController {
   @Get()
   getHello(): string {
     return this.appService.getHello();
+  }
+
+  @Get('contact')
+  @Header('Content-Type', 'text/html; charset=utf-8')
+  getContactPage(): string {
+    return `
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AiPod 연락처</title>
+    <style>
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: #f6f8f2;
+        color: #1f241a;
+      }
+      main {
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+      }
+      .card {
+        width: min(560px, 100%);
+        background: #fff;
+        border: 1px solid #d8e0d0;
+        border-radius: 20px;
+        padding: 32px;
+        box-shadow: 0 16px 40px rgba(47, 63, 31, 0.08);
+        text-align: center;
+      }
+      h1 {
+        margin: 0 0 16px;
+        font-size: 28px;
+      }
+      a {
+        color: #6c7f2d;
+        font-size: 18px;
+        font-weight: 600;
+        text-decoration: none;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="card">
+        <h1>AiPod 연락처</h1>
+        <a href="mailto:hootbee0327@gmail.com">hootbee0327@gmail.com</a>
+      </section>
+    </main>
+  </body>
+</html>`;
   }
 
   @Post('ai/test')

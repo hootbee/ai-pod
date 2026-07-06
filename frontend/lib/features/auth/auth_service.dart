@@ -92,7 +92,9 @@ class AuthService {
         )
         .timeout(const Duration(seconds: 15));
 
-    if (response.statusCode != 200) throw Exception(_genericAuthError);
+    if (response.statusCode != 200) {
+      throw Exception(_buildAuthErrorMessage(response.statusCode, response.body));
+    }
 
     final data = jsonDecode(response.body) as Map<String, dynamic>;
     _accessToken = data['accessToken'] as String?;
@@ -101,6 +103,28 @@ class AuthService {
     // 토큰 로컬 저장
     await _saveTokens();
     return data;
+  }
+
+  String _buildAuthErrorMessage(int statusCode, String responseBody) {
+    final trimmedBody = responseBody.trim();
+    if (trimmedBody.isEmpty) {
+      return '로그인 실패 (HTTP $statusCode)';
+    }
+
+    try {
+      final decoded = jsonDecode(trimmedBody);
+      if (decoded is Map<String, dynamic>) {
+        final message = decoded['message'];
+        if (message is String && message.trim().isNotEmpty) {
+          return '로그인 실패: $message (HTTP $statusCode)';
+        }
+        if (message is List && message.isNotEmpty) {
+          return '로그인 실패: ${message.join(', ')} (HTTP $statusCode)';
+        }
+      }
+    } catch (_) {}
+
+    return '로그인 실패 (HTTP $statusCode): $trimmedBody';
   }
 
   /// Access Token 갱신

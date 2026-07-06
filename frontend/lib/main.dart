@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:just_audio_background/just_audio_background.dart';
@@ -6,13 +8,22 @@ import 'features/splash/splash_screen.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   if (!kIsWeb) {
+    unawaited(_initAudioBackgroundSafely());
+  }
+  runApp(const AipodApp());
+}
+
+Future<void> _initAudioBackgroundSafely() async {
+  try {
     await JustAudioBackground.init(
       androidNotificationChannelId: 'com.aipod.channel.audio',
       androidNotificationChannelName: 'AIPod 오디오',
       androidNotificationOngoing: true,
-    );
+    ).timeout(const Duration(seconds: 3));
+  } catch (e, stackTrace) {
+    debugPrint('JustAudioBackground init skipped: $e');
+    debugPrintStack(stackTrace: stackTrace);
   }
-  runApp(const AipodApp());
 }
 
 class AipodApp extends StatelessWidget {

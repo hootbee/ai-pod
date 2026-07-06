@@ -88,13 +88,16 @@ class _LoginScreenState extends State<LoginScreen> {
 
   String _formatLoginError(Object error) {
     final message = error.toString();
+    if (message.contains('로그인 실패')) {
+      return message.replaceFirst('Exception: ', '');
+    }
     if (message.contains('popup_closed')) {
       return '로그인 창이 닫혔습니다. 다시 시도해 주세요.';
     }
     if (message.contains('access_denied')) {
       return 'Google 계정 접근이 거부되었습니다.';
     }
-    return '로그인 처리 중 오류가 발생했습니다.';
+    return '로그인 처리 중 오류가 발생했습니다.\n$message';
   }
 
   // 2. 애플 로그인 API 연동을 위한 뼈대 함수

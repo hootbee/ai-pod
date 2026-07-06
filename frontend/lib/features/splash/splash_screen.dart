@@ -20,14 +20,21 @@ class _SplashScreenState extends State<SplashScreen> {
 
   Future<void> _init() async {
     // 스플래시 최소 노출(2.5초)과 자동 로그인 체크를 동시에 실행
-    final results = await Future.wait([
-      Future.delayed(const Duration(milliseconds: 2500)),
-      AuthService().tryAutoLogin(),
-    ]);
+    // 어떤 예외가 나도 앱이 로딩 화면에 갇히지 않도록 로그인 화면으로 안전하게 이동한다.
+    bool isLoggedIn = false;
+
+    try {
+      final results = await Future.wait([
+        Future.delayed(const Duration(milliseconds: 2500)),
+        _tryAutoLoginSafely(),
+      ]);
+      isLoggedIn = results[1] as bool;
+    } catch (e, stackTrace) {
+      debugPrint('Splash init failed: $e');
+      debugPrintStack(stackTrace: stackTrace);
+    }
 
     if (!mounted) return;
-
-    final isLoggedIn = results[1] as bool;
 
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
@@ -37,6 +44,16 @@ class _SplashScreenState extends State<SplashScreen> {
             FadeTransition(opacity: animation, child: child),
       ),
     );
+  }
+
+  Future<bool> _tryAutoLoginSafely() async {
+    try {
+      return await AuthService().tryAutoLogin();
+    } catch (e, stackTrace) {
+      debugPrint('Auto login failed: $e');
+      debugPrintStack(stackTrace: stackTrace);
+      return false;
+    }
   }
 
   @override
