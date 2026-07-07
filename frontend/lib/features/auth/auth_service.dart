@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -17,6 +18,8 @@ class AuthService {
   static const _keyAccessToken = 'access_token';
   static const _keyRefreshToken = 'refresh_token';
   static const String _genericAuthError = '로그인 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.';
+  static const Duration _googleSignInTimeout = Duration(seconds: 30);
+  static const Duration _googleAuthTokenTimeout = Duration(seconds: 20);
   static const FlutterSecureStorage _secureStorage = FlutterSecureStorage();
 
   static final GoogleSignIn googleSignIn = kIsWeb
@@ -65,7 +68,17 @@ class AuthService {
     }
 
     debugPrint('Google sign-in: launching account picker');
-    final account = await googleSignIn.signIn();
+    final account = await googleSignIn
+        .signIn()
+        .timeout(
+          _googleSignInTimeout,
+          onTimeout: () {
+            throw TimeoutException(
+              'Google 계정 선택이 시간 내에 완료되지 않았습니다.',
+              _googleSignInTimeout,
+            );
+          },
+        );
     if (account == null) throw Exception('Google 로그인이 취소되었습니다.');
     debugPrint('Google sign-in: selected account=${account.email}');
     return loginWithGoogleAccount(account);
@@ -76,7 +89,15 @@ class AuthService {
     GoogleSignInAccount account,
   ) async {
     debugPrint('Google sign-in: requesting authentication tokens');
-    final auth = await account.authentication;
+    final auth = await account.authentication.timeout(
+      _googleAuthTokenTimeout,
+      onTimeout: () {
+        throw TimeoutException(
+          'Google 인증 토큰을 받는 데 시간이 초과되었습니다.',
+          _googleAuthTokenTimeout,
+        );
+      },
+    );
     final idToken = auth.idToken;
     final accessToken = auth.accessToken;
     debugPrint(
