@@ -12,10 +12,10 @@ import '../auth/login_screen.dart';
 import '../card_news/deep_dive_screen.dart';
 import 'podcast_player_screen.dart';
 import 'settings_screen.dart';
-import 'package:material_symbols_icons/symbols.dart';
 import 'package:just_audio/just_audio.dart';
 import '../../services/audio_handler.dart';
 import 'dart:ui';
+import 'package:material_symbols_icons/symbols.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -242,7 +242,16 @@ class _MainScreenState extends State<MainScreen>
       return;
     }
 
-    await AudioHandler.instance.playEpisode(episode);
+    final error = await AudioHandler.instance.playEpisode(episode);
+    if (error != null && mounted) {
+      _showAudioError(error);
+    }
+  }
+
+  void _showAudioError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
   }
 
   Future<void> _loadHistory() async {
@@ -444,7 +453,12 @@ class _MainScreenState extends State<MainScreen>
                   ),
                   GestureDetector(
                     onTap: () => onTabSelected(1),
-                    child: _buildNavItem(context, Symbols.cards_stack, "카드뉴스", isSelected: selectedIndex == 1),
+                    child: _buildNavItem(
+                      context,
+                      Icons.view_carousel_rounded,
+                      "카드뉴스",
+                      isSelected: selectedIndex == 1,
+                    ),
                   ),
                   GestureDetector(
                     onTap: () => onTabSelected(2),
@@ -461,10 +475,13 @@ class _MainScreenState extends State<MainScreen>
                   child: Container(
                     width: navBarHeight,
                     height: navBarHeight,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16),
-                      image: DecorationImage(
-                        image: CachedNetworkImageProvider(currentEpisode!.thumbnailUrl!),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(16),
+                          image: DecorationImage(
+                        image: CachedNetworkImageProvider(
+                          currentEpisode!.thumbnailUrl!,
+                          cacheManager: AppImageCacheManager.instance,
+                        ),
                         fit: BoxFit.cover,
                         ),
                         border: Border.all(
@@ -575,6 +592,7 @@ Widget _buildProfileAvatar() {
             ? CachedNetworkImage(
                 imageUrl: _userProfile!.profileImageUrl!,
                 fit: BoxFit.cover,
+                cacheManager: AppImageCacheManager.instance,
                 errorWidget: (_, __, ___) => Icon(
                   Icons.person,
                   color: AppThemeController.primaryTextColor,
@@ -637,6 +655,7 @@ Widget _buildLibraryTab() {
                               ? CachedNetworkImage(
                                   imageUrl: _userProfile!.profileImageUrl!,
                                   fit: BoxFit.cover,
+                                  cacheManager: AppImageCacheManager.instance,
                                   errorWidget: (_, __, ___) => Icon(
                                     Icons.person,
                                     color: AppThemeController.primaryTextColor,
@@ -1065,6 +1084,7 @@ class _FlipThumbnailCardState extends State<FlipThumbnailCard> with SingleTicker
             child: CachedNetworkImage(
               imageUrl: widget.episode.thumbnailUrl ?? '',
               fit: BoxFit.cover,
+              cacheManager: AppImageCacheManager.instance,
               placeholder: (context, url) => Container(
                 color: Colors.blueGrey.shade900,
                 child: const Center(
@@ -1199,7 +1219,13 @@ class _FlipThumbnailCardState extends State<FlipThumbnailCard> with SingleTicker
                           if (isCurrent) {
                             isPlaying ? AudioHandler.instance.player.pause() : AudioHandler.instance.player.play();
                           } else {
-                            AudioHandler.instance.playEpisode(widget.episode);
+                            AudioHandler.instance.playEpisode(widget.episode).then((error) {
+                              if (error != null && context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text(error)),
+                                );
+                              }
+                            });
                           }
                         },
                         child: ClipOval(

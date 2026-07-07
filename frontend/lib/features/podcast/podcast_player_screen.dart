@@ -1,13 +1,10 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:frontend/services/audio_handler.dart';
-import 'package:just_audio_background/just_audio_background.dart';
 
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
-import '../auth/auth_service.dart';
 import '../../services/network_cache_service.dart';
 import '../../shared/widgets/source_info_bottom_sheet.dart';
 import 'main_screen.dart';
@@ -39,7 +36,6 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
     return "$minutes:$seconds";
   }
 
-  bool _audioInitializing = false;
   bool _subtitleCuesLoading = false;
   List<SubtitleCue> _subtitleCues = [];
   int _currentCueIndex = -1;
@@ -94,8 +90,12 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
     if (isSameEpisode && isPlaying) {
       setState(() => _audioReady = true);
     } else {
-      AudioHandler.instance.playEpisode(widget.episode).then((_) {
-        if (mounted) setState(() => _audioReady = true);
+      AudioHandler.instance.playEpisode(widget.episode).then((error) {
+        if (!mounted) return;
+        setState(() {
+          _audioReady = error == null;
+          _audioError = error;
+        });
       });
     }
   }
@@ -128,62 +128,6 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
       setState(() {
         _subtitleCuesLoading = false;
       });
-    }
-  }
-
-  Future<void> _initAudio({int maxRetries = 3}) async {
-    if (_audioInitializing) return;
-    _audioInitializing = true;
-
-    try {
-      final token = await AuthService.readAccessToken();
-      final headers = token != null ? {'Authorization': 'Bearer $token'} : null;
-
-      final String targetUrl =
-          widget.episode.audioUrl ?? widget.episode.streamUrl;
-      final Object? mediaTag = kIsWeb
-          ? null
-          : MediaItem(
-              id: widget.episode.id,
-              title: widget.episode.headline ?? widget.episode.title,
-              artist: 'AIPod',
-              artUri: widget.episode.thumbnailUrl != null
-                  ? Uri.tryParse(widget.episode.thumbnailUrl!)
-                  : null,
-            );
-
-      Object? lastError;
-      for (int attempt = 1; attempt <= maxRetries; attempt++) {
-        try {
-          await _audioPlayer.stop();
-          final source = await NetworkCacheService.instance
-              .getCachedAudioSource(targetUrl, headers: headers, tag: mediaTag);
-          await _audioPlayer.setAudioSource(source, preload: true);
-
-          AudioHandler.instance.currentEpisodeId = widget.episode.id;
-
-          if (!mounted) return;
-          setState(() {
-            _audioReady = true; 
-            _audioError = null;
-          });
-          return;
-        } catch (e) {
-          lastError = e;
-          if (attempt < maxRetries) {
-            await Future<void>.delayed(const Duration(seconds: 2));
-            if (!mounted) return;
-          }
-        }
-      }
-
-      if (!mounted) return;
-      setState(() {
-        _audioReady = false;
-        _audioError = '오디오 연결 실패: $lastError';
-      });
-    } finally {
-      _audioInitializing = false;
     }
   }
 
@@ -247,7 +191,18 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
 
   Future<void> _togglePlayPause(bool playing) async {
     if (!_audioReady) {
-      await _initAudio();
+      final error = await AudioHandler.instance.playEpisode(widget.episode);
+      if (!mounted) return;
+      if (error != null) {
+        setState(() {
+          _audioError = error;
+        });
+        return;
+      }
+      setState(() {
+        _audioReady = true;
+        _audioError = null;
+      });
       if (!_audioReady) return;
     }
     if (playing) {

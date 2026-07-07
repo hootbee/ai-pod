@@ -91,6 +91,9 @@ class _LoginScreenState extends State<LoginScreen> {
     if (message.contains('로그인 실패')) {
       return message.replaceFirst('Exception: ', '');
     }
+    if (message.contains('TimeoutException')) {
+      return '로그인 요청이 너무 오래 걸렸습니다. 네트워크와 Google 설정을 확인한 뒤 다시 시도해 주세요.';
+    }
     if (message.contains('popup_closed')) {
       return '로그인 창이 닫혔습니다. 다시 시도해 주세요.';
     }

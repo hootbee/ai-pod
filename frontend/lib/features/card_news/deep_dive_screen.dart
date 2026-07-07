@@ -447,6 +447,7 @@ class _DeepDiveScreenState extends State<DeepDiveScreen> {
                 child: _userProfile?.profileImageUrl != null
                     ? CachedNetworkImage(
                         imageUrl: _userProfile!.profileImageUrl!,
+                        cacheManager: AppImageCacheManager.instance,
                         fit: BoxFit.cover,
                         errorWidget: (_, __, ___) => Icon(
                           Icons.person,
