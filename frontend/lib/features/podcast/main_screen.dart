@@ -15,7 +15,6 @@ import 'settings_screen.dart';
 import 'package:just_audio/just_audio.dart';
 import '../../services/audio_handler.dart';
 import 'dart:ui';
-import 'package:material_symbols_icons/symbols.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -449,7 +448,7 @@ class _MainScreenState extends State<MainScreen>
                 children: [
                   GestureDetector(
                     onTap: () => onTabSelected(0),
-                    child: _buildNavItem(context, Symbols.podcasts, "팟캐스트", isSelected: selectedIndex == 0),
+                    child: _buildNavItem(context, Icons.graphic_eq_rounded, "팟캐스트", isSelected: selectedIndex == 0),
                   ),
                   GestureDetector(
                     onTap: () => onTabSelected(1),
@@ -462,7 +461,7 @@ class _MainScreenState extends State<MainScreen>
                   ),
                   GestureDetector(
                     onTap: () => onTabSelected(2),
-                    child: _buildNavItem(context, Symbols.person, "보관함", isSelected: selectedIndex == 2),
+                    child: _buildNavItem(context, Icons.person_rounded, "보관함", isSelected: selectedIndex == 2),
                   ),
                 ],
               ),
@@ -715,7 +714,7 @@ Widget _buildLibraryTab() {
                         Row(
                           children: [
                             Icon(
-                              Symbols.stacks,
+                              Icons.inventory_2_rounded,
                               color: AppThemeController.primaryTextColor,
                               size: 25,
                             ),
@@ -746,7 +745,7 @@ Widget _buildLibraryTab() {
                                             MainAxisAlignment.center,
                                         children: [
                                           Icon(
-                                            Symbols.history,
+                                            Icons.history_rounded,
                                             color: AppThemeController
                                                 .secondaryTextColor(0.3),
                                             size: 48,
