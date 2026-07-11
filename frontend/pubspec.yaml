@@ -34,11 +34,29 @@ dependencies:
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
+  flutter_card_swiper: ^7.2.0
+  just_audio: ^0.10.5
+  just_audio_background: ^0.0.1-beta.12
+  scrollable_positioned_list: ^0.3.8
+  google_sign_in: ^6.2.2
+  google_sign_in_web: ^0.12.4+4
+  http: ^1.2.2
+  font_awesome_flutter: ^10.9.1
+  shared_preferences: ^2.5.3
+  flutter_secure_storage: ^10.2.0
+  crypto: ^3.0.6
+  dio: ^5.0.0
+  cached_network_image: ^3.3.0
+  flutter_cache_manager: ^3.3.0
+  path_provider: ^2.0.0
+  url_launcher: ^6.3.0
+  material_symbols_icons: ^4.2928.1
+  share_plus: ^13.1.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-
+  flutter_launcher_icons: ^0.13.1
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
   # activated in the `analysis_options.yaml` file located at the root of your
@@ -46,6 +64,12 @@ dev_dependencies:
   # rules and activating additional ones.
   flutter_lints: ^5.0.0
 
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/images/icon.png" # 실제 아이콘 이미지 경로
+  min_sdk_android: 21 # android min sdk version
+  
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
 
@@ -58,10 +82,10 @@ flutter:
   uses-material-design: true
 
   # To add assets to your application, add an assets section, like this:
-  # assets:
-  #   - images/a_dot_burr.jpeg
-  #   - images/a_dot_ham.jpeg
-
+  assets:
+    - assets/images/splash.png
+    - assets/images/aipod_logo.png
+  
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
 

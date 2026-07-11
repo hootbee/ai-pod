@@ -1,9 +1,50 @@
+import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import { NestExpressApplication } from '@nestjs/platform-express';
+import compression = require('compression');
+import * as fs from 'fs';
+import * as path from 'path';
 import { AppModule } from './app.module';
 import { CrawlerService } from './modules/crawler/crawler.service';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+  // Gzip/Brotli 압축 — threshold 1KB 이상 응답만 압축 (텍스트 트래픽 절감)
+  app.use(compression({ level: 6, threshold: 1024 }));
+
+  const corsOrigin = process.env.CORS_ORIGIN ?? '';
+  const isProd = (process.env.NODE_ENV ?? '').toLowerCase() === 'production';
+  if (isProd && (!corsOrigin || corsOrigin === '*')) {
+    throw new Error('CORS_ORIGIN must be set to a specific origin in production');
+  }
+  const allowedOrigins = corsOrigin
+    ? corsOrigin.split(',').map((origin) => origin.trim()).filter(Boolean)
+    : ['http://localhost:3000', 'http://localhost:7357', 'http://127.0.0.1:7357'];
+  app.enableCors({
+    origin: allowedOrigins,
+  });
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      transform: true,
+      forbidNonWhitelisted: true,
+    }),
+  );
+
+  const mediaDirs = [
+    { prefix: '/audio-files', dir: path.resolve(process.env.AUDIO_OUTPUT_DIR ?? './audio-files') },
+    { prefix: '/thumbnails', dir: path.resolve(process.env.THUMBNAIL_OUTPUT_DIR ?? './thumbnails') },
+    {
+      prefix: '/card-news-images',
+      dir: path.resolve(process.env.CARD_NEWS_OUTPUT_DIR ?? './card-news-images'),
+    },
+  ];
+
+  for (const media of mediaDirs) {
+    fs.mkdirSync(media.dir, { recursive: true });
+    app.useStaticAssets(media.dir, { prefix: media.prefix });
+  }
 
   if (process.env.CRAWLER_PREVIEW === '1') {
     const crawler = app.get(CrawlerService);
@@ -12,12 +53,10 @@ async function bootstrap() {
 
     for (const item of items) {
       try {
-        const content = await crawler.fetchArticleContent(
-          item.link,
-          item.sourceId,
-        );
+        const content = await crawler.fetchArticleContent(item.link, item.sourceId);
         console.log(`\n[${item.source}] ${item.title}`);
         console.log(content.slice(0, 1200));
+        await crawler.markProcessed(item);
       } catch (error) {
         console.warn(`Failed to fetch content for ${item.link}`);
         console.warn(error);

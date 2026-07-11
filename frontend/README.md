@@ -1,16 +1,109 @@
-# frontend
+# AiPod Frontend
 
-A new Flutter project.
+## Google 로그인 설정 파일
 
-## Getting Started
+모바일(iOS/Android)에서 Google 로그인을 사용하려면 아래 파일이 필요합니다.
 
-This project is a starting point for a Flutter application.
+- Android: `frontend/android/app/google-services.json`
+- iOS: `frontend/ios/Runner/GoogleService-Info.plist`
 
-A few resources to get you started if this is your first Flutter project:
+참고:
+- Web(Chrome) 실행만 할 때는 위 파일보다 `GOOGLE_CLIENT_ID`가 더 중요합니다.
+- iOS 폴더에 `frontend/ios/GoogleService-Info.plist`가 하나 더 있을 수 있지만, 실제 Xcode 프로젝트 기준 경로는 `frontend/ios/Runner/GoogleService-Info.plist`입니다.
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+팀원에게 공유할 때는 아래처럼 두면 됩니다.
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+```text
+frontend/
+  android/
+    app/
+      google-services.json
+  ios/
+    Runner/
+      GoogleService-Info.plist
+```
+
+## 실행 방법
+
+### 1) 로컬 백엔드(개발 PC의 3000번) 붙여서 실행
+
+- iOS/Android/Desktop 공통:
+
+```bash
+flutter run --dart-define=ENV=dev
+```
+
+- Web:
+
+```bash
+flutter run -d chrome --web-port 7357 --dart-define=ENV=dev
+```
+
+참고:
+- `ENV=dev`일 때 API 기본값은 플랫폼별로 자동 분기됩니다.
+- Android 에뮬레이터는 `http://10.0.2.2:3000`으로 연결됩니다.
+- Web/iOS/macOS 기본값은 현재 `http://192.168.0.18:3000`입니다.
+- iOS 실기기는 로컬 개발 서버에 붙일 때 `DEV_HOST`로 개발 PC IP를 명시하는 편이 안전합니다.
+
+```bash
+flutter run -d <IOS_DEVICE_ID> --dart-define=ENV=dev --dart-define=DEV_HOST=<맥IP>
+```
+
+### 2) 서버 백엔드 붙여서 실행
+
+아래처럼 `ENV=production`과 서버 API 주소(`API_URL`)를 **반드시** 같이 지정해서 실행하세요.
+(`production` 모드에서 `API_URL` 누락 시 앱이 시작 단계에서 에러를 발생시킵니다.)
+
+```bash
+flutter run \
+  --dart-define=ENV=production \
+  --dart-define=API_URL=http://your-server:3000
+```
+
+- iOS 실기기 예시:
+
+```bash
+flutter run -d <IOS_DEVICE_ID> \
+  --dart-define=ENV=production \
+  --dart-define=API_URL=http://your-server:3000 \
+  --dart-define=GOOGLE_CLIENT_ID=<google-web-client-id>
+```
+
+- Chrome 예시:
+
+```bash
+flutter run -d chrome --web-port 7357 \
+  --dart-define=ENV=production \
+  --dart-define=API_URL=http://your-server:3000 \
+  --dart-define=GOOGLE_CLIENT_ID=<google-web-client-id>
+```
+
+### 3) Chrome 웹 테스트용 실행
+
+- 운영 서버 붙여서 테스트:
+
+```bash
+flutter run -d chrome --web-port 7357 \
+  --dart-define=ENV=production \
+  --dart-define=API_URL=http://3.36.120.247:3000 \
+  --dart-define=GOOGLE_CLIENT_ID=826440481147-effr7vmiuqh5d0tujtne4e726ft14ttr.apps.googleusercontent.com
+```
+flutter run -d chrome --web-port 7357 --dart-define=ENV=production --dart-define=API_URL=http://3.36.120.247:3000 --dart-define=GOOGLE_CLIENT_ID=826440481147-effr7vmiuqh5d0tujtne4e726ft14ttr.apps.googleusercontent.com
+- 로컬 개발 서버 붙여서 테스트:
+
+```bash
+flutter run -d chrome --web-port 7357 --dart-define=ENV=dev
+```
+
+### 4) Windows에서 Chrome 웹 실행 시 주의
+
+macOS/Linux 예시처럼 줄 끝에 `\`를 붙인 명령은 Windows `cmd`/PowerShell에서 그대로 동작하지 않을 수 있습니다.
+
+- 가장 안전한 방법: 한 줄로 실행
+
+```bash
+flutter run -d chrome --web-port 7357 --dart-define=ENV=production --dart-define=API_URL=http://127.0.0.1:3000 --dart-define=GOOGLE_CLIENT_ID=<google-web-client-id>
+```
+
+- PowerShell에서 여러 줄로 쓰고 싶으면 줄 끝에 백슬래시(`\`)가 아니라 백틱(<code>`</code>)을 사용
+- `cmd`에서는 줄 끝에 `^`를 사용
