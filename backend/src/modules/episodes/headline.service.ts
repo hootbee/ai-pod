@@ -4,8 +4,8 @@ import { Repository } from 'typeorm';
 import { PodcastEpisode } from './entities/podcast-episode.entity';
 
 interface HeadlineResponse {
-  candidates: Array<{
-    content: { parts: Array<{ text: string }>; role: string };
+  choices: Array<{
+    message: { content: string; role: string };
   }>;
 }
 
@@ -30,7 +30,7 @@ export class HeadlineService {
     this.apiKey = apiKey;
     this.baseUrl =
       process.env.MINDLOGIC_BASE_URL ??
-      'https://factchat-cloud.mindlogic.ai/v1/api/google/models/generate-content';
+      'https://factchat-cloud.mindlogic.ai/v1/gateway/chat/completions/';
     this.modelName = process.env.MINDLOGIC_MODEL ?? 'gemini-2.5-flash';
   }
 
@@ -81,7 +81,7 @@ ${script.slice(0, 3000)}
       },
       body: JSON.stringify({
         model: this.modelName,
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        messages: [{ role: 'user', content: prompt }],
       }),
     });
 
@@ -91,7 +91,7 @@ ${script.slice(0, 3000)}
     }
 
     const data = (await response.json()) as HeadlineResponse;
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    const text = data.choices?.[0]?.message?.content;
     if (!text) throw new Error('Mindlogic API 응답에 텍스트 없음');
 
     const cleaned = text.replace(/```json?|```/g, '').trim();

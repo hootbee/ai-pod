@@ -2,8 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import type { IThumbnailPromptService } from './interfaces/thumbnail-prompt.service.interface';
 
 interface TextResponse {
-  candidates: Array<{
-    content: { parts: Array<{ text: string }>; role: string };
+  choices: Array<{
+    message: { content: string; role: string };
   }>;
 }
 
@@ -24,7 +24,7 @@ export class ThumbnailPromptService implements IThumbnailPromptService {
     this.apiKey = apiKey;
     this.baseUrl =
       process.env.MINDLOGIC_BASE_URL ??
-      'https://factchat-cloud.mindlogic.ai/v1/api/google/models/generate-content';
+      'https://factchat-cloud.mindlogic.ai/v1/gateway/chat/completions/';
     this.modelName = process.env.MINDLOGIC_MODEL ?? 'gemini-2.5-flash';
   }
 
@@ -49,7 +49,7 @@ A vibrant, strictly NO TEXT podcast thumbnail for a tech news channel in a clean
       },
       body: JSON.stringify({
         model: this.modelName,
-        contents: [{ role: 'user', parts: [{ text: systemPrompt }] }],
+        messages: [{ role: 'user', content: systemPrompt }],
       }),
     });
 
@@ -59,7 +59,7 @@ A vibrant, strictly NO TEXT podcast thumbnail for a tech news channel in a clean
     }
 
     const data = (await response.json()) as TextResponse;
-    const prompt = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+    const prompt = data.choices?.[0]?.message?.content?.trim();
     if (!prompt) throw new Error('프롬프트 생성 응답 없음');
 
     this.logger.log(`[Prompt] 생성 완료: ${prompt.slice(0, 80)}...`);

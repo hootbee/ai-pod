@@ -7,8 +7,8 @@ import type {
 } from './interfaces/director.service.interface';
 
 interface GeminiResponse {
-  candidates: Array<{
-    content: { parts: Array<{ text: string }>; role: string };
+  choices: Array<{
+    message: { content: string; role: string };
   }>;
 }
 
@@ -24,7 +24,7 @@ export class DirectorService implements IDirectorService {
     if (!apiKey) throw new Error('MINDLOGIC_API_KEY is not set');
     
     this.apiKey = apiKey;
-    this.baseUrl = process.env.MINDLOGIC_BASE_URL ?? 'https://factchat-cloud.mindlogic.ai/v1/api/google/models/generate-content';
+    this.baseUrl = process.env.MINDLOGIC_BASE_URL ?? 'https://factchat-cloud.mindlogic.ai/v1/gateway/chat/completions/';
     this.modelName = process.env.MINDLOGIC_MODEL ?? 'gemini-2.5-flash';
   }
 
@@ -121,7 +121,7 @@ ${script.slice(0, 3000)}
       },
       body: JSON.stringify({
         model: this.modelName,
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        messages: [{ role: 'user', content: prompt }],
       }),
     });
 
@@ -131,7 +131,7 @@ ${script.slice(0, 3000)}
     }
 
     const data = (await response.json()) as GeminiResponse;
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    const text = data.choices?.[0]?.message?.content;
     if (!text) throw new Error('Mindlogic API 응답에 텍스트 없음');
 
 
@@ -244,7 +244,7 @@ ${script.slice(0, 3000)}
       },
       body: JSON.stringify({
         model: this.modelName,
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        messages: [{ role: 'user', content: prompt }],
       }),
     });
 
@@ -254,7 +254,7 @@ ${script.slice(0, 3000)}
     }
 
     const data = (await response.json()) as GeminiResponse;
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    const text = data.choices?.[0]?.message?.content;
     if (!text) throw new Error('Mindlogic API 응답에 텍스트 없음 (딥다이브)');
 
     try {
