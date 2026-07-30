@@ -1073,6 +1073,9 @@ class _FlipThumbnailCardState extends State<FlipThumbnailCard> with SingleTicker
               fit: BoxFit.cover,
               cacheManager: AppImageCacheManager.instance,
               filterQuality: FilterQuality.low,
+              memCacheWidth: (MediaQuery.sizeOf(context).width *
+                      MediaQuery.devicePixelRatioOf(context))
+                  .round(),
               placeholder: (context, url) => Container(
                 color: Colors.blueGrey.shade900,
                 child: const Center(

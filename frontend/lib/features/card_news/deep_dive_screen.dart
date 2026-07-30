@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -103,6 +105,7 @@ class _DeepDiveScreenState extends State<DeepDiveScreen> {
         _disposeUnusedControllers(keepLength: _days.length);
         _loading = false;
       });
+      _precacheFirstCardImage(days);
       await _attemptInitialFocusAfterLoad();
     } catch (e) {
       if (!mounted) return;
@@ -111,6 +114,28 @@ class _DeepDiveScreenState extends State<DeepDiveScreen> {
         _loading = false;
       });
     }
+  }
+
+  void _precacheFirstCardImage(List<DeepDiveDay> days) {
+    if (!mounted || days.isEmpty) return;
+    final firstCard = days.first.cards.firstWhere(
+      (card) => card.imageUrl?.isNotEmpty ?? false,
+      orElse: () => days.first.cards.first,
+    );
+    final imageUrl = firstCard.imageUrl;
+    if (imageUrl == null || imageUrl.isEmpty) return;
+    final cacheWidth =
+        (MediaQuery.sizeOf(context).width * MediaQuery.devicePixelRatioOf(context))
+            .round();
+
+    precacheImage(
+      CachedNetworkImageProvider(
+        imageUrl,
+        cacheManager: AppImageCacheManager.instance,
+        maxWidth: cacheWidth,
+      ),
+      context,
+    ).ignore();
   }
 
   Future<bool> _loadMore() async {
@@ -534,6 +559,9 @@ class _ThumbnailCard extends StatelessWidget {
               cacheManager: AppImageCacheManager.instance,
               fit: BoxFit.cover,
               filterQuality: FilterQuality.low,
+              memCacheWidth: (MediaQuery.sizeOf(context).width *
+                      MediaQuery.devicePixelRatioOf(context))
+                  .round(),
               placeholder: (_, __) => const ColoredBox(color: Color(0xFF0a0a14)),
               errorWidget: (_, __, ___) => const ColoredBox(color: Color(0xFF0a0a14)),
             )
