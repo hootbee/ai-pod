@@ -50,16 +50,28 @@ class AuthService {
 
       if (response.statusCode == 200) return true;
 
-      // Access token 만료 → refresh 시도
-      if (response.statusCode == 401 && _refreshToken != null) {
-        await _refresh();
-        return true;
+      // Access token 만료일 때만 refresh를 시도한다.
+      if (response.statusCode == 401) {
+        if (_refreshToken == null) {
+          await _clearTokens();
+          return false;
+        }
+
+        try {
+          await _refresh();
+          return true;
+        } catch (_) {
+          await _clearTokens();
+          return false;
+        }
       }
+
+      // 서버 오류나 일시적인 비정상 응답만으로 세션을 삭제하지 않는다.
+      return true;
     } catch (_) {}
 
-    // 실패 시 저장된 토큰 삭제
-    await _clearTokens();
-    return false;
+    // 네트워크 오류로는 저장된 세션을 삭제하지 않는다.
+    return true;
   }
 
   Future<Map<String, dynamic>> loginWithGoogle() async {
