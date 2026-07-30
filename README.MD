@@ -84,9 +84,23 @@ git commit -m "fix: 로그인 시 비밀번호 오류 수정"
 
 ---
 
+## 🧪 Flutter 검증 명령어
+
+```bash
+cd frontend
+flutter pub get
+flutter analyze
+flutter test
+flutter test integration_test/auth_refresh_test.dart
+```
+
+`auth_refresh_test.dart`는 실제 토큰을 사용하지 않고 `401 → refresh` 성공과
+실패 흐름을 디바이스 환경에서 검증합니다.
+
+---
+
 ## ⚠️ 주의사항
 
 * `main` 브랜치에서 직접 작업하거나 push 금지
 * 충돌 발생 시 직접 해결 후 PR
 * 커밋 메시지와 PR 제목은 명확하게 작성
-
