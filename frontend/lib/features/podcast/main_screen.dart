@@ -14,7 +14,6 @@ import 'podcast_player_screen.dart';
 import 'settings_screen.dart';
 import 'package:just_audio/just_audio.dart';
 import '../../services/audio_handler.dart';
-import 'dart:ui';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -337,20 +336,9 @@ class _MainScreenState extends State<MainScreen>
       builder: (context, child) {
         final value =
             Curves.easeOutCubic.transform(_tabTransitionController.value);
-        final scale = 0.985 + (0.015 * value);
-        final verticalOffset =
-            MediaQuery.of(context).size.height * 0.018 * (1 - value);
-
         return FadeTransition(
           opacity: AlwaysStoppedAnimation(value),
-          child: Transform.translate(
-            offset: Offset(0, verticalOffset),
-            child: Transform.scale(
-              scale: scale,
-              alignment: Alignment.bottomCenter,
-              child: child,
-            ),
-          ),
+          child: child,
         );
       },
       child: IndexedStack(
@@ -1084,6 +1072,7 @@ class _FlipThumbnailCardState extends State<FlipThumbnailCard> with SingleTicker
               imageUrl: widget.episode.thumbnailUrl ?? '',
               fit: BoxFit.cover,
               cacheManager: AppImageCacheManager.instance,
+              filterQuality: FilterQuality.low,
               placeholder: (context, url) => Container(
                 color: Colors.blueGrey.shade900,
                 child: const Center(
@@ -1227,23 +1216,18 @@ class _FlipThumbnailCardState extends State<FlipThumbnailCard> with SingleTicker
                             });
                           }
                         },
-                        child: ClipOval(
-                          child: BackdropFilter(
-                            filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
-                            child: Container(
-                              width: 44,
-                              height: 44,
-                              decoration: BoxDecoration(
-                                color: Colors.black.withValues(alpha: 0.3),
-                                shape: BoxShape.circle,
-                                border: Border.all(color: Colors.white.withValues(alpha: 0.2), width: 1),
-                              ),
-                              child: Icon(
-                                isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                                color: const Color(0xFFD6E36F),
-                                size: 28,
-                              ),
-                            ),
+                        child: Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.45),
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.2), width: 1),
+                          ),
+                          child: Icon(
+                            isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                            color: const Color(0xFFD6E36F),
+                            size: 28,
                           ),
                         ),
                       );

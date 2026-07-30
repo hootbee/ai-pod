@@ -533,6 +533,7 @@ class _ThumbnailCard extends StatelessWidget {
               imageUrl: card.imageUrl!,
               cacheManager: AppImageCacheManager.instance,
               fit: BoxFit.cover,
+              filterQuality: FilterQuality.low,
               placeholder: (_, __) => const ColoredBox(color: Color(0xFF0a0a14)),
               errorWidget: (_, __, ___) => const ColoredBox(color: Color(0xFF0a0a14)),
             )
