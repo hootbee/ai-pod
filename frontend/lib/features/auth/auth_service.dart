@@ -29,7 +29,6 @@ class _SecureAuthTokenStore implements AuthTokenStore {
 
 class AuthService {
   // URL은 AppConfig에서 환경별로 자동 결정됨
-  static String get _backendUrl => AppConfig.apiBaseUrl;
   static const _googleClientId = String.fromEnvironment(
     'GOOGLE_CLIENT_ID',
     defaultValue:
@@ -52,10 +51,15 @@ class AuthService {
   String? _refreshToken;
   final http.Client _httpClient;
   final AuthTokenStore _tokenStore;
+  final String _backendUrl;
 
-  AuthService({http.Client? httpClient, AuthTokenStore? tokenStore})
-    : _httpClient = httpClient ?? http.Client(),
-      _tokenStore = tokenStore ?? _defaultTokenStore;
+  AuthService({
+    http.Client? httpClient,
+    AuthTokenStore? tokenStore,
+    String? backendUrl,
+  }) : _httpClient = httpClient ?? http.Client(),
+       _tokenStore = tokenStore ?? _defaultTokenStore,
+       _backendUrl = backendUrl ?? AppConfig.apiBaseUrl;
 
   String? get accessToken => _accessToken;
   bool get isLoggedIn => _accessToken != null;

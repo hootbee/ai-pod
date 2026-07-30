@@ -66,6 +66,10 @@ class _AuthFlowClient extends http.BaseClient {
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
+  const stagingApiUrl = String.fromEnvironment('STAGING_API_URL');
+  const stagingAccessToken = String.fromEnvironment('STAGING_ACCESS_TOKEN');
+  const stagingRefreshToken = String.fromEnvironment('STAGING_REFRESH_TOKEN');
+
   testWidgets('401 응답 후 refresh 성공 시 새 토큰으로 세션을 유지한다', (tester) async {
     final tokenStore = _MemoryTokenStore();
     await tokenStore.write(key: 'access_token', value: 'expired-access');
@@ -90,5 +94,31 @@ void main() {
     expect(client.requestedPaths, ['/auth/me', '/auth/refresh']);
     expect(await tokenStore.read(key: 'access_token'), isNull);
     expect(await tokenStore.read(key: 'refresh_token'), isNull);
+  });
+
+  testWidgets('staging API에서 만료 Access Token을 refresh한다', (tester) async {
+    if (stagingApiUrl.isEmpty ||
+        stagingAccessToken.isEmpty ||
+        stagingRefreshToken.isEmpty) {
+      markTestSkipped(
+        'STAGING_API_URL, STAGING_ACCESS_TOKEN, STAGING_REFRESH_TOKEN are required',
+      );
+      return;
+    }
+
+    final tokenStore = _MemoryTokenStore();
+    await tokenStore.write(key: 'access_token', value: stagingAccessToken);
+    await tokenStore.write(key: 'refresh_token', value: stagingRefreshToken);
+    final service = AuthService(
+      backendUrl: stagingApiUrl,
+      tokenStore: tokenStore,
+    );
+
+    expect(await service.tryAutoLogin(), isTrue);
+    expect(
+      await tokenStore.read(key: 'access_token'),
+      isNot(stagingAccessToken),
+    );
+    expect(await tokenStore.read(key: 'refresh_token'), isNotNull);
   });
 }

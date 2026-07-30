@@ -38,7 +38,7 @@ class _MainScreenState extends State<MainScreen>
 
   void _openCardNewsForEpisode(PodcastEpisodeItem episode) {
     final createdAt = episode.createdAt;
-    final dayLabel = createdAt == null ? null : createdAt.toIso8601String().substring(0, 10);
+    final dayLabel = createdAt?.toIso8601String().substring(0, 10);
     setState(() {
       _pendingCardNewsEpisodeId = episode.id;
       _pendingCardNewsDayLabel = dayLabel;
@@ -47,7 +47,9 @@ class _MainScreenState extends State<MainScreen>
   }
 
   void _consumeCardNewsFocusRequest() {
-    if (_pendingCardNewsEpisodeId == null && _pendingCardNewsDayLabel == null) return;
+    if (_pendingCardNewsEpisodeId == null && _pendingCardNewsDayLabel == null) {
+      return;
+    }
     if (!mounted) return;
     setState(() {
       _pendingCardNewsEpisodeId = null;
