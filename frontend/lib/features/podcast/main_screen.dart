@@ -39,7 +39,9 @@ class _MainScreenState extends State<MainScreen>
 
   void _openCardNewsForEpisode(PodcastEpisodeItem episode) {
     final createdAt = episode.createdAt;
-    final dayLabel = createdAt == null ? null : createdAt.toIso8601String().substring(0, 10);
+    final dayLabel = createdAt == null
+        ? null
+        : createdAt.toIso8601String().substring(0, 10);
     setState(() {
       _pendingCardNewsEpisodeId = episode.id;
       _pendingCardNewsDayLabel = dayLabel;
@@ -48,13 +50,15 @@ class _MainScreenState extends State<MainScreen>
   }
 
   void _consumeCardNewsFocusRequest() {
-    if (_pendingCardNewsEpisodeId == null && _pendingCardNewsDayLabel == null) return;
+    if (_pendingCardNewsEpisodeId == null && _pendingCardNewsDayLabel == null)
+      return;
     if (!mounted) return;
     setState(() {
       _pendingCardNewsEpisodeId = null;
       _pendingCardNewsDayLabel = null;
     });
   }
+
   final PageController _pageController = PageController(viewportFraction: 0.85);
   UserProfile? _userProfile;
   List<PodcastEpisodeItem> _episodes = [];
@@ -64,7 +68,8 @@ class _MainScreenState extends State<MainScreen>
   bool _hasNextPage = false;
   int _offset = 0;
   String? _error;
-  static const String _episodesLoadErrorMessage = '에피소드를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.';
+  static const String _episodesLoadErrorMessage =
+      '에피소드를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.';
 
   List<_HistoryEntry> _historyItems = [];
   bool _historyLoading = false;
@@ -106,15 +111,16 @@ class _MainScreenState extends State<MainScreen>
 
   Future<void> _loadEpisodes() async {
     try {
-      final response = await NetworkCacheService.instance.dio
-          .get<dynamic>(
+      final response = await NetworkCacheService.instance.dio.get<dynamic>(
         '${AppConfig.apiBaseUrl}/episodes',
         queryParameters: {'limit': _pageLimit, 'offset': 0},
       );
 
       final body = _toPaginatedBody(response.data);
       final items = (body['data'] as List<dynamic>? ?? [])
-          .map((item) => PodcastEpisodeItem.fromJson(item as Map<String, dynamic>))
+          .map(
+            (item) => PodcastEpisodeItem.fromJson(item as Map<String, dynamic>),
+          )
           .toList();
 
       if (!mounted) return;
@@ -140,15 +146,16 @@ class _MainScreenState extends State<MainScreen>
 
     try {
       final newOffset = _offset + _pageLimit;
-      final response = await NetworkCacheService.instance.dio
-          .get<dynamic>(
+      final response = await NetworkCacheService.instance.dio.get<dynamic>(
         '${AppConfig.apiBaseUrl}/episodes',
         queryParameters: {'limit': _pageLimit, 'offset': newOffset},
       );
 
       final body = _toPaginatedBody(response.data);
       final items = (body['data'] as List<dynamic>? ?? [])
-          .map((item) => PodcastEpisodeItem.fromJson(item as Map<String, dynamic>))
+          .map(
+            (item) => PodcastEpisodeItem.fromJson(item as Map<String, dynamic>),
+          )
           .toList();
 
       if (!mounted) return;
@@ -214,14 +221,19 @@ class _MainScreenState extends State<MainScreen>
   }
 
   void _enterPodcast({PodcastEpisodeItem? targetEpisode}) {
-    final episode = targetEpisode ??
-        (_episodes.isNotEmpty && _currentIndex < _episodes.length ? _episodes[_currentIndex] : null);
+    final episode =
+        targetEpisode ??
+        (_episodes.isNotEmpty && _currentIndex < _episodes.length
+            ? _episodes[_currentIndex]
+            : null);
     if (episode == null) return;
 
     Navigator.of(context)
-        .push(MaterialPageRoute(
-          builder: (context) => PodcastPlayerScreen(episode: episode),
-        ))
+        .push(
+          MaterialPageRoute(
+            builder: (context) => PodcastPlayerScreen(episode: episode),
+          ),
+        )
         .then((_) => setState(() => _historyLoaded = false));
   }
 
@@ -248,9 +260,9 @@ class _MainScreenState extends State<MainScreen>
   }
 
   void _showAudioError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _loadHistory() async {
@@ -274,8 +286,7 @@ class _MainScreenState extends State<MainScreen>
               DateTime.tryParse(json['lastPlayedAt'] as String? ?? '') ??
               DateTime.now(),
         );
-      }).toList()
-        ..sort((a, b) => b.lastPlayedAt.compareTo(a.lastPlayedAt));
+      }).toList()..sort((a, b) => b.lastPlayedAt.compareTo(a.lastPlayedAt));
       if (!mounted) return;
       setState(() {
         _historyItems = items;
@@ -317,13 +328,21 @@ class _MainScreenState extends State<MainScreen>
                     : null;
               }
             } else {
-              currentEpisode = _currentIndex < _episodes.length ? _episodes[_currentIndex] : null;
+              currentEpisode = _currentIndex < _episodes.length
+                  ? _episodes[_currentIndex]
+                  : null;
             }
 
             return Scaffold(
               backgroundColor: AppThemeController.backgroundColor,
               body: _buildTabSurface(isPlaying),
-              bottomNavigationBar: _buildBottomNavBar(context, isPlaying, currentEpisode, _currentTabIndex, _onTabSelected),
+              bottomNavigationBar: _buildBottomNavBar(
+                context,
+                isPlaying,
+                currentEpisode,
+                _currentTabIndex,
+                _onTabSelected,
+              ),
             );
           },
         );
@@ -335,22 +354,13 @@ class _MainScreenState extends State<MainScreen>
     return AnimatedBuilder(
       animation: _tabTransitionController,
       builder: (context, child) {
-        final value =
-            Curves.easeOutCubic.transform(_tabTransitionController.value);
-        final scale = 0.985 + (0.015 * value);
-        final verticalOffset =
-            MediaQuery.of(context).size.height * 0.018 * (1 - value);
+        final value = Curves.easeOutCubic.transform(
+          _tabTransitionController.value,
+        );
 
         return FadeTransition(
           opacity: AlwaysStoppedAnimation(value),
-          child: Transform.translate(
-            offset: Offset(0, verticalOffset),
-            child: Transform.scale(
-              scale: scale,
-              alignment: Alignment.bottomCenter,
-              child: child,
-            ),
-          ),
+          child: child,
         );
       },
       child: IndexedStack(
@@ -372,69 +382,86 @@ class _MainScreenState extends State<MainScreen>
 
   Widget _buildHomeTab(bool isPlaying) {
     return SafeArea(
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(
-              left: 20,
-              right: 30,
-              top: 50,
-              bottom: 24,
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                _buildHeaderLogo(),
-                _buildProfileAvatar(),
-              ],
-            ),
-          ),
-          Expanded(
-            flex: 4,
-            child: _buildEpisodeSection(),
-          ),
-          GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onHorizontalDragEnd: (details) {
-              if (details.primaryVelocity! < -300) {
-                _onTabSelected(1);
-              }
-            },
-            child: const SizedBox(
-              width: double.infinity,
-              height: 40,
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(bottom: 50),
-            child: ClickWheel(
-              onScrollRight: _nextPodcast,
-              onScrollLeft: _previousPodcast,
-              onCenterTap: _toggleCurrentPodcast,
-              isPlaying: isPlaying,
-            ),
-          ),
-        ],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isCompactHeight = constraints.maxHeight < 650;
+          final logoHeight = isCompactHeight ? 64.0 : 88.0;
+          final wheelSize =
+              (constraints.maxHeight * (isCompactHeight ? 0.31 : 0.34))
+                  .clamp(144.0, 220.0)
+                  .toDouble();
+
+          return Column(
+            children: [
+              Padding(
+                padding: EdgeInsets.only(
+                  left: 20,
+                  right: 30,
+                  top: isCompactHeight ? 16 : 50,
+                  bottom: isCompactHeight ? 12 : 24,
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    _buildHeaderLogo(height: logoHeight),
+                    _buildProfileAvatar(),
+                  ],
+                ),
+              ),
+              Expanded(child: _buildEpisodeSection()),
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onHorizontalDragEnd: (details) {
+                  if (details.primaryVelocity! < -300) {
+                    _onTabSelected(1);
+                  }
+                },
+                child: SizedBox(
+                  width: double.infinity,
+                  height: isCompactHeight ? 24 : 40,
+                ),
+              ),
+              Padding(
+                padding: EdgeInsets.only(bottom: isCompactHeight ? 16 : 50),
+                child: ClickWheel(
+                  size: wheelSize,
+                  onScrollRight: _nextPodcast,
+                  onScrollLeft: _previousPodcast,
+                  onCenterTap: _toggleCurrentPodcast,
+                  isPlaying: isPlaying,
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
 
-  Widget _buildBottomNavBar(BuildContext context, bool isPlaying, PodcastEpisodeItem? currentEpisode, int selectedIndex, Function(int) onTabSelected) {
+  Widget _buildBottomNavBar(
+    BuildContext context,
+    bool isPlaying,
+    PodcastEpisodeItem? currentEpisode,
+    int selectedIndex,
+    Function(int) onTabSelected,
+  ) {
     final double screenWidth = MediaQuery.of(context).size.width;
-  final double navBarHeight = (screenWidth * 0.08).clamp(56.0, 70.0);
-  final double navBarWidth = screenWidth - 40 - 16 - navBarHeight;
+    final double navBarHeight = (screenWidth * 0.08).clamp(56.0, 70.0);
+    final double navBarWidth = screenWidth - 40 - 16 - navBarHeight;
 
-  return SafeArea(
-    child: Padding(
-      padding: const EdgeInsets.only(bottom: 20.0, left: 20.0, right: 20.0),
-      child: Row(
-        mainAxisAlignment: isPlaying ? MainAxisAlignment.start : MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Container(
-            width: navBarWidth,
-            height: navBarHeight,
-            decoration: BoxDecoration(
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 20.0, left: 20.0, right: 20.0),
+        child: Row(
+          mainAxisAlignment: isPlaying
+              ? MainAxisAlignment.start
+              : MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Container(
+              width: navBarWidth,
+              height: navBarHeight,
+              decoration: BoxDecoration(
                 color: AppThemeController.navBarColor,
                 borderRadius: BorderRadius.circular(navBarHeight / 2),
                 border: Border.all(
@@ -448,7 +475,12 @@ class _MainScreenState extends State<MainScreen>
                 children: [
                   GestureDetector(
                     onTap: () => onTabSelected(0),
-                    child: _buildNavItem(context, Icons.graphic_eq_rounded, "팟캐스트", isSelected: selectedIndex == 0),
+                    child: _buildNavItem(
+                      context,
+                      Icons.graphic_eq_rounded,
+                      "팟캐스트",
+                      isSelected: selectedIndex == 0,
+                    ),
                   ),
                   GestureDetector(
                     onTap: () => onTabSelected(1),
@@ -461,37 +493,42 @@ class _MainScreenState extends State<MainScreen>
                   ),
                   GestureDetector(
                     onTap: () => onTabSelected(2),
-                    child: _buildNavItem(context, Icons.person_rounded, "보관함", isSelected: selectedIndex == 2),
+                    child: _buildNavItem(
+                      context,
+                      Icons.person_rounded,
+                      "보관함",
+                      isSelected: selectedIndex == 2,
+                    ),
                   ),
                 ],
               ),
             ),
 
-                if (isPlaying && currentEpisode?.thumbnailUrl != null) ...[
-                const SizedBox(width: 16),
-                GestureDetector(
-                  onTap: () => _enterPodcast(targetEpisode: currentEpisode),
-                  child: Container(
-                    width: navBarHeight,
-                    height: navBarHeight,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(16),
-                          image: DecorationImage(
-                        image: CachedNetworkImageProvider(
-                          currentEpisode!.thumbnailUrl!,
-                          cacheManager: AppImageCacheManager.instance,
-                        ),
-                        fit: BoxFit.cover,
-                        ),
-                        border: Border.all(
-                          color: AppThemeController.surfaceBorderColor,
-                          width: 1,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                          color: Colors.black.withValues(alpha:0.2),
-                          blurRadius: 8,
-                          offset: const Offset(0, 4),
+            if (isPlaying && currentEpisode?.thumbnailUrl != null) ...[
+              const SizedBox(width: 16),
+              GestureDetector(
+                onTap: () => _enterPodcast(targetEpisode: currentEpisode),
+                child: Container(
+                  width: navBarHeight,
+                  height: navBarHeight,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    image: DecorationImage(
+                      image: CachedNetworkImageProvider(
+                        currentEpisode!.thumbnailUrl!,
+                        cacheManager: AppImageCacheManager.instance,
+                      ),
+                      fit: BoxFit.cover,
+                    ),
+                    border: Border.all(
+                      color: AppThemeController.surfaceBorderColor,
+                      width: 1,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.2),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
                       ),
                     ],
                   ),
@@ -504,361 +541,389 @@ class _MainScreenState extends State<MainScreen>
     );
   }
 
-Widget _buildNavItem(BuildContext context, IconData icon, String label, {bool isSelected = false}) {
-  final double screenWidth = MediaQuery.of(context).size.width;
-  final double itemWidth = (screenWidth * 0.21).clamp(70.0, 250.0);
-  final double itemHeight = (screenWidth * 0.1).clamp(43.0, 60.0);
-  final double iconSize = (screenWidth * 0.03).clamp(20.0, 26.0);
-  final double fontSize = (screenWidth * 0.015).clamp(10.0, 14.0);
+  Widget _buildNavItem(
+    BuildContext context,
+    IconData icon,
+    String label, {
+    bool isSelected = false,
+  }) {
+    final double screenWidth = MediaQuery.of(context).size.width;
+    final double itemWidth = (screenWidth * 0.21).clamp(70.0, 250.0);
+    final double itemHeight = (screenWidth * 0.1).clamp(43.0, 60.0);
+    final double iconSize = (screenWidth * 0.03).clamp(20.0, 26.0);
+    final double fontSize = (screenWidth * 0.015).clamp(10.0, 14.0);
 
-  return Container(
-    width: itemWidth,
-    height: itemHeight,
-    decoration: BoxDecoration(
-      color: isSelected ? AppThemeController.navSelectedColor : Colors.transparent,
-      borderRadius: BorderRadius.circular(itemHeight / 2),
-    ),
-    child: Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(
-          icon,
-          size: iconSize,
-          color: isSelected
-              ? AppThemeController.navSelectedTextColor
-              : AppThemeController.primaryTextColor,
-        ),
-        const SizedBox(height: 2),
-        Text(
-          label,
-          style: TextStyle(
+    return Container(
+      width: itemWidth,
+      height: itemHeight,
+      decoration: BoxDecoration(
+        color: isSelected
+            ? AppThemeController.navSelectedColor
+            : Colors.transparent,
+        borderRadius: BorderRadius.circular(itemHeight / 2),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: iconSize,
             color: isSelected
                 ? AppThemeController.navSelectedTextColor
                 : AppThemeController.primaryTextColor,
-            fontSize: fontSize,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
           ),
-        ),
-      ],
-    ),
-  );
-}
-
-Widget _buildHeaderTitle(String title) {
-  return Text(
-    title,
-    style: TextStyle(
-      color: AppThemeController.primaryTextColor,
-      fontSize: 34,
-      fontWeight: FontWeight.w800,
-      height: 1.05,
-    ),
-  );
-}
-
-Widget _buildHeaderLogo() {
-  return Image.asset(
-    'assets/images/aipod_logo.png',
-    height: 88,
-    fit: BoxFit.contain,
-    color: AppThemeController.isLightMode.value
-        ? AppThemeController.primaryTextColor
-        : null,
-    colorBlendMode:
-        AppThemeController.isLightMode.value ? BlendMode.srcIn : null,
-  );
-}
-
-Widget _buildProfileAvatar() {
-  return GestureDetector(
-    onTap: () => _onTabSelected(2),
-    child: Container(
-      width: 44,
-      height: 44,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(
-          color: AppThemeController.secondaryTextColor(0.24),
-          width: 1.5,
-        ),
-        color: AppThemeController.isLightMode.value
-            ? const Color(0xFFE3E6DD)
-            : Colors.grey[900],
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: TextStyle(
+              color: isSelected
+                  ? AppThemeController.navSelectedTextColor
+                  : AppThemeController.primaryTextColor,
+              fontSize: fontSize,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+            ),
+          ),
+        ],
       ),
-      child: ClipOval(
-        child: _userProfile?.profileImageUrl != null
-            ? CachedNetworkImage(
-                imageUrl: _userProfile!.profileImageUrl!,
-                fit: BoxFit.cover,
-                cacheManager: AppImageCacheManager.instance,
-                errorWidget: (_, __, ___) => Icon(
+    );
+  }
+
+  Widget _buildHeaderTitle(String title) {
+    return Text(
+      title,
+      style: TextStyle(
+        color: AppThemeController.primaryTextColor,
+        fontSize: 34,
+        fontWeight: FontWeight.w800,
+        height: 1.05,
+      ),
+    );
+  }
+
+  Widget _buildHeaderLogo({required double height}) {
+    return Image.asset(
+      'assets/images/aipod_logo.png',
+      height: height,
+      fit: BoxFit.contain,
+      color: AppThemeController.isLightMode.value
+          ? AppThemeController.primaryTextColor
+          : null,
+      colorBlendMode: AppThemeController.isLightMode.value
+          ? BlendMode.srcIn
+          : null,
+    );
+  }
+
+  Widget _buildProfileAvatar() {
+    return GestureDetector(
+      onTap: () => _onTabSelected(2),
+      child: Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: AppThemeController.secondaryTextColor(0.24),
+            width: 1.5,
+          ),
+          color: AppThemeController.isLightMode.value
+              ? const Color(0xFFE3E6DD)
+              : Colors.grey[900],
+        ),
+        child: ClipOval(
+          child: _userProfile?.profileImageUrl != null
+              ? CachedNetworkImage(
+                  imageUrl: _userProfile!.profileImageUrl!,
+                  fit: BoxFit.cover,
+                  cacheManager: AppImageCacheManager.instance,
+                  errorWidget: (_, __, ___) => Icon(
+                    Icons.person,
+                    color: AppThemeController.primaryTextColor,
+                    size: 24,
+                  ),
+                )
+              : Icon(
                   Icons.person,
                   color: AppThemeController.primaryTextColor,
                   size: 24,
                 ),
-              )
-            : Icon(
-                Icons.person,
-                color: AppThemeController.primaryTextColor,
-                size: 24,
-              ),
-      ),
-    ),
-  );
-}
-
-Widget _buildLibraryTab() {
-  return SafeArea(
-    child: Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 20, right: 30, top: 50, bottom: 20),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _buildHeaderTitle('보관함'),
-              _buildProfileAvatar(),
-            ],
-          ),
         ),
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: Column(
-              children: [
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 35, horizontal: 24),
-                  decoration: BoxDecoration(
-                    color: AppThemeController.elevatedSurfaceColor,
-                    borderRadius: BorderRadius.circular(28),
-                    border: Border.all(color: AppThemeController.surfaceBorderColor),
-                    boxShadow: AppThemeController.raisedShadow,
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 80,
-                        height: 80,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: AppThemeController.surfaceBorderColor,
-                            width: 2,
+      ),
+    );
+  }
+
+  Widget _buildLibraryTab() {
+    return SafeArea(
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(
+              left: 20,
+              right: 30,
+              top: 50,
+              bottom: 20,
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [_buildHeaderTitle('보관함'), _buildProfileAvatar()],
+            ),
+          ),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Column(
+                children: [
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 35,
+                      horizontal: 24,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppThemeController.elevatedSurfaceColor,
+                      borderRadius: BorderRadius.circular(28),
+                      border: Border.all(
+                        color: AppThemeController.surfaceBorderColor,
+                      ),
+                      boxShadow: AppThemeController.raisedShadow,
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 80,
+                          height: 80,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: AppThemeController.surfaceBorderColor,
+                              width: 2,
+                            ),
+                            color: AppThemeController.controlFillColor,
                           ),
-                          color: AppThemeController.controlFillColor,
-                        ),
-                        child: ClipOval(
-                          child: _userProfile?.profileImageUrl != null
-                              ? CachedNetworkImage(
-                                  imageUrl: _userProfile!.profileImageUrl!,
-                                  fit: BoxFit.cover,
-                                  cacheManager: AppImageCacheManager.instance,
-                                  errorWidget: (_, __, ___) => Icon(
+                          child: ClipOval(
+                            child: _userProfile?.profileImageUrl != null
+                                ? CachedNetworkImage(
+                                    imageUrl: _userProfile!.profileImageUrl!,
+                                    fit: BoxFit.cover,
+                                    cacheManager: AppImageCacheManager.instance,
+                                    errorWidget: (_, __, ___) => Icon(
+                                      Icons.person,
+                                      color:
+                                          AppThemeController.primaryTextColor,
+                                      size: 50,
+                                    ),
+                                  )
+                                : Icon(
                                     Icons.person,
                                     color: AppThemeController.primaryTextColor,
                                     size: 50,
                                   ),
-                                )
-                              : Icon(
-                                  Icons.person,
-                                  color: AppThemeController.primaryTextColor,
-                                  size: 50,
-                                ),
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 20),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              _userProfile?.nickname ?? '로그인이 필요합니다',
-                              style: TextStyle(
-                                color: AppThemeController.primaryTextColor,
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              _userProfile?.email ?? '계정 정보를 불러올 수 없습니다',
-                              style: TextStyle(
-                                color: AppThemeController.secondaryTextColor(0.5),
-                                fontSize: 14,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 16),
-
-                Expanded(
-                  child: Container(
-                    padding: const EdgeInsets.fromLTRB(24, 22, 24, 0),
-                    decoration: BoxDecoration(
-                      color: AppThemeController.elevatedSurfaceColor,
-                      borderRadius: BorderRadius.circular(28),
-                      border: Border.all(color: AppThemeController.surfaceBorderColor),
-                      boxShadow: AppThemeController.raisedShadow,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.inventory_2_rounded,
-                              color: AppThemeController.primaryTextColor,
-                              size: 25,
-                            ),
-                            const SizedBox(width: 10),
-                            Text(
-                              '기록',
-                              style: TextStyle(
-                                color: AppThemeController.primaryTextColor,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
+                        const SizedBox(width: 20),
                         Expanded(
-                          child: _historyLoading
-                              ? Center(
-                                  child: CircularProgressIndicator(
-                                    color: AppThemeController.secondaryTextColor(0.54),
-                                    strokeWidth: 2,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                _userProfile?.nickname ?? '로그인이 필요합니다',
+                                style: TextStyle(
+                                  color: AppThemeController.primaryTextColor,
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                _userProfile?.email ?? '계정 정보를 불러올 수 없습니다',
+                                style: TextStyle(
+                                  color: AppThemeController.secondaryTextColor(
+                                    0.5,
                                   ),
-                                )
-                              : _historyItems.isEmpty
-                                  ? Center(
-                                      child: Column(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          Icon(
-                                            Icons.history_rounded,
-                                            color: AppThemeController
-                                                .secondaryTextColor(0.3),
-                                            size: 48,
-                                          ),
-                                          const SizedBox(height: 12),
-                                          Text(
-                                            '아직 청취 기록이 없습니다',
-                                            style: TextStyle(
-                                              color: AppThemeController
-                                                  .secondaryTextColor(0.4),
-                                              fontSize: 14,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    )
-                                  : ListView.separated(
-                                      padding:
-                                          const EdgeInsets.only(bottom: 18),
-                                      itemCount: _historyItems.length,
-                                      separatorBuilder: (_, __) => Divider(
-                                        color: AppThemeController
-                                            .secondaryTextColor(0.08),
-                                        height: 1,
-                                      ),
-                                      itemBuilder: (context, index) {
-                                        final entry =
-                                            _historyItems[index];
-                                        return _HistoryListTile(
-                                          entry: entry,
-                                          onTap: () => _enterPodcast(
-                                              targetEpisode:
-                                                  entry.episode),
-                                        );
-                                      },
-                                    ),
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ],
                     ),
                   ),
-                ),
 
-                const SizedBox(height: 16),
+                  const SizedBox(height: 16),
 
-                _buildLibrarySettingsButton(),
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.fromLTRB(24, 22, 24, 0),
+                      decoration: BoxDecoration(
+                        color: AppThemeController.elevatedSurfaceColor,
+                        borderRadius: BorderRadius.circular(28),
+                        border: Border.all(
+                          color: AppThemeController.surfaceBorderColor,
+                        ),
+                        boxShadow: AppThemeController.raisedShadow,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.inventory_2_rounded,
+                                color: AppThemeController.primaryTextColor,
+                                size: 25,
+                              ),
+                              const SizedBox(width: 10),
+                              Text(
+                                '기록',
+                                style: TextStyle(
+                                  color: AppThemeController.primaryTextColor,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Expanded(
+                            child: _historyLoading
+                                ? Center(
+                                    child: CircularProgressIndicator(
+                                      color:
+                                          AppThemeController.secondaryTextColor(
+                                            0.54,
+                                          ),
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : _historyItems.isEmpty
+                                ? Center(
+                                    child: Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.history_rounded,
+                                          color:
+                                              AppThemeController.secondaryTextColor(
+                                                0.3,
+                                              ),
+                                          size: 48,
+                                        ),
+                                        const SizedBox(height: 12),
+                                        Text(
+                                          '아직 청취 기록이 없습니다',
+                                          style: TextStyle(
+                                            color:
+                                                AppThemeController.secondaryTextColor(
+                                                  0.4,
+                                                ),
+                                            fontSize: 14,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  )
+                                : ListView.separated(
+                                    padding: const EdgeInsets.only(bottom: 18),
+                                    itemCount: _historyItems.length,
+                                    separatorBuilder: (_, __) => Divider(
+                                      color:
+                                          AppThemeController.secondaryTextColor(
+                                            0.08,
+                                          ),
+                                      height: 1,
+                                    ),
+                                    itemBuilder: (context, index) {
+                                      final entry = _historyItems[index];
+                                      return _HistoryListTile(
+                                        entry: entry,
+                                        onTap: () => _enterPodcast(
+                                          targetEpisode: entry.episode,
+                                        ),
+                                      );
+                                    },
+                                  ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
 
-                const SizedBox(height: 16),
-              ],
+                  const SizedBox(height: 16),
+
+                  _buildLibrarySettingsButton(),
+
+                  const SizedBox(height: 16),
+                ],
+              ),
             ),
           ),
-        ),
-      ],
-    ),
-  );
-}
+        ],
+      ),
+    );
+  }
 
-Widget _buildLibrarySettingsButton() {
-  return Material(
-    color: AppThemeController.elevatedSurfaceColor,
-    borderRadius: BorderRadius.circular(28),
-    shadowColor: AppThemeController.isLightMode.value
-        ? const Color(0xFF44502F).withValues(alpha: 0.16)
-        : Colors.transparent,
-    elevation: AppThemeController.isLightMode.value ? 3 : 0,
-    child: InkWell(
+  Widget _buildLibrarySettingsButton() {
+    return Material(
+      color: AppThemeController.elevatedSurfaceColor,
       borderRadius: BorderRadius.circular(28),
-      onTap: () {
-        Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => SettingsScreen(onLogout: _logout)),
-        );
-      },
-      child: Container(
-        width: double.infinity,
-        height: 68,
-        padding: const EdgeInsets.symmetric(horizontal: 24),
-        child: Row(
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: AppThemeController.controlFillColor,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.settings_rounded,
-                color: AppThemeController.primaryTextColor,
-                size: 20,
-              ),
+      shadowColor: AppThemeController.isLightMode.value
+          ? const Color(0xFF44502F).withValues(alpha: 0.16)
+          : Colors.transparent,
+      elevation: AppThemeController.isLightMode.value ? 3 : 0,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(28),
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => SettingsScreen(onLogout: _logout),
             ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Text(
-                '설정',
-                style: TextStyle(
+          );
+        },
+        child: Container(
+          width: double.infinity,
+          height: 68,
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: AppThemeController.controlFillColor,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.settings_rounded,
                   color: AppThemeController.primaryTextColor,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
+                  size: 20,
                 ),
               ),
-            ),
-            Icon(
-              Icons.chevron_right_rounded,
-              color: AppThemeController.secondaryTextColor(0.35),
-              size: 24,
-            ),
-          ],
+              const SizedBox(width: 14),
+              Expanded(
+                child: Text(
+                  '설정',
+                  style: TextStyle(
+                    color: AppThemeController.primaryTextColor,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              Icon(
+                Icons.chevron_right_rounded,
+                color: AppThemeController.secondaryTextColor(0.35),
+                size: 24,
+              ),
+            ],
+          ),
         ),
       ),
-    ),
-  );
-}
-
+    );
+  }
 
   Widget _buildEpisodeSection() {
     if (_loading) {
@@ -892,21 +957,21 @@ Widget _buildLibrarySettingsButton() {
         }
       },
       itemBuilder: (context, index) {
-  if (index == _episodes.length) {
-    return const Center(child: CircularProgressIndicator());
-  }
+        if (index == _episodes.length) {
+          return const Center(child: CircularProgressIndicator());
+        }
 
-  final episode = _episodes[index];
+        final episode = _episodes[index];
 
-  return FlipThumbnailCard(
-    episode: episode,
-    onTap: _enterPodcast,
-    onCardNewsTap: () => _openCardNewsForEpisode(episode),
-  );
-},
+        return FlipThumbnailCard(
+          episode: episode,
+          onTap: _enterPodcast,
+          onCardNewsTap: () => _openCardNewsForEpisode(episode),
+        );
+      },
     );
-      }
   }
+}
 
 class PodcastEpisodeItem {
   final String id;
@@ -1013,7 +1078,8 @@ class FlipThumbnailCard extends StatefulWidget {
   State<FlipThumbnailCard> createState() => _FlipThumbnailCardState();
 }
 
-class _FlipThumbnailCardState extends State<FlipThumbnailCard> with SingleTickerProviderStateMixin {
+class _FlipThumbnailCardState extends State<FlipThumbnailCard>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   bool _isFlipped = false;
 
@@ -1050,14 +1116,14 @@ class _FlipThumbnailCardState extends State<FlipThumbnailCard> with SingleTicker
       child: AnimatedBuilder(
         animation: _controller,
         builder: (context, child) {
-          final angle = _controller.value * 3.141592; 
+          final angle = _controller.value * 3.141592;
           return Transform(
             transform: Matrix4.identity()
               ..setEntry(3, 2, 0.001)
               ..rotateY(angle),
             alignment: Alignment.center,
             child: angle < 3.141592 / 2
-                ? _buildFront() 
+                ? _buildFront()
                 : Transform(
                     transform: Matrix4.identity()..rotateY(3.141592),
                     alignment: Alignment.center,
@@ -1076,170 +1142,192 @@ class _FlipThumbnailCardState extends State<FlipThumbnailCard> with SingleTicker
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 10),
       child: ClipRRect(
-      borderRadius: BorderRadius.circular(24),
-      child: Stack(
-        children: [
-          Positioned.fill(
-            child: CachedNetworkImage(
-              imageUrl: widget.episode.thumbnailUrl ?? '',
-              fit: BoxFit.cover,
-              cacheManager: AppImageCacheManager.instance,
-              placeholder: (context, url) => Container(
-                color: Colors.blueGrey.shade900,
-                child: const Center(
-                  child: CircularProgressIndicator(
-                    color: Color(0xFFD6E36F),
-                    strokeWidth: 4,
+        borderRadius: BorderRadius.circular(24),
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: CachedNetworkImage(
+                imageUrl: widget.episode.thumbnailUrl ?? '',
+                fit: BoxFit.cover,
+                cacheManager: AppImageCacheManager.instance,
+                placeholder: (context, url) => Container(
+                  color: Colors.blueGrey.shade900,
+                  child: const Center(
+                    child: CircularProgressIndicator(
+                      color: Color(0xFFD6E36F),
+                      strokeWidth: 4,
+                    ),
+                  ),
+                ),
+                errorWidget: (context, url, error) => Container(
+                  color: Colors.blueGrey.shade900,
+                  child: const Center(
+                    child: Icon(
+                      Icons.broken_image,
+                      color: Colors.white24,
+                      size: 40,
+                    ),
                   ),
                 ),
               ),
-              errorWidget: (context, url, error) => Container(
-                color: Colors.blueGrey.shade900,
-                child: const Center(
-                  child: Icon(Icons.broken_image, color: Colors.white24, size: 40),
+            ),
+
+            Positioned.fill(
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    stops: const [0.5, 0.7, 1.0],
+                    colors: [
+                      Colors.transparent,
+                      Colors.black.withValues(alpha: 0.3),
+                      Colors.black.withValues(alpha: 0.9),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
 
-          Positioned.fill(
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  stops: const [0.5, 0.7, 1.0],
-                  colors: [
-                    Colors.transparent,
-                    Colors.black.withValues(alpha: 0.3),
-                    Colors.black.withValues(alpha: 0.9),
-                  ],
-                ),
-              ),
-            ),
-          ),
-
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 28),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (hasHeadline) ...[
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          width: 4,
-                          height: 28,
-                          margin: const EdgeInsets.only(top: 4),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFD6E36F),
-                            borderRadius: BorderRadius.circular(2),
-                            boxShadow: [
-                              BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 4),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            widget.episode.headline!,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.w900,
-                              color: Colors.white,
-                              letterSpacing: -0.2,
-                              height: 1.2,
-                              shadows: [
-                                Shadow(
-                                  offset: const Offset(0, 2),
-                                  blurRadius: 8.0,
-                                  color: Colors.black.withValues(alpha: 0.8),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 28),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (hasHeadline) ...[
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            width: 4,
+                            height: 28,
+                            margin: const EdgeInsets.only(top: 4),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFD6E36F),
+                              borderRadius: BorderRadius.circular(2),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.5),
+                                  blurRadius: 4,
                                 ),
                               ],
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ],
-                  if (hasSubtitle) ...[
-                    const SizedBox(height: 14),
-                    Padding(
-                      padding: const EdgeInsets.only(left: 16),
-                      child: Text(
-                        widget.episode.subtitle!,
-                        softWrap: true,
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 14,
-                          height: 1.6,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.white.withValues(alpha: 0.85),
-                          letterSpacing: -0.2,
-                          shadows: [
-                            Shadow(
-                              offset: const Offset(0, 1),
-                              blurRadius: 4.0,
-                              color: Colors.black.withValues(alpha: 0.8),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              widget.episode.headline!,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w900,
+                                color: Colors.white,
+                                letterSpacing: -0.2,
+                                height: 1.2,
+                                shadows: [
+                                  Shadow(
+                                    offset: const Offset(0, 2),
+                                    blurRadius: 8.0,
+                                    color: Colors.black.withValues(alpha: 0.8),
+                                  ),
+                                ],
+                              ),
                             ),
-                          ],
+                          ),
+                        ],
+                      ),
+                    ],
+                    if (hasSubtitle) ...[
+                      const SizedBox(height: 14),
+                      Padding(
+                        padding: const EdgeInsets.only(left: 16),
+                        child: Text(
+                          widget.episode.subtitle!,
+                          softWrap: true,
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 14,
+                            height: 1.6,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.white.withValues(alpha: 0.85),
+                            letterSpacing: -0.2,
+                            shadows: [
+                              Shadow(
+                                offset: const Offset(0, 1),
+                                blurRadius: 4.0,
+                                color: Colors.black.withValues(alpha: 0.8),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                    ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
-          ),
-          Positioned(
+            Positioned(
               top: 16,
               right: 16,
               child: StreamBuilder<String?>(
-                stream: AudioHandler.instance.player.sequenceStateStream.map((_) => AudioHandler.instance.currentEpisodeId),
+                stream: AudioHandler.instance.player.sequenceStateStream.map(
+                  (_) => AudioHandler.instance.currentEpisodeId,
+                ),
                 builder: (context, idSnapshot) {
                   final bool isCurrent = idSnapshot.data == widget.episode.id;
 
                   return StreamBuilder<PlayerState>(
                     stream: AudioHandler.instance.player.playerStateStream,
                     builder: (context, stateSnapshot) {
-                      final bool isPlaying = isCurrent && (stateSnapshot.data?.playing ?? false);
+                      final bool isPlaying =
+                          isCurrent && (stateSnapshot.data?.playing ?? false);
 
                       return GestureDetector(
                         onTap: () {
                           if (isCurrent) {
-                            isPlaying ? AudioHandler.instance.player.pause() : AudioHandler.instance.player.play();
+                            isPlaying
+                                ? AudioHandler.instance.player.pause()
+                                : AudioHandler.instance.player.play();
                           } else {
-                            AudioHandler.instance.playEpisode(widget.episode).then((error) {
-                              if (error != null && context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text(error)),
-                                );
-                              }
-                            });
+                            AudioHandler.instance
+                                .playEpisode(widget.episode)
+                                .then((error) {
+                                  if (error != null && context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text(error)),
+                                    );
+                                  }
+                                });
                           }
                         },
                         child: ClipOval(
                           child: BackdropFilter(
-                            filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
+                            filter: ImageFilter.blur(
+                              sigmaX: 10.0,
+                              sigmaY: 10.0,
+                            ),
                             child: Container(
                               width: 44,
                               height: 44,
                               decoration: BoxDecoration(
                                 color: Colors.black.withValues(alpha: 0.3),
                                 shape: BoxShape.circle,
-                                border: Border.all(color: Colors.white.withValues(alpha: 0.2), width: 1),
+                                border: Border.all(
+                                  color: Colors.white.withValues(alpha: 0.2),
+                                  width: 1,
+                                ),
                               ),
                               child: Icon(
-                                isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                                isPlaying
+                                    ? Icons.pause_rounded
+                                    : Icons.play_arrow_rounded,
                                 color: const Color(0xFFD6E36F),
                                 size: 28,
                               ),
@@ -1254,8 +1342,8 @@ class _FlipThumbnailCardState extends State<FlipThumbnailCard> with SingleTicker
             ),
           ],
         ),
-    ),
-    );  
+      ),
+    );
   }
 
   Widget _buildBack() {
@@ -1278,12 +1366,21 @@ class _FlipThumbnailCardState extends State<FlipThumbnailCard> with SingleTicker
           if (dateStr.isNotEmpty)
             Text(
               dateStr,
-              style: const TextStyle(color: Color(0xFFD6E36F), fontSize: 13, fontWeight: FontWeight.w600),
+              style: const TextStyle(
+                color: Color(0xFFD6E36F),
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           const SizedBox(height: 10),
           Text(
             widget.episode.title,
-            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 17, height: 1.4),
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 17,
+              height: 1.4,
+            ),
           ),
           const Spacer(),
           GestureDetector(
@@ -1298,11 +1395,19 @@ class _FlipThumbnailCardState extends State<FlipThumbnailCard> with SingleTicker
               child: const Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.auto_awesome_mosaic_rounded, color: Color(0xFF1A1C17), size: 18),
+                  Icon(
+                    Icons.auto_awesome_mosaic_rounded,
+                    color: Color(0xFF1A1C17),
+                    size: 18,
+                  ),
                   SizedBox(width: 8),
                   Text(
                     '카드뉴스 보기',
-                    style: TextStyle(color: Color(0xFF1A1C17), fontWeight: FontWeight.bold, fontSize: 14),
+                    style: TextStyle(
+                      color: Color(0xFF1A1C17),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
                   ),
                 ],
               ),

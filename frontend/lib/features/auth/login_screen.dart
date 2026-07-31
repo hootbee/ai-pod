@@ -25,12 +25,12 @@ class _LoginScreenState extends State<LoginScreen> {
   void initState() {
     super.initState();
     if (kIsWeb) {
-      _googleUserSub = AuthService.googleSignIn.onCurrentUserChanged.listen(
-        (account) {
-          if (account == null) return;
-          unawaited(_completeGoogleLogin(account));
-        },
-      );
+      _googleUserSub = AuthService.googleSignIn.onCurrentUserChanged.listen((
+        account,
+      ) {
+        if (account == null) return;
+        unawaited(_completeGoogleLogin(account));
+      });
     }
   }
 
@@ -128,89 +128,49 @@ class _LoginScreenState extends State<LoginScreen> {
     return Scaffold(
       backgroundColor: backgroundColor,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 40.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Spacer(flex: 2), // 상단 여백 (비율로 공간 차지)
-              // 중앙 로고 영역 (다이얼 + 텍스트)
-              Center(
-                child: Column(
-                  children: [
-                    // 로고 아이콘 (다이얼 모형)
-                    Container(
-                      width: 140,
-                      height: 140,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFE2E2E2),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          Container(
-                            width: 60,
-                            height: 60,
-                            decoration: const BoxDecoration(
-                              color: backgroundColor,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          Positioned(
-                            top: 12,
-                            child: Container(
-                              width: 12,
-                              height: 12,
-                              decoration: BoxDecoration(
-                                color: Colors.black.withValues(alpha: 0.15),
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    // aipod 텍스트
-                    const Text(
-                      'aipod',
-                      style: TextStyle(
-                        fontSize: 48,
-                        color: Colors.white,
-                        fontWeight: FontWeight.w400,
-                        letterSpacing: -1.5,
-                      ),
-                    ),
-                  ],
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return Stack(
+              children: [
+                Positioned.fill(
+                  child: Image.asset(
+                    'assets/images/login_screen.png',
+                    fit: BoxFit.cover,
+                  ),
                 ),
-              ),
-
-              const Spacer(flex: 3), // 로고와 버튼 사이의 넉넉한 여백
-              // 하단 로그인 버튼 영역
-              if (_isLoading)
-                const Center(
-                  child: CircularProgressIndicator(color: Colors.white),
-                )
-              else
-                Column(
-                  children: [
-                    // 구글 로그인 버튼
-                    _buildGoogleLoginButton(),
-                    const SizedBox(height: 16),
-                    // 애플 로그인 버튼
-                    _buildLoginButton(
-                      icon: FontAwesomeIcons.apple,
-                      iconColor: Colors.black,
-                      text: 'Apple로 계속하기',
-                      onPressed: _handleAppleLogin,
-                    ),
-                  ],
+                Positioned(
+                  left: 24,
+                  right: 24,
+                  bottom: 12,
+                  child: _buildLoginActions(),
                 ),
-            ],
-          ),
+              ],
+            );
+          },
         ),
       ),
+    );
+  }
+
+  Widget _buildLoginActions() {
+    if (_isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(color: Colors.white),
+      );
+    }
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _buildGoogleLoginButton(),
+        const SizedBox(height: 16),
+        _buildLoginButton(
+          icon: FontAwesomeIcons.apple,
+          iconColor: Colors.black,
+          text: 'Apple로 계속하기',
+          onPressed: _handleAppleLogin,
+        ),
+      ],
     );
   }
 
@@ -226,10 +186,7 @@ class _LoginScreenState extends State<LoginScreen> {
             onPressed: () {},
           ),
           const Positioned.fill(
-            child: Opacity(
-              opacity: 0.02,
-              child: GoogleSignInWebButton(),
-            ),
+            child: Opacity(opacity: 0.02, child: GoogleSignInWebButton()),
           ),
         ],
       );
