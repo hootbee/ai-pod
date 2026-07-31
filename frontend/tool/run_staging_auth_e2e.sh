@@ -6,7 +6,7 @@ set -euo pipefail
 : "${STAGING_REFRESH_TOKEN:?STAGING_REFRESH_TOKEN is required}"
 
 device_id="${FLUTTER_DEVICE_ID:-emulator-5554}"
-define_file="$(mktemp "${TMPDIR:-/tmp}/aipod-staging-defines.XXXXXX.json")"
+define_file="$(mktemp "${TMPDIR:-/tmp}/aipod-staging-defines.XXXXXX")"
 trap 'rm -f "$define_file"' EXIT
 
 STAGING_DEFINE_FILE="$define_file" node <<'NODE'

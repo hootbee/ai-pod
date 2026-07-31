@@ -117,25 +117,28 @@ class _DeepDiveScreenState extends State<DeepDiveScreen> {
   }
 
   void _precacheFirstCardImage(List<DeepDiveDay> days) {
-    if (!mounted || days.isEmpty) return;
-    final firstCard = days.first.cards.firstWhere(
-      (card) => card.imageUrl?.isNotEmpty ?? false,
-      orElse: () => days.first.cards.first,
-    );
-    final imageUrl = firstCard.imageUrl;
-    if (imageUrl == null || imageUrl.isEmpty) return;
-    final cacheWidth =
-        (MediaQuery.sizeOf(context).width * MediaQuery.devicePixelRatioOf(context))
-            .round();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || days.isEmpty) return;
+      final firstCard = days.first.cards.firstWhere(
+        (card) => card.imageUrl?.isNotEmpty ?? false,
+        orElse: () => days.first.cards.first,
+      );
+      final imageUrl = firstCard.imageUrl;
+      if (imageUrl == null || imageUrl.isEmpty) return;
+      final cacheWidth =
+          (MediaQuery.sizeOf(context).width *
+                  MediaQuery.devicePixelRatioOf(context))
+              .round();
 
-    precacheImage(
-      CachedNetworkImageProvider(
-        imageUrl,
-        cacheManager: AppImageCacheManager.instance,
-        maxWidth: cacheWidth,
-      ),
-      context,
-    ).ignore();
+      precacheImage(
+        CachedNetworkImageProvider(
+          imageUrl,
+          cacheManager: AppImageCacheManager.instance,
+          maxWidth: cacheWidth,
+        ),
+        context,
+      ).ignore();
+    });
   }
 
   Future<bool> _loadMore() async {

@@ -42,6 +42,7 @@ class AuthService {
   static const Duration _googleSignInTimeout = Duration(seconds: 30);
   static const Duration _googleAuthTokenTimeout = Duration(seconds: 20);
   static final AuthTokenStore _defaultTokenStore = _SecureAuthTokenStore();
+  static final http.Client _defaultHttpClient = http.Client();
 
   static final GoogleSignIn googleSignIn = kIsWeb
       ? GoogleSignIn(clientId: _googleClientId)
@@ -57,14 +58,15 @@ class AuthService {
     http.Client? httpClient,
     AuthTokenStore? tokenStore,
     String? backendUrl,
-  }) : _httpClient = httpClient ?? http.Client(),
+  }) : _httpClient = httpClient ?? _defaultHttpClient,
        _tokenStore = tokenStore ?? _defaultTokenStore,
        _backendUrl = backendUrl ?? AppConfig.apiBaseUrl;
 
   String? get accessToken => _accessToken;
   bool get isLoggedIn => _accessToken != null;
 
-  /// 앱 시작 시 저장된 토큰 로드 → 유효하면 true, 아니면 false
+  /// 앱 시작 시 저장된 토큰을 로드하고 검증 가능한 경우 세션을 복원한다.
+  /// 네트워크 오류나 일시적인 서버 오류만으로는 저장된 세션을 삭제하지 않는다.
   Future<bool> tryAutoLogin() async {
     _accessToken = await _tokenStore.read(key: _keyAccessToken);
     _refreshToken = await _tokenStore.read(key: _keyRefreshToken);
