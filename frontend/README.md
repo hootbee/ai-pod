@@ -36,7 +36,7 @@ flutter run --dart-define=ENV=dev
 - Web:
 
 ```bash
-flutter run -d chrome --web-port 7357 --dart-define=ENV=dev
+flutter run -d chrome --web-port 5500 --dart-define=ENV=dev
 ```
 
 참고:
@@ -75,7 +75,7 @@ flutter run -d <IOS_DEVICE_ID> \
 - Chrome 예시:
 
 ```bash
-flutter run -d chrome --web-port 7357 \
+flutter run -d chrome --web-port 5500 \
   --dart-define=ENV=production \
   --dart-define=API_URL=http://168.138.214.118:3000 \
   --dart-define=GOOGLE_CLIENT_ID=711427859481-ishgmphcatvfecfio6pqat1tfnbc7rl7.apps.googleusercontent.com
@@ -86,7 +86,7 @@ flutter run -d chrome --web-port 7357 \
 - 운영 서버 붙여서 테스트:
 
 ```bash
-flutter run -d chrome --web-port 7357 \
+flutter run -d chrome --web-port 5500 \
   --dart-define=ENV=production \
   --dart-define=API_URL=http://168.138.214.118:3000 \
   --dart-define=GOOGLE_CLIENT_ID=711427859481-ishgmphcatvfecfio6pqat1tfnbc7rl7.apps.googleusercontent.com
@@ -94,7 +94,7 @@ flutter run -d chrome --web-port 7357 \
 - 로컬 개발 서버 붙여서 테스트:
 
 ```bash
-flutter run -d chrome --web-port 7357 \
+flutter run -d chrome --web-port 5500 \
   --dart-define=ENV=dev \
   --dart-define=API_URL=http://127.0.0.1:3000 \
   --dart-define=GOOGLE_CLIENT_ID=711427859481-ishgmphcatvfecfio6pqat1tfnbc7rl7.apps.googleusercontent.com
@@ -107,8 +107,22 @@ macOS/Linux 예시처럼 줄 끝에 `\`를 붙인 명령은 Windows `cmd`/PowerS
 - 가장 안전한 방법: 한 줄로 실행
 
 ```bash
-flutter run -d chrome --web-port 7357 --dart-define=ENV=production --dart-define=API_URL=http://168.138.214.118:3000 --dart-define=GOOGLE_CLIENT_ID=711427859481-ishgmphcatvfecfio6pqat1tfnbc7rl7.apps.googleusercontent.com
+flutter run -d chrome --web-port 5500 --dart-define=ENV=production --dart-define=API_URL=http://168.138.214.118:3000 --dart-define=GOOGLE_CLIENT_ID=711427859481-ishgmphcatvfecfio6pqat1tfnbc7rl7.apps.googleusercontent.com
 ```
 
 - PowerShell에서 여러 줄로 쓰고 싶으면 줄 끝에 백슬래시(`\`)가 아니라 백틱(<code>`</code>)을 사용
 - `cmd`에서는 줄 끝에 `^`를 사용
+
+### 5) staging 인증 refresh E2E
+
+테스트 계정의 만료 Access Token과 유효한 Refresh Token은 환경변수로만
+제공합니다. 스크립트가 임시 define 파일을 생성하고 실행 후 삭제하므로
+토큰을 저장소에 기록하지 않습니다.
+
+```bash
+export STAGING_API_URL=http://staging.example.com
+export STAGING_ACCESS_TOKEN='<expired-access-token>'
+export STAGING_REFRESH_TOKEN='<valid-refresh-token>'
+export FLUTTER_DEVICE_ID=emulator-5554
+./tool/run_staging_auth_e2e.sh
+```

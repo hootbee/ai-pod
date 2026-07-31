@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -103,6 +105,7 @@ class _DeepDiveScreenState extends State<DeepDiveScreen> {
         _disposeUnusedControllers(keepLength: _days.length);
         _loading = false;
       });
+      _precacheFirstCardImage(days);
       await _attemptInitialFocusAfterLoad();
     } catch (e) {
       if (!mounted) return;
@@ -111,6 +114,31 @@ class _DeepDiveScreenState extends State<DeepDiveScreen> {
         _loading = false;
       });
     }
+  }
+
+  void _precacheFirstCardImage(List<DeepDiveDay> days) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || days.isEmpty) return;
+      final firstCard = days.first.cards.firstWhere(
+        (card) => card.imageUrl?.isNotEmpty ?? false,
+        orElse: () => days.first.cards.first,
+      );
+      final imageUrl = firstCard.imageUrl;
+      if (imageUrl == null || imageUrl.isEmpty) return;
+      final cacheWidth =
+          (MediaQuery.sizeOf(context).width *
+                  MediaQuery.devicePixelRatioOf(context))
+              .round();
+
+      precacheImage(
+        CachedNetworkImageProvider(
+          imageUrl,
+          cacheManager: AppImageCacheManager.instance,
+          maxWidth: cacheWidth,
+        ),
+        context,
+      ).ignore();
+    });
   }
 
   Future<bool> _loadMore() async {
@@ -367,47 +395,51 @@ class _DeepDiveScreenState extends State<DeepDiveScreen> {
           if (i >= _days.length - 1) _loadMore();
         },
         itemBuilder: (context, dayIndex) {
-          if (dayIndex == _days.length) {
-            return Center(
-              child: CircularProgressIndicator(
-                color: AppThemeController.primaryTextColor,
+            if (dayIndex == _days.length) {
+              return Center(
+                child: CircularProgressIndicator(
+                  color: AppThemeController.primaryTextColor,
+                ),
+              );
+            }
+
+            final day = _days[dayIndex];
+            return SafeArea(
+              bottom: false,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildHeader(),
+                  Expanded(
+                    child: PageView.custom(
+                      key: ValueKey('pageview_$dayIndex'),
+                      scrollDirection: Axis.horizontal,
+                      controller: _controllerFor(dayIndex),
+                      onPageChanged: (slideIndex) =>
+                          _onSlideChanged(dayIndex, slideIndex),
+                      childrenDelegate: SliverChildBuilderDelegate(
+                        (context, slideIndex) {
+                          final card = day.cards[slideIndex];
+
+                          return Padding(
+                            padding: const EdgeInsets.fromLTRB(8, 16, 10, 24),
+                            child: _DeepDiveCardView(
+                              card: card,
+                              cardIndex: slideIndex + 1,
+                              totalCards: day.cards.length,
+                              sources: day.sources,
+                            ),
+                          );
+                        },
+                        addAutomaticKeepAlives: false,
+                        addRepaintBoundaries: true,
+                        childCount: day.cards.length,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             );
-          }
-
-          final day = _days[dayIndex];
-          return SafeArea(
-            bottom: false,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildHeader(),
-                Expanded(
-                  child: PageView.builder(
-                    key: ValueKey('pageview_$dayIndex'),
-                    scrollDirection: Axis.horizontal,
-                    controller: _controllerFor(dayIndex),
-                    onPageChanged: (slideIndex) =>
-                        _onSlideChanged(dayIndex, slideIndex),
-                    itemCount: day.cards.length,
-                    itemBuilder: (context, slideIndex) {
-                      final card = day.cards[slideIndex];
-
-                      return Padding(
-                        padding: const EdgeInsets.fromLTRB(8, 16, 10, 24),
-                        child: _DeepDiveCardView(
-                          card: card,
-                          cardIndex: slideIndex + 1,
-                          totalCards: day.cards.length,
-                          sources: day.sources,
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
-          );
         },
       ),
     );
@@ -533,6 +565,10 @@ class _ThumbnailCard extends StatelessWidget {
               imageUrl: card.imageUrl!,
               cacheManager: AppImageCacheManager.instance,
               fit: BoxFit.cover,
+              filterQuality: FilterQuality.low,
+              memCacheWidth: (MediaQuery.sizeOf(context).width *
+                      MediaQuery.devicePixelRatioOf(context))
+                  .round(),
               placeholder: (_, __) => const ColoredBox(color: Color(0xFF0a0a14)),
               errorWidget: (_, __, ___) => const ColoredBox(color: Color(0xFF0a0a14)),
             )

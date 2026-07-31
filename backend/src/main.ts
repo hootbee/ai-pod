@@ -20,7 +20,7 @@ async function bootstrap() {
   }
   const allowedOrigins = corsOrigin
     ? corsOrigin.split(',').map((origin) => origin.trim()).filter(Boolean)
-    : ['http://localhost:3000', 'http://localhost:7357', 'http://127.0.0.1:7357'];
+    : ['http://localhost:3000', 'http://localhost:5500', 'http://127.0.0.1:5500'];
   app.enableCors({
     origin: allowedOrigins,
   });
