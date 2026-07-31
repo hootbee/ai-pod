@@ -392,47 +392,51 @@ class _DeepDiveScreenState extends State<DeepDiveScreen> {
           if (i >= _days.length - 1) _loadMore();
         },
         itemBuilder: (context, dayIndex) {
-          if (dayIndex == _days.length) {
-            return Center(
-              child: CircularProgressIndicator(
-                color: AppThemeController.primaryTextColor,
+            if (dayIndex == _days.length) {
+              return Center(
+                child: CircularProgressIndicator(
+                  color: AppThemeController.primaryTextColor,
+                ),
+              );
+            }
+
+            final day = _days[dayIndex];
+            return SafeArea(
+              bottom: false,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildHeader(),
+                  Expanded(
+                    child: PageView.custom(
+                      key: ValueKey('pageview_$dayIndex'),
+                      scrollDirection: Axis.horizontal,
+                      controller: _controllerFor(dayIndex),
+                      onPageChanged: (slideIndex) =>
+                          _onSlideChanged(dayIndex, slideIndex),
+                      childrenDelegate: SliverChildBuilderDelegate(
+                        (context, slideIndex) {
+                          final card = day.cards[slideIndex];
+
+                          return Padding(
+                            padding: const EdgeInsets.fromLTRB(8, 16, 10, 24),
+                            child: _DeepDiveCardView(
+                              card: card,
+                              cardIndex: slideIndex + 1,
+                              totalCards: day.cards.length,
+                              sources: day.sources,
+                            ),
+                          );
+                        },
+                        addAutomaticKeepAlives: false,
+                        addRepaintBoundaries: true,
+                        childCount: day.cards.length,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             );
-          }
-
-          final day = _days[dayIndex];
-          return SafeArea(
-            bottom: false,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildHeader(),
-                Expanded(
-                  child: PageView.builder(
-                    key: ValueKey('pageview_$dayIndex'),
-                    scrollDirection: Axis.horizontal,
-                    controller: _controllerFor(dayIndex),
-                    onPageChanged: (slideIndex) =>
-                        _onSlideChanged(dayIndex, slideIndex),
-                    itemCount: day.cards.length,
-                    itemBuilder: (context, slideIndex) {
-                      final card = day.cards[slideIndex];
-
-                      return Padding(
-                        padding: const EdgeInsets.fromLTRB(8, 16, 10, 24),
-                        child: _DeepDiveCardView(
-                          card: card,
-                          cardIndex: slideIndex + 1,
-                          totalCards: day.cards.length,
-                          sources: day.sources,
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
-          );
         },
       ),
     );
