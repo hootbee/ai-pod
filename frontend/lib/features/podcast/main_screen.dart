@@ -14,7 +14,6 @@ import 'podcast_player_screen.dart';
 import 'settings_screen.dart';
 import 'package:just_audio/just_audio.dart';
 import '../../services/audio_handler.dart';
-import 'dart:ui';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -39,9 +38,7 @@ class _MainScreenState extends State<MainScreen>
 
   void _openCardNewsForEpisode(PodcastEpisodeItem episode) {
     final createdAt = episode.createdAt;
-    final dayLabel = createdAt == null
-        ? null
-        : createdAt.toIso8601String().substring(0, 10);
+    final dayLabel = createdAt?.toIso8601String().substring(0, 10);
     setState(() {
       _pendingCardNewsEpisodeId = episode.id;
       _pendingCardNewsDayLabel = dayLabel;
@@ -50,8 +47,9 @@ class _MainScreenState extends State<MainScreen>
   }
 
   void _consumeCardNewsFocusRequest() {
-    if (_pendingCardNewsEpisodeId == null && _pendingCardNewsDayLabel == null)
+    if (_pendingCardNewsEpisodeId == null && _pendingCardNewsDayLabel == null) {
       return;
+    }
     if (!mounted) return;
     setState(() {
       _pendingCardNewsEpisodeId = null;
@@ -357,7 +355,6 @@ class _MainScreenState extends State<MainScreen>
         final value = Curves.easeOutCubic.transform(
           _tabTransitionController.value,
         );
-
         return FadeTransition(
           opacity: AlwaysStoppedAnimation(value),
           child: child,
@@ -1150,6 +1147,11 @@ class _FlipThumbnailCardState extends State<FlipThumbnailCard>
                 imageUrl: widget.episode.thumbnailUrl ?? '',
                 fit: BoxFit.cover,
                 cacheManager: AppImageCacheManager.instance,
+                filterQuality: FilterQuality.low,
+                memCacheWidth:
+                    (MediaQuery.sizeOf(context).width *
+                            MediaQuery.devicePixelRatioOf(context))
+                        .round(),
                 placeholder: (context, url) => Container(
                   color: Colors.blueGrey.shade900,
                   child: const Center(
@@ -1307,31 +1309,23 @@ class _FlipThumbnailCardState extends State<FlipThumbnailCard>
                                 });
                           }
                         },
-                        child: ClipOval(
-                          child: BackdropFilter(
-                            filter: ImageFilter.blur(
-                              sigmaX: 10.0,
-                              sigmaY: 10.0,
+                        child: Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.45),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.2),
+                              width: 1,
                             ),
-                            child: Container(
-                              width: 44,
-                              height: 44,
-                              decoration: BoxDecoration(
-                                color: Colors.black.withValues(alpha: 0.3),
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: Colors.white.withValues(alpha: 0.2),
-                                  width: 1,
-                                ),
-                              ),
-                              child: Icon(
-                                isPlaying
-                                    ? Icons.pause_rounded
-                                    : Icons.play_arrow_rounded,
-                                color: const Color(0xFFD6E36F),
-                                size: 28,
-                              ),
-                            ),
+                          ),
+                          child: Icon(
+                            isPlaying
+                                ? Icons.pause_rounded
+                                : Icons.play_arrow_rounded,
+                            color: const Color(0xFFD6E36F),
+                            size: 28,
                           ),
                         ),
                       );
