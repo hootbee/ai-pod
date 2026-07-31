@@ -127,27 +127,20 @@ class _LoginScreenState extends State<LoginScreen> {
 
     return Scaffold(
       backgroundColor: backgroundColor,
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            return Stack(
-              children: [
-                Positioned.fill(
-                  child: Image.asset(
-                    'assets/images/login_screen.png',
-                    fit: BoxFit.cover,
-                  ),
-                ),
-                Positioned(
-                  left: 24,
-                  right: 24,
-                  bottom: 12,
-                  child: _buildLoginActions(),
-                ),
-              ],
-            );
-          },
-        ),
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          Image.asset('assets/images/login_screen.png', fit: BoxFit.cover),
+          SafeArea(
+            child: Align(
+              alignment: Alignment.bottomCenter,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
+                child: _buildLoginActions(),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
