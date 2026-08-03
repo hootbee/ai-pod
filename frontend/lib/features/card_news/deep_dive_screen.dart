@@ -63,7 +63,8 @@ class _DeepDiveScreenState extends State<DeepDiveScreen> {
     super.didUpdateWidget(oldWidget);
     final incomingEpisodeId = widget.initialEpisodeId;
     final incomingDayLabel = widget.initialDayLabel;
-    final hasNewFocusRequest = incomingEpisodeId != oldWidget.initialEpisodeId ||
+    final hasNewFocusRequest =
+        incomingEpisodeId != oldWidget.initialEpisodeId ||
         incomingDayLabel != oldWidget.initialDayLabel;
     if (!hasNewFocusRequest) return;
     if ((incomingEpisodeId == null || incomingEpisodeId.isEmpty) &&
@@ -178,13 +179,19 @@ class _DeepDiveScreenState extends State<DeepDiveScreen> {
       return;
     }
 
-    var matchIndex = _findFocusIndex(targetEpisodeId: targetEpisodeId, targetDayLabel: targetDayLabel);
+    var matchIndex = _findFocusIndex(
+      targetEpisodeId: targetEpisodeId,
+      targetDayLabel: targetDayLabel,
+    );
     var attempts = 0;
     while (matchIndex < 0 && _hasNextPage && attempts < _maxFocusLoadAttempts) {
       final appended = await _loadMore();
       if (!appended) break;
       attempts += 1;
-      matchIndex = _findFocusIndex(targetEpisodeId: targetEpisodeId, targetDayLabel: targetDayLabel);
+      matchIndex = _findFocusIndex(
+        targetEpisodeId: targetEpisodeId,
+        targetDayLabel: targetDayLabel,
+      );
     }
 
     if (matchIndex >= 0 && mounted) {
@@ -234,27 +241,34 @@ class _DeepDiveScreenState extends State<DeepDiveScreen> {
       if (cardsJson.isEmpty) continue;
 
       final cards = cardsJson
-          .map((c) => DeepDiveCardMeta.fromJson(Map<String, dynamic>.from(c as Map)))
+          .map(
+            (c) =>
+                DeepDiveCardMeta.fromJson(Map<String, dynamic>.from(c as Map)),
+          )
           .toList();
 
       final episode = item['episode'] as Map<String, dynamic>? ?? const {};
       final episodeId = (episode['id'] as String?) ?? '';
       final createdAt =
-          (episode['createdAt'] as String?) ?? (item['createdAt'] as String?) ?? '';
+          (episode['createdAt'] as String?) ??
+          (item['createdAt'] as String?) ??
+          '';
       final sourcesJson = episode['sources'] as List<dynamic>? ?? const [];
       final sources = sourcesJson
           .map((s) => EpisodeSource.fromJson(s as Map<String, dynamic>))
           .toList();
       final topicTitle = snapshot?['topicTitle'] as String? ?? '';
 
-      days.add(DeepDiveDay(
-        id: (item['id'] as String?) ?? '',
-        episodeId: episodeId,
-        dayLabel: _toDayLabel(createdAt),
-        topicTitle: topicTitle,
-        cards: cards,
-        sources: sources,
-      ));
+      days.add(
+        DeepDiveDay(
+          id: (item['id'] as String?) ?? '',
+          episodeId: episodeId,
+          dayLabel: _toDayLabel(createdAt),
+          topicTitle: topicTitle,
+          cards: cards,
+          sources: sources,
+        ),
+      );
     }
 
     return days;
@@ -289,9 +303,7 @@ class _DeepDiveScreenState extends State<DeepDiveScreen> {
   }
 
   void _disposeUnusedControllers({required int keepLength}) {
-    final stale = _slideControllers.keys
-        .where((k) => k >= keepLength)
-        .toList();
+    final stale = _slideControllers.keys.where((k) => k >= keepLength).toList();
     for (final k in stale) {
       _slideControllers.remove(k)?.dispose();
     }
@@ -335,9 +347,7 @@ class _DeepDiveScreenState extends State<DeepDiveScreen> {
           child: Text(
             '로드 실패\n$_error',
             textAlign: TextAlign.center,
-            style: TextStyle(
-              color: AppThemeController.secondaryTextColor(0.7),
-            ),
+            style: TextStyle(color: AppThemeController.secondaryTextColor(0.7)),
           ),
         ),
       );
@@ -375,72 +385,72 @@ class _DeepDiveScreenState extends State<DeepDiveScreen> {
 
     final itemCount = _days.length + (_loadingMore ? 1 : 0);
 
-    return RefreshIndicator(
-      color: Colors.white,
-      backgroundColor: const Color(0xFF16162a),
-      onRefresh: () async {
-        setState(() {
-          _days = [];
-          _offset = 0;
-          _hasNextPage = false;
-          _loading = true;
-        });
-        await _load();
-      },
-      child: PageView.builder(
-        controller: _dayPageController,
-        scrollDirection: Axis.vertical,
-        itemCount: itemCount,
-        onPageChanged: (i) {
-          if (i >= _days.length - 1) _loadMore();
-        },
-        itemBuilder: (context, dayIndex) {
-            if (dayIndex == _days.length) {
-              return Center(
-                child: CircularProgressIndicator(
-                  color: AppThemeController.primaryTextColor,
-                ),
-              );
-            }
-
-            final day = _days[dayIndex];
-            return SafeArea(
-              bottom: false,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildHeader(),
-                  Expanded(
-                    child: PageView.custom(
-                      key: ValueKey('pageview_$dayIndex'),
-                      scrollDirection: Axis.horizontal,
-                      controller: _controllerFor(dayIndex),
-                      onPageChanged: (slideIndex) =>
-                          _onSlideChanged(dayIndex, slideIndex),
-                      childrenDelegate: SliverChildBuilderDelegate(
-                        (context, slideIndex) {
-                          final card = day.cards[slideIndex];
-
-                          return Padding(
-                            padding: const EdgeInsets.fromLTRB(8, 16, 10, 24),
-                            child: _DeepDiveCardView(
-                              card: card,
-                              cardIndex: slideIndex + 1,
-                              totalCards: day.cards.length,
-                              sources: day.sources,
-                            ),
-                          );
-                        },
-                        addAutomaticKeepAlives: false,
-                        addRepaintBoundaries: true,
-                        childCount: day.cards.length,
+    return SafeArea(
+      bottom: false,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildHeader(),
+          Expanded(
+            child: RefreshIndicator(
+              color: Colors.white,
+              backgroundColor: const Color(0xFF16162a),
+              onRefresh: () async {
+                setState(() {
+                  _days = [];
+                  _offset = 0;
+                  _hasNextPage = false;
+                  _loading = true;
+                });
+                await _load();
+              },
+              child: PageView.builder(
+                controller: _dayPageController,
+                scrollDirection: Axis.vertical,
+                itemCount: itemCount,
+                onPageChanged: (i) {
+                  if (i >= _days.length - 1) _loadMore();
+                },
+                itemBuilder: (context, dayIndex) {
+                  if (dayIndex == _days.length) {
+                    return Center(
+                      child: CircularProgressIndicator(
+                        color: AppThemeController.primaryTextColor,
                       ),
+                    );
+                  }
+
+                  final day = _days[dayIndex];
+                  return PageView.custom(
+                    key: ValueKey('pageview_$dayIndex'),
+                    scrollDirection: Axis.horizontal,
+                    controller: _controllerFor(dayIndex),
+                    onPageChanged: (slideIndex) =>
+                        _onSlideChanged(dayIndex, slideIndex),
+                    childrenDelegate: SliverChildBuilderDelegate(
+                      (context, slideIndex) {
+                        final card = day.cards[slideIndex];
+
+                        return Padding(
+                          padding: const EdgeInsets.fromLTRB(8, 16, 10, 24),
+                          child: _DeepDiveCardView(
+                            card: card,
+                            cardIndex: slideIndex + 1,
+                            totalCards: day.cards.length,
+                            sources: day.sources,
+                          ),
+                        );
+                      },
+                      addAutomaticKeepAlives: false,
+                      addRepaintBoundaries: true,
+                      childCount: day.cards.length,
                     ),
-                  ),
-                ],
+                  );
+                },
               ),
-            );
-        },
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -501,7 +511,6 @@ class _DeepDiveScreenState extends State<DeepDiveScreen> {
   }
 }
 
-
 // ─── 카드 렌더러 ────────────────────────────────────────────────────────────────
 
 class _DeepDiveCardView extends StatelessWidget {
@@ -554,165 +563,198 @@ class _ThumbnailCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final accent = card.accentColorValue;
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(28),
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          // 배경 이미지
-          if (card.imageUrl != null && card.imageUrl!.isNotEmpty)
-            CachedNetworkImage(
-              imageUrl: card.imageUrl!,
-              cacheManager: AppImageCacheManager.instance,
-              fit: BoxFit.cover,
-              filterQuality: FilterQuality.low,
-              memCacheWidth: (MediaQuery.sizeOf(context).width *
-                      MediaQuery.devicePixelRatioOf(context))
-                  .round(),
-              placeholder: (_, __) => const ColoredBox(color: Color(0xFF0a0a14)),
-              errorWidget: (_, __, ___) => const ColoredBox(color: Color(0xFF0a0a14)),
-            )
-          else
-            Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [accent.withValues(alpha: 0.3), const Color(0xFF0a0a14)],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isCompact = constraints.maxHeight < 600;
+        final textScale = (constraints.maxHeight / 600)
+            .clamp(0.78, 1.0)
+            .toDouble();
+        final titleMaxLines = isCompact ? 3 : 4;
+        final subtitleMaxLines = isCompact ? 3 : 4;
+        final bodyMaxLines = isCompact ? 4 : 5;
+
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(28),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // 배경 이미지
+              if (card.imageUrl != null && card.imageUrl!.isNotEmpty)
+                CachedNetworkImage(
+                  imageUrl: card.imageUrl!,
+                  cacheManager: AppImageCacheManager.instance,
+                  fit: BoxFit.cover,
+                  filterQuality: FilterQuality.low,
+                  memCacheWidth:
+                      (MediaQuery.sizeOf(context).width *
+                              MediaQuery.devicePixelRatioOf(context))
+                          .round(),
+                  placeholder: (_, __) =>
+                      const ColoredBox(color: Color(0xFF0a0a14)),
+                  errorWidget: (_, __, ___) =>
+                      const ColoredBox(color: Color(0xFF0a0a14)),
+                )
+              else
+                Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        accent.withValues(alpha: 0.3),
+                        const Color(0xFF0a0a14),
+                      ],
+                    ),
+                  ),
+                ),
+
+              // 그라디언트 오버레이
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.black.withValues(alpha: 0.15),
+                      Colors.black.withValues(alpha: 0.72),
+                      Colors.black.withValues(alpha: 0.92),
+                    ],
+                    stops: const [0.0, 0.55, 1.0],
+                  ),
                 ),
               ),
-            ),
 
-          // 그라디언트 오버레이
-          DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Colors.black.withValues(alpha: 0.15),
-                  Colors.black.withValues(alpha: 0.72),
-                  Colors.black.withValues(alpha: 0.92),
-                ],
-                stops: const [0.0, 0.55, 1.0],
-              ),
-            ),
-          ),
-
-          // 콘텐츠
-          Padding(
-            padding: const EdgeInsets.all(28),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // 상단: 배지 + 진행 표시
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              // 콘텐츠
+              Padding(
+                padding: EdgeInsets.all(isCompact ? 20 : 28),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _DeepDiveBadge(label: 'DEEP DIVE', color: accent),
+                    // 상단: 배지 + 진행 표시
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        _DeepDiveBadge(label: 'DEEP DIVE', color: accent),
+                        Text(
+                          '$cardIndex / $totalCards',
+                          style: const TextStyle(
+                            color: Colors.white60,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const Spacer(),
+
+                    // Breaking 레이블
                     Text(
-                      '$cardIndex / $totalCards',
-                      style: const TextStyle(
-                        color: Colors.white60,
+                      'Breaking',
+                      style: TextStyle(
+                        color: accent,
                         fontSize: 13,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 2,
                       ),
                     ),
-                  ],
-                ),
+                    const SizedBox(height: 12),
 
-                const SizedBox(height: 150),
-
-                // Breaking 레이블
-                Text(
-                  'Breaking',
-                  style: TextStyle(
-                    color: accent,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 2,
-                  ),
-                ),
-                const SizedBox(height: 12),
-
-                // 자극적 제목
-                Text(
-                  card.title,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 33,
-                    fontWeight: FontWeight.w800,
-                    height: 1.16,
-                  ),
-                ),
-                const SizedBox(height: 14),
-
-                // 액센트 구분선
-                Container(
-                  width: 56,
-                  height: 3,
-                  decoration: BoxDecoration(
-                    color: accent,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                const SizedBox(height: 14),
-
-                // 부제
-                if (card.subtitle != null && card.subtitle!.isNotEmpty)
-                  Text(
-                    card.subtitle!,
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.85),
-                      fontSize: 17,
-                      fontWeight: FontWeight.w500,
-                      height: 1.5,
+                    // 자극적 제목
+                    Text(
+                      card.title,
+                      maxLines: titleMaxLines,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 33 * textScale,
+                        fontWeight: FontWeight.w800,
+                        height: 1.16,
+                      ),
                     ),
-                  ),
+                    const SizedBox(height: 14),
 
-                const SizedBox(height: 12),
+                    // 액센트 구분선
+                    Container(
+                      width: 56,
+                      height: 3,
+                      decoration: BoxDecoration(
+                        color: accent,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
 
-                // 하단: 티저 + 링크
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Expanded(
-                      child: Container(
-                        alignment: Alignment.topLeft,
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              child: Text(
-                                card.body,
-                                maxLines: 3, 
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.65),
-                                  fontSize: 13, 
-                                  height: 1.5,
+                    // 부제
+                    if (card.subtitle != null && card.subtitle!.isNotEmpty)
+                      Text(
+                        card.subtitle!,
+                        maxLines: subtitleMaxLines,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.85),
+                          fontSize: 17 * textScale,
+                          fontWeight: FontWeight.w500,
+                          height: 1.5,
+                        ),
+                      ),
+
+                    const SizedBox(height: 12),
+
+                    // 하단: 티저 + 링크
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Expanded(
+                          child: Container(
+                            alignment: Alignment.topLeft,
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    card.body,
+                                    maxLines: bodyMaxLines,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: Colors.white.withValues(
+                                        alpha: 0.65,
                                       ),
+                                      fontSize: 13 * textScale,
+                                      height: 1.5,
                                     ),
                                   ),
-                                  if (sources.isNotEmpty)
-                                    IconButton(
-                                      icon: const Icon(Icons.link, color: Colors.white54, size: 18),
-                                      padding: const EdgeInsets.all(4),
-                                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                                      onPressed: () =>
-                                          showSourceInfoBottomSheet(context, sources: sources),
+                                ),
+                                if (sources.isNotEmpty)
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.link,
+                                      color: Colors.white54,
+                                      size: 18,
                                     ),
-                                ],
-                              ),
-                      ),
+                                    padding: const EdgeInsets.all(4),
+                                    constraints: const BoxConstraints(
+                                      minWidth: 32,
+                                      minHeight: 32,
+                                    ),
+                                    onPressed: () => showSourceInfoBottomSheet(
+                                      context,
+                                      sources: sources,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
@@ -742,7 +784,10 @@ class _ContentCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final accent = card.accentColorValue;
     final badge = _badgeLabels[card.type] ?? '';
-    final paragraphs = card.body.split('\n').where((p) => p.trim().isNotEmpty).toList();
+    final paragraphs = card.body
+        .split('\n')
+        .where((p) => p.trim().isNotEmpty)
+        .toList();
 
     return Container(
       decoration: BoxDecoration(
@@ -840,10 +885,12 @@ class _ContentCard extends StatelessWidget {
                             color: i == 0
                                 ? Colors.white
                                 : i == 1
-                                    ? accent
-                                    : Colors.white.withValues(alpha: 0.72),
+                                ? accent
+                                : Colors.white.withValues(alpha: 0.72),
                             fontSize: i == 0 ? 17 : 15,
-                            fontWeight: i == 0 ? FontWeight.w700 : FontWeight.w500,
+                            fontWeight: i == 0
+                                ? FontWeight.w700
+                                : FontWeight.w500,
                             height: 1.6,
                           ),
                         ),
@@ -871,9 +918,16 @@ class _ContentCard extends StatelessWidget {
                 ),
                 if (sources.isNotEmpty)
                   IconButton(
-                    icon: Icon(Icons.link, color: accent.withValues(alpha: 0.6), size: 18),
+                    icon: Icon(
+                      Icons.link,
+                      color: accent.withValues(alpha: 0.6),
+                      size: 18,
+                    ),
                     padding: const EdgeInsets.all(4),
-                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                    constraints: const BoxConstraints(
+                      minWidth: 32,
+                      minHeight: 32,
+                    ),
                     onPressed: () =>
                         showSourceInfoBottomSheet(context, sources: sources),
                   ),

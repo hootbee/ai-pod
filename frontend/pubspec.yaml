@@ -87,6 +87,8 @@ flutter:
   assets:
     - assets/images/splash.png
     - assets/images/aipod_logo.png
+    - assets/images/icon.png
+    - assets/images/login_screen.png
   
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
