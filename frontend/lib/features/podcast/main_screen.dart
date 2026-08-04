@@ -1278,12 +1278,10 @@ class _FlipThumbnailCardState extends State<FlipThumbnailCard>
             Positioned(
               top: 16,
               right: 16,
-              child: StreamBuilder<String?>(
-                stream: AudioHandler.instance.player.sequenceStateStream.map(
-                  (_) => AudioHandler.instance.currentEpisodeId,
-                ),
-                builder: (context, idSnapshot) {
-                  final bool isCurrent = idSnapshot.data == widget.episode.id;
+              child: ValueListenableBuilder<String?>(
+                valueListenable: AudioHandler.instance.currentEpisodeIdNotifier,
+                builder: (context, idSnapshot, child) {
+                  final bool isCurrent = idSnapshot == widget.episode.id;
 
                   return StreamBuilder<PlayerState>(
                     stream: AudioHandler.instance.player.playerStateStream,
@@ -1291,43 +1289,52 @@ class _FlipThumbnailCardState extends State<FlipThumbnailCard>
                       final bool isPlaying =
                           isCurrent && (stateSnapshot.data?.playing ?? false);
 
-                      return GestureDetector(
-                        onTap: () {
-                          if (isCurrent) {
-                            isPlaying
-                                ? AudioHandler.instance.pause()
-                                : AudioHandler.instance.resume();
-                          } else {
-                            AudioHandler.instance
-                                .playEpisode(widget.episode)
-                                .then((error) {
-                                  if (error != null && context.mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(content: Text(error)),
-                                    );
-                                  }
-                                });
-                          }
-                        },
-                        child: Container(
-                          width: 44,
-                          height: 44,
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.45),
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.2),
-                              width: 1,
+                      return Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (isCurrent) _buildCardProgress(),
+                          if (isCurrent) const SizedBox(width: 10),
+                          GestureDetector(
+                            onTap: () {
+                              if (isCurrent) {
+                                isPlaying
+                                    ? AudioHandler.instance.pause()
+                                    : AudioHandler.instance.resume();
+                              } else {
+                                AudioHandler.instance
+                                    .playEpisode(widget.episode)
+                                    .then((error) {
+                                      if (error != null && context.mounted) {
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          SnackBar(content: Text(error)),
+                                        );
+                                      }
+                                    });
+                              }
+                            },
+                            child: Container(
+                              width: 44,
+                              height: 44,
+                              decoration: BoxDecoration(
+                                color: Colors.black.withValues(alpha: 0.45),
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: Colors.white.withValues(alpha: 0.2),
+                                  width: 1,
+                                ),
+                              ),
+                              child: Icon(
+                                isPlaying
+                                    ? Icons.pause_rounded
+                                    : Icons.play_arrow_rounded,
+                                color: const Color(0xFFD6E36F),
+                                size: 28,
+                              ),
                             ),
                           ),
-                          child: Icon(
-                            isPlaying
-                                ? Icons.pause_rounded
-                                : Icons.play_arrow_rounded,
-                            color: const Color(0xFFD6E36F),
-                            size: 28,
-                          ),
-                        ),
+                        ],
                       );
                     },
                   );
@@ -1409,6 +1416,40 @@ class _FlipThumbnailCardState extends State<FlipThumbnailCard>
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildCardProgress() {
+    final player = AudioHandler.instance.player;
+    return StreamBuilder<Duration?>(
+      stream: player.durationStream,
+      builder: (context, durationSnapshot) {
+        final durationMs = durationSnapshot.data?.inMilliseconds ?? 0;
+        return StreamBuilder<Duration>(
+          stream: player.positionStream,
+          builder: (context, positionSnapshot) {
+            final positionMs = positionSnapshot.data?.inMilliseconds ?? 0;
+            final progress = durationMs <= 0
+                ? 0.0
+                : (positionMs / durationMs).clamp(0.0, 1.0);
+
+            return SizedBox(
+              width: 108,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(3),
+                child: LinearProgressIndicator(
+                  minHeight: 5,
+                  value: progress,
+                  backgroundColor: Colors.white.withValues(alpha: 0.35),
+                  valueColor: const AlwaysStoppedAnimation<Color>(
+                    Color(0xFFD6E36F),
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

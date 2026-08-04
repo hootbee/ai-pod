@@ -12,9 +12,17 @@ class AudioHandler {
   AudioHandler._internal();
 
   final AudioPlayer player = AudioPlayer();
-  String? currentEpisodeId;
+  final ValueNotifier<String?> currentEpisodeIdNotifier =
+      ValueNotifier<String?>(null);
   int _playRequestVersion = 0;
   bool _playRequested = false;
+
+  String? get currentEpisodeId => currentEpisodeIdNotifier.value;
+
+  set currentEpisodeId(String? episodeId) {
+    if (currentEpisodeIdNotifier.value == episodeId) return;
+    currentEpisodeIdNotifier.value = episodeId;
+  }
 
   Future<String?> playEpisode(PodcastEpisodeItem episode) async {
     final requestVersion = ++_playRequestVersion;
