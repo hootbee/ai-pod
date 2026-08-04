@@ -69,6 +69,7 @@ export class TtsService {
           this.audioOptimizationService.safeUnlink(...tempFilePaths);
           finalAudioPath = mp3Path;
         } else {
+          this.audioOptimizationService.safeUnlink(...tempFilePaths.slice(1));
           finalAudioPath = tempFilePaths[0]; // fallback: 첫 번째 M4A 그대로
         }
       } else {
@@ -132,6 +133,7 @@ export class TtsService {
         this.audioOptimizationService.safeUnlink(...tempFilePaths);
         finalAudioPath = mp3Path;
       } else {
+        this.audioOptimizationService.safeUnlink(...tempFilePaths.slice(1));
         finalAudioPath = tempFilePaths[0];
       }
     } else {
