@@ -4,7 +4,8 @@ import ffmpeg = require('fluent-ffmpeg');
 
 @Injectable()
 export class AudioOptimizationService {
-  static readonly CHUNK_CROSSFADE_MS = 50;
+  static readonly CHUNK_CROSSFADE_MS = 10;
+  static readonly CHUNK_FADE_IN_MS = 100;
 
   private readonly logger = new Logger(AudioOptimizationService.name);
 
@@ -45,6 +46,7 @@ export class AudioOptimizationService {
           (_, i) =>
             `[${i}:a]aresample=22050:async=1:first_pts=0,` +
             'aformat=sample_fmts=fltp:sample_rates=22050:channel_layouts=mono' +
+            `,afade=t=in:st=0:d=${AudioOptimizationService.CHUNK_FADE_IN_MS / 1000}` +
             `[a${i}]`,
         );
         const crossfades: string[] = [];
