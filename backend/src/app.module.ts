@@ -23,6 +23,7 @@ import { EpisodePlayLog } from './modules/episodes/entities/episode-play-log.ent
 import { EpisodeThumbnail } from './modules/thumbnail/entities/episode-thumbnail.entity';
 import { User } from './modules/users/entities/user.entity';
 import { RefreshToken } from './modules/auth/entities/refresh-token.entity';
+import { AppVersionModule } from './modules/app-version/app-version.module';
 
 @Module({
   imports: [
@@ -50,7 +51,15 @@ import { RefreshToken } from './modules/auth/entities/refresh-token.entity';
       username: process.env.DB_USER ?? 'myuser',
       password: process.env.DB_PASSWORD ?? 'mypassword',
       database: process.env.DB_NAME ?? 'aipod_db',
-      entities: [PodcastEpisode, EpisodePlayLog, User, RefreshToken, CardNews, CardNewsViewLog, EpisodeThumbnail],
+      entities: [
+        PodcastEpisode,
+        EpisodePlayLog,
+        User,
+        RefreshToken,
+        CardNews,
+        CardNewsViewLog,
+        EpisodeThumbnail,
+      ],
       synchronize: (process.env.DB_SYNC ?? 'true') === 'true',
     }),
     CrawlerModule,
@@ -62,11 +71,9 @@ import { RefreshToken } from './modules/auth/entities/refresh-token.entity';
     CardNewsModule,
     PipelineModule,
     ThumbnailModule,
+    AppVersionModule,
   ],
   controllers: [AppController],
-  providers: [
-    AppService,
-    { provide: APP_GUARD, useClass: ThrottlerGuard },
-  ],
+  providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule {}

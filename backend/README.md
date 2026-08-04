@@ -198,6 +198,12 @@ curl -X POST http://localhost:3000/card-news/test/$(
 | 변수 | 기본값 | 설명 |
 |------|--------|------|
 | `PORT` | `3000` | 서버 포트 |
+| `APP_LATEST_VERSION` | `1.0.8` | Play Store 최신 앱 버전 |
+| `APP_MINIMUM_VERSION` | `1.0.0` | 지원하는 최소 앱 버전 |
+| `APP_LATEST_BUILD_NUMBER` | `9` | Play Store 최신 build number |
+| `APP_MINIMUM_BUILD_NUMBER` | `1` | 지원하는 최소 build number |
+| `APP_FORCE_UPDATE` | `false` | 최신 버전 업데이트 강제 여부 |
+| `APP_STORE_URL` | AiPod Play Store URL | 업데이트 버튼이 여는 스토어 주소 |
 | `DB_HOST` | `localhost` | PostgreSQL 호스트 |
 | `DB_PORT` | `5432` | PostgreSQL 포트 |
 | `DB_USER` | `myuser` | DB 사용자 |
