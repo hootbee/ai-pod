@@ -4,7 +4,7 @@ import ffmpeg = require('fluent-ffmpeg');
 
 @Injectable()
 export class AudioOptimizationService {
-  static readonly CHUNK_CROSSFADE_MS = 10;
+  static readonly CHUNK_CROSSFADE_MS = 50;
 
   private readonly logger = new Logger(AudioOptimizationService.name);
 
