@@ -21,6 +21,8 @@ Future<AudioSource> buildCachedAudioSource(
   final cacheFile = File('${dir.path}/aipod_audio/$hash.$safeExt');
   await cacheFile.parent.create(recursive: true);
 
+  // Required for local caching; just_audio currently marks this API experimental.
+  // ignore: experimental_member_use
   return LockCachingAudioSource(
     Uri.parse(url),
     headers: headers,

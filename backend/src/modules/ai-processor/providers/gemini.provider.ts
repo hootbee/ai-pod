@@ -7,8 +7,8 @@ import type {
 } from '../interfaces/ai-provider.interface';
 
 interface GeminiResponse {
-  candidates: Array<{
-    content: { parts: Array<{ text: string }>; role: string };
+  choices: Array<{
+    message: { content: string; role: string };
   }>;
 }
 
@@ -26,7 +26,7 @@ export class GeminiProvider implements AiProvider {
     this.apiKey = apiKey;
     this.baseUrl =
       process.env.MINDLOGIC_BASE_URL ??
-      'https://factchat-cloud.mindlogic.ai/v1/api/google/models/generate-content';
+      'https://factchat-cloud.mindlogic.ai/v1/gateway/chat/completions/';
     this.model = process.env.MINDLOGIC_MODEL ?? 'gemini-2.5-flash';
   }
 
@@ -39,7 +39,7 @@ export class GeminiProvider implements AiProvider {
       },
       body: JSON.stringify({
         model: this.model,
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        messages: [{ role: 'user', content: prompt }],
       }),
     });
 
@@ -49,7 +49,7 @@ export class GeminiProvider implements AiProvider {
     }
 
     const data = (await response.json()) as GeminiResponse;
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    const text = data.choices?.[0]?.message?.content;
     if (!text) throw new Error('Mindlogic API 응답에 텍스트 없음');
     return text.trim();
   }

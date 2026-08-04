@@ -50,7 +50,7 @@ MINDLOGIC_BASE_URL=https://factchat-cloud.mindlogic.ai/v1/api/google/models/gene
 MINDLOGIC_MODEL=gemini-2.5-flash
 
 # Google OAuth (로그인 검증용)
-GOOGLE_CLIENT_ID=826440481147-xxxx.apps.googleusercontent.com
+GOOGLE_CLIENT_ID=711427859481-ishgmphcatvfecfio6pqat1tfnbc7rl7.apps.googleusercontent.com
 
 # Google Cloud TTS
 GOOGLE_CLOUD_TTS_API_KEY=your_google_cloud_tts_key

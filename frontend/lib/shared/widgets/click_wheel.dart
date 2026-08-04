@@ -3,10 +3,13 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 class ClickWheel extends StatefulWidget {
+  static const double defaultSize = 220;
+
   final VoidCallback onCenterTap;
   final VoidCallback onScrollRight;
   final VoidCallback onScrollLeft;
   final bool isPlaying;
+  final double size;
 
   const ClickWheel({
     super.key,
@@ -14,6 +17,7 @@ class ClickWheel extends StatefulWidget {
     required this.onScrollRight,
     required this.onScrollLeft,
     this.isPlaying = false,
+    this.size = defaultSize,
   });
 
   @override
@@ -21,7 +25,6 @@ class ClickWheel extends StatefulWidget {
 }
 
 class _ClickWheelState extends State<ClickWheel> {
-  static const double _wheelSize = 220;
   static const double _centerButtonSize = 88;
 
   double _lastAngle = 0.0;
@@ -76,7 +79,7 @@ class _ClickWheelState extends State<ClickWheel> {
   }
 
   double _calculateAngle(Offset localPosition) {
-    const Offset center = Offset(_wheelSize / 2, _wheelSize / 2);
+    final center = Offset(widget.size / 2, widget.size / 2);
     return math.atan2(
       localPosition.dy - center.dy,
       localPosition.dx - center.dx,
@@ -85,9 +88,12 @@ class _ClickWheelState extends State<ClickWheel> {
 
   @override
   Widget build(BuildContext context) {
+    final scale = widget.size / ClickWheel.defaultSize;
+    final centerButtonSize = _centerButtonSize * scale;
+
     return Container(
       width: double.infinity,
-      height: _wheelSize,
+      height: widget.size,
       alignment: Alignment.center,
       child: GestureDetector(
         onPanStart: _onPanStart,
@@ -95,18 +101,14 @@ class _ClickWheelState extends State<ClickWheel> {
         onPanEnd: _onPanEnd,
         onPanCancel: _onPanCancel,
         child: Container(
-          width: _wheelSize,
-          height: _wheelSize,
+          width: widget.size,
+          height: widget.size,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             gradient: const RadialGradient(
               center: Alignment(-0.28, -0.32),
               radius: 0.95,
-              colors: [
-                Color(0xFFF8F8F5),
-                Color(0xFFE8E8E2),
-                Color(0xFFCFCFC8),
-              ],
+              colors: [Color(0xFFF8F8F5), Color(0xFFE8E8E2), Color(0xFFCFCFC8)],
               stops: [0.0, 0.62, 1.0],
             ),
             border: Border.all(
@@ -116,13 +118,13 @@ class _ClickWheelState extends State<ClickWheel> {
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.26),
-                blurRadius: 22,
-                offset: const Offset(0, 12),
+                blurRadius: 22 * scale,
+                offset: Offset(0, 12 * scale),
               ),
               BoxShadow(
                 color: Colors.white.withValues(alpha: 0.16),
-                blurRadius: 8,
-                offset: const Offset(-4, -5),
+                blurRadius: 8 * scale,
+                offset: Offset(-4 * scale, -5 * scale),
               ),
             ],
           ),
@@ -138,11 +140,11 @@ class _ClickWheelState extends State<ClickWheel> {
                 child: Align(
                   alignment: Alignment.topCenter,
                   child: Padding(
-                    padding: const EdgeInsets.only(top: 18),
+                    padding: EdgeInsets.only(top: 18 * scale),
                     child: IgnorePointer(
                       child: Container(
-                        width: 18,
-                        height: 18,
+                        width: 18 * scale,
+                        height: 18 * scale,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           color: const Color(0xFFD7D7D1),
@@ -176,8 +178,8 @@ class _ClickWheelState extends State<ClickWheel> {
               GestureDetector(
                 onTap: widget.onCenterTap,
                 child: Container(
-                  width: _centerButtonSize,
-                  height: _centerButtonSize,
+                  width: centerButtonSize,
+                  height: centerButtonSize,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: const Color(0xFF50583D),
@@ -229,7 +231,7 @@ class _ClickWheelState extends State<ClickWheel> {
                       ),
                       Positioned.fill(
                         child: Padding(
-                          padding: const EdgeInsets.all(4),
+                          padding: EdgeInsets.all(4 * scale),
                           child: DecoratedBox(
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
@@ -243,7 +245,7 @@ class _ClickWheelState extends State<ClickWheel> {
                       ),
                       Positioned.fill(
                         child: Padding(
-                          padding: const EdgeInsets.all(6),
+                          padding: EdgeInsets.all(6 * scale),
                           child: DecoratedBox(
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
@@ -266,7 +268,7 @@ class _ClickWheelState extends State<ClickWheel> {
                             ? Icons.pause_rounded
                             : Icons.play_arrow_rounded,
                         color: Colors.white,
-                        size: 38,
+                        size: 38 * scale,
                       ),
                     ],
                   ),
