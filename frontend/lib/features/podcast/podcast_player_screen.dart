@@ -173,15 +173,13 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
   }
 
   Future<void> _seekRelative(int deltaSeconds) async {
-    if (!_audioReady) return;
-    final position = _audioPlayer.position;
     final duration = _audioPlayer.duration;
-    var target = position.inSeconds + deltaSeconds;
-    if (target < 0) target = 0;
-    if (duration != null && target > duration.inSeconds) {
-      target = duration.inSeconds;
-    }
-    await _audioPlayer.seek(Duration(seconds: target));
+    if (duration == null || duration == Duration.zero) return;
+
+    final position = _audioPlayer.position;
+    var targetMs = position.inMilliseconds + (deltaSeconds * 1000);
+    targetMs = targetMs.clamp(0, duration.inMilliseconds).toInt();
+    await _audioPlayer.seek(Duration(milliseconds: targetMs));
   }
 
   Future<void> _togglePlayPause(bool playing) async {
