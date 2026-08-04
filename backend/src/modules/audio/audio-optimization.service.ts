@@ -4,13 +4,19 @@ import ffmpeg = require('fluent-ffmpeg');
 
 @Injectable()
 export class AudioOptimizationService {
+  static readonly CHUNK_CROSSFADE_MS = 10;
+  static readonly CHUNK_EDGE_FADE_MS = 100;
+
   private readonly logger = new Logger(AudioOptimizationService.name);
 
   /** ffprobe로 오디오 재생 시간(ms) 조회 */
   getAudioDurationMs(filePath: string): Promise<number> {
     return new Promise((resolve, reject) => {
       ffmpeg.ffprobe(filePath, (err, metadata) => {
-        if (err) { reject(err); return; }
+        if (err) {
+          reject(err);
+          return;
+        }
         resolve(Math.round((metadata.format.duration ?? 0) * 1000));
       });
     });
@@ -23,24 +29,49 @@ export class AudioOptimizationService {
    */
   convertFilesToOptimizedMp3(inputPaths: string[], outputPath: string): Promise<boolean> {
     return new Promise((resolve) => {
-      if (inputPaths.length === 0) { resolve(false); return; }
+      if (inputPaths.length === 0) {
+        resolve(false);
+        return;
+      }
 
       let cmd = ffmpeg();
-      inputPaths.forEach((p) => { cmd = cmd.input(p); });
+      inputPaths.forEach((p) => {
+        cmd = cmd.input(p);
+      });
 
       const baseOutputOpts = ['-id3v2_version 3'];
 
       if (inputPaths.length > 1) {
-        const filterStr =
-          inputPaths.map((_, i) => `[${i}:a]`).join('') +
-          `concat=n=${inputPaths.length}:v=0:a=1,loudnorm=I=-16:TP=-1.5:LRA=11[out]`;
-        cmd = cmd
-          .complexFilter(filterStr)
-          .outputOptions([...baseOutputOpts, '-map [out]']);
+        const normalizedInputs = inputPaths.map(
+          (_, i) =>
+            `[${i}:a]aresample=22050:async=1:first_pts=0,` +
+            'aformat=sample_fmts=fltp:sample_rates=22050:channel_layouts=mono' +
+            `,afade=t=in:d=${AudioOptimizationService.CHUNK_EDGE_FADE_MS / 1000}` +
+            ',areverse' +
+            `,afade=t=in:d=${AudioOptimizationService.CHUNK_EDGE_FADE_MS / 1000}` +
+            ',areverse' +
+            `[a${i}]`,
+        );
+        const crossfades: string[] = [];
+        let previous = '[a0]';
+        for (let i = 1; i < inputPaths.length; i++) {
+          const output = `[xf${i}]`;
+          crossfades.push(
+            `${previous}[a${i}]acrossfade=` +
+              `d=${AudioOptimizationService.CHUNK_CROSSFADE_MS / 1000}:` +
+              'c1=tri:c2=tri' +
+              output,
+          );
+          previous = output;
+        }
+        const filterStr = [
+          ...normalizedInputs,
+          ...crossfades,
+          `${previous}loudnorm=I=-16:TP=-1.5:LRA=11[out]`,
+        ].join(';');
+        cmd = cmd.complexFilter(filterStr).outputOptions([...baseOutputOpts, '-map [out]']);
       } else {
-        cmd = cmd
-          .audioFilters('loudnorm=I=-16:TP=-1.5:LRA=11')
-          .outputOptions(baseOutputOpts);
+        cmd = cmd.audioFilters('loudnorm=I=-16:TP=-1.5:LRA=11').outputOptions(baseOutputOpts);
       }
 
       cmd
@@ -48,8 +79,14 @@ export class AudioOptimizationService {
         .audioBitrate(64)
         .audioChannels(1)
         .audioFrequency(22050)
-        .on('end', () => { this.logger.log(`MP3 변환 완료: ${outputPath}`); resolve(true); })
-        .on('error', (err: Error) => { this.logger.error(`MP3 변환 실패: ${err.message}`); resolve(false); })
+        .on('end', () => {
+          this.logger.log(`MP3 변환 완료: ${outputPath}`);
+          resolve(true);
+        })
+        .on('error', (err: Error) => {
+          this.logger.error(`MP3 변환 실패: ${err.message}`);
+          resolve(false);
+        })
         .on('stderr', () => {})
         .save(outputPath);
     });
