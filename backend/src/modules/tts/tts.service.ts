@@ -237,7 +237,7 @@ export class TtsService {
 
         if (chunkIndex > 0) currentMs += chunkBoundaryAdjustmentMs;
 
-        pcmBuffers.push(result.data);
+        this.appendPcmChunk(pcmBuffers, result.data, sampleRate);
         cues.push(
           ...this.buildSubtitleCuesForChunk(chunk, cues.length, currentMs, chunkDurationMs),
         );
@@ -461,6 +461,41 @@ export class TtsService {
     const bytesPerSample = 2;
     const sampleCount = pcm.length / bytesPerSample;
     return Math.round((sampleCount / sampleRate) * 1000);
+  }
+
+  /** PCM 청크 경계의 샘플 불연속을 짧은 선형 crossfade로 완화 */
+  private appendPcmChunk(buffers: Buffer[], next: Buffer, sampleRate: number): void {
+    const previous = buffers[buffers.length - 1];
+    if (!previous) {
+      buffers.push(next);
+      return;
+    }
+
+    const fadeSamples = Math.min(
+      Math.floor((sampleRate * AudioOptimizationService.CHUNK_CROSSFADE_MS) / 1000),
+      previous.length / 2,
+      next.length / 2,
+    );
+    if (fadeSamples < 2) {
+      buffers[buffers.length - 1] = Buffer.concat([previous, next]);
+      return;
+    }
+
+    const fadeBytes = fadeSamples * 2;
+    const output = Buffer.alloc(previous.length + next.length - fadeBytes);
+    previous.copy(output, 0, 0, previous.length - fadeBytes);
+
+    const mixOffset = previous.length - fadeBytes;
+    for (let i = 0; i < fadeSamples; i++) {
+      const progress = i / (fadeSamples - 1);
+      const previousSample = previous.readInt16LE(mixOffset + i * 2);
+      const nextSample = next.readInt16LE(i * 2);
+      const mixed = Math.round(previousSample * (1 - progress) + nextSample * progress);
+      output.writeInt16LE(mixed, previous.length - fadeBytes + i * 2);
+    }
+
+    next.copy(output, previous.length, fadeBytes);
+    buffers[buffers.length - 1] = output;
   }
 
   private splitText(text: string, maxLen: number): string[] {
