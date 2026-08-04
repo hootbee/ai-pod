@@ -244,9 +244,9 @@ class _MainScreenState extends State<MainScreen>
 
     if (isCurrent) {
       if (player.playing) {
-        await player.pause();
+        await AudioHandler.instance.pause();
       } else {
-        await player.play();
+        await AudioHandler.instance.resume();
       }
       return;
     }
@@ -1295,8 +1295,8 @@ class _FlipThumbnailCardState extends State<FlipThumbnailCard>
                         onTap: () {
                           if (isCurrent) {
                             isPlaying
-                                ? AudioHandler.instance.player.pause()
-                                : AudioHandler.instance.player.play();
+                                ? AudioHandler.instance.pause()
+                                : AudioHandler.instance.resume();
                           } else {
                             AudioHandler.instance
                                 .playEpisode(widget.episode)

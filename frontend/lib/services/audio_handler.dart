@@ -13,8 +13,14 @@ class AudioHandler {
 
   final AudioPlayer player = AudioPlayer();
   String? currentEpisodeId;
+  int _playRequestVersion = 0;
+  bool _playRequested = false;
 
   Future<String?> playEpisode(PodcastEpisodeItem episode) async {
+    final requestVersion = ++_playRequestVersion;
+    _playRequested = true;
+    currentEpisodeId = episode.id;
+
     try {
       await player.stop();
 
@@ -26,17 +32,42 @@ class AudioHandler {
       );
 
       await player.setAudioSource(source);
+
+      if (requestVersion != _playRequestVersion || !_playRequested) {
+        return null;
+      }
+
       await player.play();
-      currentEpisodeId = episode.id;
       unawaited(_incrementPlayCount(episode.id));
       return null;
     } catch (e) {
-      currentEpisodeId = null;
+      if (requestVersion == _playRequestVersion) {
+        currentEpisodeId = null;
+      }
       try {
         await player.stop();
       } catch (_) {}
       debugPrint('오디오 재생 실패: $e');
       return '오디오 재생 실패: $e';
+    }
+  }
+
+  Future<void> pause() async {
+    _playRequested = false;
+    _playRequestVersion++;
+    try {
+      await player.pause();
+    } catch (e) {
+      debugPrint('오디오 일시정지 실패: $e');
+    }
+  }
+
+  Future<void> resume() async {
+    _playRequested = true;
+    try {
+      await player.play();
+    } catch (e) {
+      debugPrint('오디오 재생 재개 실패: $e');
     }
   }
 
@@ -46,7 +77,9 @@ class AudioHandler {
       if (token == null) return;
 
       await http.post(
-        Uri.parse('${AppConfig.apiBaseUrl}/episodes/$episodeId/audio-play-count'),
+        Uri.parse(
+          '${AppConfig.apiBaseUrl}/episodes/$episodeId/audio-play-count',
+        ),
         headers: {'Authorization': 'Bearer $token'},
       );
     } catch (e) {
