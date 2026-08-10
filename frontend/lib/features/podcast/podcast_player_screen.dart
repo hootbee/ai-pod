@@ -8,6 +8,7 @@ import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import '../../services/network_cache_service.dart';
 import '../../shared/widgets/source_info_bottom_sheet.dart';
 import 'main_screen.dart';
+import 'podcast_date.dart';
 import 'package:share_plus/share_plus.dart';
 
 class PodcastPlayerScreen extends StatefulWidget {
@@ -54,9 +55,11 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
       : _transcript;
 
   String get _screenTitle {
-    final createdAt = widget.episode.createdAt;
-    if (createdAt == null) return widget.episode.title;
-    return '${createdAt.year}년 ${createdAt.month}월 ${createdAt.day}일 뉴스';
+    return formatPodcastScreenTitle(
+      script: widget.episode.script,
+      fallbackTitle: widget.episode.title,
+      createdAt: widget.episode.createdAt,
+    );
   }
 
   String _sanitizeTranscriptLine(String rawLine) {
