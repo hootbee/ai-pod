@@ -4,11 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { RefreshToken } from './entities/refresh-token.entity';
-import type {
-  ITokenService,
-  TokenPayload,
-  TokenPair,
-} from './interfaces/token.service.interface';
+import type { ITokenService, TokenPayload } from './interfaces/token.service.interface';
 
 @Injectable()
 export class TokenService implements ITokenService {
@@ -29,7 +25,7 @@ export class TokenService implements ITokenService {
     });
   }
 
-  async generateRefreshToken(userId: string): Promise<string> {
+  async generateRefreshToken(userId: string, deviceId?: string): Promise<string> {
     const expiresDays = this.REFRESH_EXPIRES_DAYS;
     const raw = this.jwtService.sign(
       { sub: userId },
@@ -44,7 +40,14 @@ export class TokenService implements ITokenService {
     expiresAt.setDate(expiresAt.getDate() + this.REFRESH_EXPIRES_DAYS);
 
     await this.refreshTokenRepository.save(
-      this.refreshTokenRepository.create({ userId, token: hashed, expiresAt }),
+      this.refreshTokenRepository.create({
+        userId,
+        token: hashed,
+        expiresAt,
+        revokedAt: null,
+        lastUsedAt: null,
+        deviceId: deviceId?.slice(0, 128) ?? null,
+      }),
     );
 
     return raw;
@@ -63,25 +66,38 @@ export class TokenService implements ITokenService {
   async validateRefreshToken(rawToken: string, userId: string): Promise<boolean> {
     const stored = await this.refreshTokenRepository.find({ where: { userId } });
     for (const record of stored) {
-      if (record.expiresAt < new Date()) continue;
+      if (record.revokedAt || record.expiresAt < new Date()) continue;
       const match = await bcrypt.compare(rawToken, record.token);
-      if (match) return true;
+      if (match) {
+        record.lastUsedAt = new Date();
+        await this.refreshTokenRepository.save(record);
+        return true;
+      }
     }
     return false;
   }
 
-  async revokeRefreshToken(rawToken: string): Promise<void> {
+  async revokeRefreshToken(rawToken: string): Promise<boolean> {
     const all = await this.refreshTokenRepository.find();
     for (const record of all) {
+      if (record.revokedAt) continue;
       const match = await bcrypt.compare(rawToken, record.token);
       if (match) {
-        await this.refreshTokenRepository.delete(record.id);
-        return;
+        record.revokedAt = new Date();
+        await this.refreshTokenRepository.save(record);
+        return true;
       }
     }
+    return false;
   }
 
   async revokeAllUserTokens(userId: string): Promise<void> {
-    await this.refreshTokenRepository.delete({ userId });
+    await this.refreshTokenRepository
+      .createQueryBuilder()
+      .update(RefreshToken)
+      .set({ revokedAt: new Date() })
+      .where('"userId" = :userId', { userId })
+      .andWhere('"revokedAt" IS NULL')
+      .execute();
   }
 }

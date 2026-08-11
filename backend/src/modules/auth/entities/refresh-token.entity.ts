@@ -26,6 +26,15 @@ export class RefreshToken {
   @Column({ type: 'timestamptz' })
   expiresAt: Date;
 
+  @Column({ type: 'timestamptz', nullable: true })
+  revokedAt: Date | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  lastUsedAt: Date | null;
+
+  @Column({ type: 'varchar', length: 128, nullable: true })
+  deviceId: string | null;
+
   @CreateDateColumn({ type: 'timestamptz' })
   createdAt: Date;
 }
