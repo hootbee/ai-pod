@@ -242,12 +242,13 @@ class _MainScreenState extends State<MainScreen>
     final player = AudioHandler.instance.player;
     final isCurrent = AudioHandler.instance.currentEpisodeId == episode.id;
 
+    if (player.playing) {
+      await player.pause();
+      return;
+    }
+
     if (isCurrent) {
-      if (player.playing) {
-        await player.pause();
-      } else {
-        await player.play();
-      }
+      await player.play();
       return;
     }
 

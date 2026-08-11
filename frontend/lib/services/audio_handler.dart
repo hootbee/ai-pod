@@ -26,8 +26,8 @@ class AudioHandler {
       );
 
       await player.setAudioSource(source);
-      await player.play();
       currentEpisodeId = episode.id;
+      await player.play();
       unawaited(_incrementPlayCount(episode.id));
       return null;
     } catch (e) {
