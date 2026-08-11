@@ -3,7 +3,6 @@ import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bull';
-import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -23,6 +22,7 @@ import { EpisodePlayLog } from './modules/episodes/entities/episode-play-log.ent
 import { EpisodeThumbnail } from './modules/thumbnail/entities/episode-thumbnail.entity';
 import { User } from './modules/users/entities/user.entity';
 import { RefreshToken } from './modules/auth/entities/refresh-token.entity';
+import { AuthAuditLog } from './modules/auth/entities/auth-audit-log.entity';
 import { AppVersionModule } from './modules/app-version/app-version.module';
 
 @Module({
@@ -56,6 +56,7 @@ import { AppVersionModule } from './modules/app-version/app-version.module';
         EpisodePlayLog,
         User,
         RefreshToken,
+        AuthAuditLog,
         CardNews,
         CardNewsViewLog,
         EpisodeThumbnail,

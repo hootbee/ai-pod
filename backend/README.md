@@ -224,3 +224,7 @@ curl -X POST http://localhost:3000/card-news/test/$(
 | `MIN_ARTICLES` | `3` | 파이프라인 실행 최소 기사 수 |
 | `JWT_SECRET` | — | JWT 서명 키 (필수) |
 | `JWT_ACCESS_EXPIRES_IN` | `3600` | Access Token 만료 (초) |
+| `JWT_REFRESH_SECRET` | — | Refresh Token 서명 키 (필수) |
+| `AUTH_AUDIT_IP_HASH_SECRET` | — | 인증 감사 로그 IP 해시용 비밀키 (선택) |
+
+인증 감사 로그는 `auth_audit_logs`에 로그인, refresh, logout 성공·실패 이력을 저장합니다. IP 주소는 원문으로 저장하지 않고 `AUTH_AUDIT_IP_HASH_SECRET`이 설정된 경우에만 해시로 저장합니다. Refresh Token은 `refresh_tokens.revokedAt`으로 폐기 시각을 보존하며 원문 토큰은 저장하지 않습니다.

@@ -27,7 +27,9 @@ export class RolesGuard implements CanActivate {
   }
 
   private getRequiredRoles(context: ExecutionContext): UserRole[] {
-    const handlerRoles = Reflect.getMetadata(ROLES_KEY, context.getHandler()) as UserRole[] | undefined;
+    const handlerRoles = Reflect.getMetadata(ROLES_KEY, context.getHandler()) as
+      | UserRole[]
+      | undefined;
     const classRoles = Reflect.getMetadata(ROLES_KEY, context.getClass()) as UserRole[] | undefined;
     return handlerRoles ?? classRoles ?? [];
   }

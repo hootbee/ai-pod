@@ -1,7 +1,12 @@
 import type { TokenPair } from './token.service.interface';
+import type { AuthAuditContext } from '../auth-audit.service';
 
 export interface IAuthService {
-  loginWithGoogle(idToken?: string, accessToken?: string): Promise<TokenPair>;
-  refresh(refreshToken: string): Promise<TokenPair>;
-  logout(userId: string, refreshToken: string): Promise<void>;
+  loginWithGoogle(
+    idToken?: string,
+    accessToken?: string,
+    context?: AuthAuditContext,
+  ): Promise<TokenPair>;
+  refresh(refreshToken: string, context?: AuthAuditContext): Promise<TokenPair>;
+  logout(userId: string, refreshToken: string, context?: AuthAuditContext): Promise<void>;
 }
