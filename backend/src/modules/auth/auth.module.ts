@@ -9,16 +9,18 @@ import { GoogleAuthService } from './google-auth.service';
 import { TokenService } from './token.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { RefreshToken } from './entities/refresh-token.entity';
+import { AuthAuditLog } from './entities/auth-audit-log.entity';
+import { AuthAuditService } from './auth-audit.service';
 
 @Module({
   imports: [
     PassportModule,
     JwtModule.register({}),
-    TypeOrmModule.forFeature([RefreshToken]),
+    TypeOrmModule.forFeature([RefreshToken, AuthAuditLog]),
     UsersModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService, GoogleAuthService, TokenService, JwtStrategy],
+  providers: [AuthService, AuthAuditService, GoogleAuthService, TokenService, JwtStrategy],
   exports: [JwtStrategy],
 })
 export class AuthModule {}

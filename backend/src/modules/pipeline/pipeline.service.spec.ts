@@ -9,6 +9,7 @@ import { CardNewsService } from '../card-news/card-news.service';
 import { HeadlineService } from '../episodes/headline.service';
 import { ThumbnailService } from '../thumbnail/thumbnail.service';
 import { TTS_QUEUE } from '../tts/tts.constants';
+import { GroundingService } from '../grounding/grounding.service';
 
 // ── 공통 Mock 팩토리 ────────────────────────────────────────────────────────
 
@@ -47,6 +48,17 @@ const mockTtsQueue = () => ({
   add: jest.fn(),
 });
 
+const mockGroundingService = () => ({
+  fetchLatestTechArticles: jest.fn().mockResolvedValue({
+    articles: [
+      { link: 'http://a.com', source: 'S1', title: 'A' },
+      { link: 'http://b.com', source: 'S2', title: 'B' },
+      { link: 'http://c.com', source: 'S3', title: 'C' },
+    ],
+    sources: [],
+  }),
+});
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('PipelineService', () => {
@@ -54,6 +66,7 @@ describe('PipelineService', () => {
   let episodesService: ReturnType<typeof mockEpisodesService>;
   let aiProcessorService: ReturnType<typeof mockAiProcessorService>;
   let crawlerService: ReturnType<typeof mockCrawlerService>;
+  let groundingService: ReturnType<typeof mockGroundingService>;
   let cardNewsService: ReturnType<typeof mockCardNewsService>;
   let ttsQueue: ReturnType<typeof mockTtsQueue>;
 
@@ -69,6 +82,7 @@ describe('PipelineService', () => {
         { provide: ThumbnailService, useFactory: mockThumbnailService },
         { provide: DataSource, useFactory: mockDataSource },
         { provide: getQueueToken(TTS_QUEUE), useFactory: mockTtsQueue },
+        { provide: GroundingService, useFactory: mockGroundingService },
       ],
     }).compile();
 
@@ -76,6 +90,7 @@ describe('PipelineService', () => {
     episodesService = module.get(EpisodesService);
     aiProcessorService = module.get(AiProcessorService);
     crawlerService = module.get(CrawlerService);
+    groundingService = module.get(GroundingService);
     cardNewsService = module.get(CardNewsService);
     ttsQueue = module.get(getQueueToken(TTS_QUEUE));
 
@@ -105,7 +120,10 @@ describe('PipelineService', () => {
       episodesService.findTodayEpisode.mockResolvedValue({
         id: 'existing-ep',
       });
-      crawlerService.fetchLatest.mockResolvedValue([]);
+      groundingService.fetchLatestTechArticles.mockResolvedValue({
+        articles: [],
+        sources: [],
+      });
 
       const result = await service.runDailyPipeline(true);
 
@@ -123,11 +141,13 @@ describe('PipelineService', () => {
     });
 
     it('기사 2건이면 skipped=true, reason=insufficient_articles', async () => {
-      crawlerService.fetchLatest.mockResolvedValue([
-        { link: 'http://a.com', sourceId: 's1', source: 'S1', title: 'A' },
-        { link: 'http://b.com', sourceId: 's2', source: 'S2', title: 'B' },
-      ]);
-      crawlerService.fetchArticleContent.mockResolvedValue('content');
+      groundingService.fetchLatestTechArticles.mockResolvedValue({
+        articles: [
+          { link: 'http://a.com', sourceId: 's1', source: 'S1', title: 'A' },
+          { link: 'http://b.com', sourceId: 's2', source: 'S2', title: 'B' },
+        ],
+        sources: [],
+      });
 
       const result = await service.runDailyPipeline();
 
@@ -136,12 +156,14 @@ describe('PipelineService', () => {
     });
 
     it('기사 3건 이상이면 진행', async () => {
-      crawlerService.fetchLatest.mockResolvedValue([
-        { link: 'http://a.com', sourceId: 's1', source: 'S1', title: 'A' },
-        { link: 'http://b.com', sourceId: 's2', source: 'S2', title: 'B' },
-        { link: 'http://c.com', sourceId: 's3', source: 'S3', title: 'C' },
-      ]);
-      crawlerService.fetchArticleContent.mockResolvedValue('long content here');
+      groundingService.fetchLatestTechArticles.mockResolvedValue({
+        articles: [
+          { link: 'http://a.com', sourceId: 's1', source: 'S1', title: 'A' },
+          { link: 'http://b.com', sourceId: 's2', source: 'S2', title: 'B' },
+          { link: 'http://c.com', sourceId: 's3', source: 'S3', title: 'C' },
+        ],
+        sources: [],
+      });
       aiProcessorService.processNewsBriefing.mockResolvedValue({
         title: '오늘의 뉴스',
         script: 'narrator: 테스트',
@@ -163,12 +185,14 @@ describe('PipelineService', () => {
       episodesService.findTodayEpisode.mockResolvedValue(null);
       process.env.MIN_ARTICLES = '3';
 
-      crawlerService.fetchLatest.mockResolvedValue([
-        { link: 'http://a.com', sourceId: 's1', source: 'S1', title: 'A' },
-        { link: 'http://b.com', sourceId: 's2', source: 'S2', title: 'B' },
-        { link: 'http://c.com', sourceId: 's3', source: 'S3', title: 'C' },
-      ]);
-      crawlerService.fetchArticleContent.mockResolvedValue('long article content');
+      groundingService.fetchLatestTechArticles.mockResolvedValue({
+        articles: [
+          { link: 'http://a.com', sourceId: 's1', source: 'S1', title: 'A' },
+          { link: 'http://b.com', sourceId: 's2', source: 'S2', title: 'B' },
+          { link: 'http://c.com', sourceId: 's3', source: 'S3', title: 'C' },
+        ],
+        sources: [],
+      });
       aiProcessorService.processNewsBriefing.mockResolvedValue({
         title: '테스트 에피소드',
         script: 'narrator: 안녕하세요',
@@ -192,12 +216,15 @@ describe('PipelineService', () => {
         .mockRejectedValueOnce(new Error('fetch fail'))
         .mockResolvedValue('content');
 
-      crawlerService.fetchLatest.mockResolvedValue([
-        { link: 'http://fail.com', sourceId: 's0', source: 'S0', title: 'FAIL' },
-        { link: 'http://a.com', sourceId: 's1', source: 'S1', title: 'A' },
-        { link: 'http://b.com', sourceId: 's2', source: 'S2', title: 'B' },
-        { link: 'http://c.com', sourceId: 's3', source: 'S3', title: 'C' },
-      ]);
+      groundingService.fetchLatestTechArticles.mockResolvedValue({
+        articles: [
+          { link: 'http://fail.com', sourceId: 's0', source: 'S0', title: 'FAIL' },
+          { link: 'http://a.com', sourceId: 's1', source: 'S1', title: 'A' },
+          { link: 'http://b.com', sourceId: 's2', source: 'S2', title: 'B' },
+          { link: 'http://c.com', sourceId: 's3', source: 'S3', title: 'C' },
+        ],
+        sources: [],
+      });
 
       const result = await service.runDailyPipeline();
 
@@ -212,12 +239,14 @@ describe('PipelineService', () => {
       episodesService.findTodayEpisode.mockResolvedValue(null);
       process.env.MIN_ARTICLES = '3';
 
-      crawlerService.fetchLatest.mockResolvedValue([
-        { link: 'http://a.com', sourceId: 's1', source: 'S1', title: 'A' },
-        { link: 'http://b.com', sourceId: 's2', source: 'S2', title: 'B' },
-        { link: 'http://c.com', sourceId: 's3', source: 'S3', title: 'C' },
-      ]);
-      crawlerService.fetchArticleContent.mockResolvedValue('content');
+      groundingService.fetchLatestTechArticles.mockResolvedValue({
+        articles: [
+          { link: 'http://a.com', sourceId: 's1', source: 'S1', title: 'A' },
+          { link: 'http://b.com', sourceId: 's2', source: 'S2', title: 'B' },
+          { link: 'http://c.com', sourceId: 's3', source: 'S3', title: 'C' },
+        ],
+        sources: [],
+      });
     });
 
     it('LLM 2회 연속 실패 시 예외 throw', async () => {
@@ -248,12 +277,14 @@ describe('PipelineService', () => {
     beforeEach(() => {
       episodesService.findTodayEpisode.mockResolvedValue(null);
       process.env.MIN_ARTICLES = '3';
-      crawlerService.fetchLatest.mockResolvedValue([
-        { link: 'http://a.com', sourceId: 's1', source: 'S1', title: 'A' },
-        { link: 'http://b.com', sourceId: 's2', source: 'S2', title: 'B' },
-        { link: 'http://c.com', sourceId: 's3', source: 'S3', title: 'C' },
-      ]);
-      crawlerService.fetchArticleContent.mockResolvedValue('content');
+      groundingService.fetchLatestTechArticles.mockResolvedValue({
+        articles: [
+          { link: 'http://a.com', sourceId: 's1', source: 'S1', title: 'A' },
+          { link: 'http://b.com', sourceId: 's2', source: 'S2', title: 'B' },
+          { link: 'http://c.com', sourceId: 's3', source: 'S3', title: 'C' },
+        ],
+        sources: [],
+      });
       aiProcessorService.processNewsBriefing.mockResolvedValue({ title: 'T', script: 'S' });
       episodesService.create.mockResolvedValue({ id: 'ep-ok', createdAt: new Date() });
       ttsQueue.add.mockResolvedValue({ id: 'job-ok' });
@@ -276,12 +307,14 @@ describe('PipelineService', () => {
     beforeEach(() => {
       episodesService.findTodayEpisode.mockResolvedValue(null);
       process.env.MIN_ARTICLES = '3';
-      crawlerService.fetchLatest.mockResolvedValue([
-        { link: 'http://a.com', sourceId: 's1', source: 'S1', title: 'A' },
-        { link: 'http://b.com', sourceId: 's2', source: 'S2', title: 'B' },
-        { link: 'http://c.com', sourceId: 's3', source: 'S3', title: 'C' },
-      ]);
-      crawlerService.fetchArticleContent.mockResolvedValue('content');
+      groundingService.fetchLatestTechArticles.mockResolvedValue({
+        articles: [
+          { link: 'http://a.com', sourceId: 's1', source: 'S1', title: 'A' },
+          { link: 'http://b.com', sourceId: 's2', source: 'S2', title: 'B' },
+          { link: 'http://c.com', sourceId: 's3', source: 'S3', title: 'C' },
+        ],
+        sources: [],
+      });
       aiProcessorService.processNewsBriefing.mockResolvedValue({ title: 'T', script: 'S' });
       episodesService.create.mockResolvedValue({ id: 'ep-ok', createdAt: new Date() });
       cardNewsService.generateDeepDive.mockResolvedValue({ id: 'cn-ok', slideCount: 2 });
