@@ -195,7 +195,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   // 반복되는 버튼 UI를 깔끔하게 분리한 커스텀 위젯 함수
   Widget _buildLoginButton({
-    required IconData icon,
+    required FaIconData icon,
     required Color iconColor,
     required String text,
     required VoidCallback onPressed,
@@ -212,7 +212,7 @@ class _LoginScreenState extends State<LoginScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, color: iconColor, size: 24),
+          FaIcon(icon, color: iconColor, size: 24),
           const SizedBox(width: 12),
           Text(
             text,
