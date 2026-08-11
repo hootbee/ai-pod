@@ -86,11 +86,10 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
     );
     _loadSubtitleCues();
 
-    final bool isPlaying = _audioPlayer.playing;
     final bool isSameEpisode =
         AudioHandler.instance.currentEpisodeId == widget.episode.id;
 
-    if (isSameEpisode && isPlaying) {
+    if (isSameEpisode) {
       setState(() => _audioReady = true);
     } else {
       AudioHandler.instance.playEpisode(widget.episode).then((error) {
@@ -152,12 +151,8 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
                 title: Text(
                   '${speed.toStringAsFixed(1)}x',
                   style: TextStyle(
-                    color: isSelected
-                        ? const Color(0xFFD6E36F)
-                        : Colors.white,
-                    fontWeight: isSelected
-                        ? FontWeight.w700
-                        : FontWeight.w400,
+                    color: isSelected ? const Color(0xFFD6E36F) : Colors.white,
+                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w400,
                     fontSize: 18,
                   ),
                 ),
@@ -181,15 +176,13 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
   }
 
   Future<void> _seekRelative(int deltaSeconds) async {
-    if (!_audioReady) return;
-    final position = _audioPlayer.position;
     final duration = _audioPlayer.duration;
-    var target = position.inSeconds + deltaSeconds;
-    if (target < 0) target = 0;
-    if (duration != null && target > duration.inSeconds) {
-      target = duration.inSeconds;
-    }
-    await _audioPlayer.seek(Duration(seconds: target));
+    if (duration == null || duration == Duration.zero) return;
+
+    final position = _audioPlayer.position;
+    var targetMs = position.inMilliseconds + (deltaSeconds * 1000);
+    targetMs = targetMs.clamp(0, duration.inMilliseconds).toInt();
+    await _audioPlayer.seek(Duration(milliseconds: targetMs));
   }
 
   Future<void> _togglePlayPause(bool playing) async {
@@ -209,9 +202,9 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
       if (!_audioReady) return;
     }
     if (playing) {
-      await _audioPlayer.pause();
+      await AudioHandler.instance.pause();
     } else {
-      await _audioPlayer.play();
+      await AudioHandler.instance.resume();
     }
   }
 
@@ -230,7 +223,8 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
       _currentCueIndex = cueIndex;
     });
 
-    if (_itemScrollController.isAttached && !_isCueComfortablyVisible(cueIndex)) {
+    if (_itemScrollController.isAttached &&
+        !_isCueComfortablyVisible(cueIndex)) {
       _itemScrollController.scrollTo(
         index: cueIndex,
         duration: const Duration(milliseconds: 180),
@@ -297,8 +291,9 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
                       style: TextStyle(
                         fontSize: 20,
                         height: 1.5,
-                        fontWeight:
-                            isActive ? FontWeight.w700 : FontWeight.w500,
+                        fontWeight: isActive
+                            ? FontWeight.w700
+                            : FontWeight.w500,
                         color: isActive
                             ? const Color(0xFFD6E36F)
                             : Colors.white.withValues(alpha: 0.8),
@@ -322,118 +317,139 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
               ),
 
             StreamBuilder<Duration?>(
-            stream: _audioPlayer.positionStream,
-            builder: (context, snapshot) {
-              final position = snapshot.data ?? Duration.zero;
-              final duration = _audioPlayer.duration ?? Duration.zero;
+              stream: _audioPlayer.positionStream,
+              builder: (context, snapshot) {
+                final position = snapshot.data ?? Duration.zero;
+                final duration = _audioPlayer.duration ?? Duration.zero;
 
-              return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 40.0),
-                child: Column(
-                  children: [
-                    SliderTheme(
-                      data: SliderTheme.of(context).copyWith(
-                        trackHeight: 10.5,
-                        trackShape: const RoundedRectSliderTrackShape(),
-                        thumbShape: SliderComponentShape.noThumb,
-                        overlayShape: SliderComponentShape.noOverlay,
-                        activeTrackColor: const Color(0xFF4F7C2D),
-                        inactiveTrackColor: const Color(0xFF344D1C),
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 40.0),
+                  child: Column(
+                    children: [
+                      SliderTheme(
+                        data: SliderTheme.of(context).copyWith(
+                          trackHeight: 10.5,
+                          trackShape: const RoundedRectSliderTrackShape(),
+                          thumbShape: SliderComponentShape.noThumb,
+                          overlayShape: SliderComponentShape.noOverlay,
+                          activeTrackColor: const Color(0xFF4F7C2D),
+                          inactiveTrackColor: const Color(0xFF344D1C),
+                        ),
+                        child: Slider(
+                          min: 0.0,
+                          max: duration.inMilliseconds.toDouble(),
+                          value: position.inMilliseconds.toDouble().clamp(
+                            0.0,
+                            duration.inMilliseconds.toDouble(),
+                          ),
+                          onChanged: (value) {
+                            _audioPlayer.seek(
+                              Duration(milliseconds: value.toInt()),
+                            );
+                          },
+                        ),
                       ),
-                      child: Slider(
-                        min: 0.0,
-                        max: duration.inMilliseconds.toDouble(),
-                        value: position.inMilliseconds.toDouble().clamp(0.0, duration.inMilliseconds.toDouble()),
-                        onChanged: (value) {
-                          _audioPlayer.seek(Duration(milliseconds: value.toInt()));
-                        },
+                      const SizedBox(height: 7),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 0),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              _formatDuration(position),
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            Text(
+                              _formatDuration(duration),
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 7),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 0),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(_formatDuration(position), style: const TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w500)),
-                          Text(_formatDuration(duration), style: const TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w500)),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-
-          Padding(
-            padding: const EdgeInsets.only(bottom: 50.0, top: 20.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.speed, color: Colors.white70),
-                  onPressed: _showPlaybackSpeedSheet,
-                ),
-                IconButton(
-                  icon: const Icon(
-                    Icons.replay_10,
-                    color: Colors.white,
-                    size: 36,
+                    ],
                   ),
-                  onPressed: () => _seekRelative(-10),
-                ),
-                StreamBuilder<PlayerState>(
-                  stream: _audioPlayer.playerStateStream,
-                  builder: (context, snapshot) {
-                    final playing = snapshot.data?.playing ?? false;
-                    return IconButton(
-                      icon: Icon(
-                        playing
-                            ? Icons.pause_circle_filled
-                            : Icons.play_circle_fill,
-                      ),
-                      iconSize: 64,
-                      color: Colors.white,
-                      onPressed: () => _togglePlayPause(playing),
-                    );
-                  },
-                ),
-                IconButton(
-                  icon: const Icon(
-                    Icons.forward_10,
-                    color: Colors.white,
-                    size: 36,
-                  ),
-                  onPressed: () => _seekRelative(10),
-                ),
-                IconButton(
-                  icon: Icon(
-                    Icons.link, 
-                    color: widget.episode.sources.isNotEmpty ? Colors.white70 : Colors.white24,
-                  ),
-                  onPressed: widget.episode.sources.isNotEmpty 
-                    ? () => showSourceInfoBottomSheet(
-                        context,
-                        sources: widget.episode.sources,
-                        thumbnailUrl: widget.episode.thumbnailUrl,
-                      )
-                    : null,
-                ),
-              ],
+                );
+              },
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(bottom: 24),
-            child: Text(
-              '현재 재생 속도 ${_playbackSpeed.toStringAsFixed(1)}x',
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.7),
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
+
+            Padding(
+              padding: const EdgeInsets.only(bottom: 50.0, top: 20.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.speed, color: Colors.white70),
+                    onPressed: _showPlaybackSpeedSheet,
+                  ),
+                  IconButton(
+                    icon: const Icon(
+                      Icons.replay_10,
+                      color: Colors.white,
+                      size: 36,
+                    ),
+                    onPressed: () => _seekRelative(-10),
+                  ),
+                  StreamBuilder<PlayerState>(
+                    stream: _audioPlayer.playerStateStream,
+                    builder: (context, snapshot) {
+                      final playing = snapshot.data?.playing ?? false;
+                      return IconButton(
+                        icon: Icon(
+                          playing
+                              ? Icons.pause_circle_filled
+                              : Icons.play_circle_fill,
+                        ),
+                        iconSize: 64,
+                        color: Colors.white,
+                        onPressed: () => _togglePlayPause(playing),
+                      );
+                    },
+                  ),
+                  IconButton(
+                    icon: const Icon(
+                      Icons.forward_10,
+                      color: Colors.white,
+                      size: 36,
+                    ),
+                    onPressed: () => _seekRelative(10),
+                  ),
+                  IconButton(
+                    icon: Icon(
+                      Icons.link,
+                      color: widget.episode.sources.isNotEmpty
+                          ? Colors.white70
+                          : Colors.white24,
+                    ),
+                    onPressed: widget.episode.sources.isNotEmpty
+                        ? () => showSourceInfoBottomSheet(
+                            context,
+                            sources: widget.episode.sources,
+                            thumbnailUrl: widget.episode.thumbnailUrl,
+                          )
+                        : null,
+                  ),
+                ],
               ),
             ),
-          ),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 24),
+              child: Text(
+                '현재 재생 속도 ${_playbackSpeed.toStringAsFixed(1)}x',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.7),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -478,10 +494,7 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
                   final String shareText =
                       '[aipod] ${widget.episode.title}\n\n지금 이 에피소드를 들어보세요!\n\n${widget.episode.streamUrl}';
                   SharePlus.instance.share(
-                    ShareParams(
-                      text: shareText,
-                      subject: widget.episode.title,
-                    ),
+                    ShareParams(text: shareText, subject: widget.episode.title),
                   );
                 },
               ),
@@ -497,10 +510,7 @@ class _HeaderCircleButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
 
-  const _HeaderCircleButton({
-    required this.icon,
-    required this.onTap,
-  });
+  const _HeaderCircleButton({required this.icon, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -513,11 +523,7 @@ class _HeaderCircleButton extends StatelessWidget {
         child: SizedBox(
           width: 42,
           height: 42,
-          child: Icon(
-            icon,
-            color: Colors.white,
-            size: 21,
-          ),
+          child: Icon(icon, color: Colors.white, size: 21),
         ),
       ),
     );
