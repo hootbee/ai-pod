@@ -24,6 +24,8 @@ import { User } from './modules/users/entities/user.entity';
 import { RefreshToken } from './modules/auth/entities/refresh-token.entity';
 import { AuthAuditLog } from './modules/auth/entities/auth-audit-log.entity';
 import { AppVersionModule } from './modules/app-version/app-version.module';
+import { AnalyticsModule } from './modules/analytics/analytics.module';
+import { AnalyticsEvent } from './modules/analytics/entities/analytics-event.entity';
 
 @Module({
   imports: [
@@ -57,6 +59,7 @@ import { AppVersionModule } from './modules/app-version/app-version.module';
         User,
         RefreshToken,
         AuthAuditLog,
+        AnalyticsEvent,
         CardNews,
         CardNewsViewLog,
         EpisodeThumbnail,
@@ -73,6 +76,7 @@ import { AppVersionModule } from './modules/app-version/app-version.module';
     PipelineModule,
     ThumbnailModule,
     AppVersionModule,
+    AnalyticsModule,
   ],
   controllers: [AppController],
   providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],

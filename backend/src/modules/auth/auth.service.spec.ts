@@ -7,6 +7,7 @@ import { TokenService } from './token.service';
 import { AuthProvider, UserRole } from '../users/entities/user.entity';
 import { AuthAuditService } from './auth-audit.service';
 import { AuthAuditEventType } from './entities/auth-audit-log.entity';
+import { AnalyticsEventService } from '../analytics/analytics-event.service';
 
 const mockGoogleAuthService = () => ({
   verify: jest.fn(),
@@ -14,6 +15,7 @@ const mockGoogleAuthService = () => ({
 });
 
 const mockUsersService = () => ({
+  findExisting: jest.fn(),
   findOrCreate: jest.fn(),
   findById: jest.fn(),
 });
@@ -27,6 +29,10 @@ const mockTokenService = () => ({
 
 const mockAuthAuditService = () => ({
   record: jest.fn(),
+});
+
+const mockAnalyticsEventService = () => ({
+  recordSafe: jest.fn(),
 });
 
 describe('AuthService', () => {
@@ -44,6 +50,7 @@ describe('AuthService', () => {
         { provide: UsersService, useFactory: mockUsersService },
         { provide: TokenService, useFactory: mockTokenService },
         { provide: AuthAuditService, useFactory: mockAuthAuditService },
+        { provide: AnalyticsEventService, useFactory: mockAnalyticsEventService },
       ],
     }).compile();
 
@@ -63,6 +70,7 @@ describe('AuthService', () => {
         email: 'user@example.com',
         nickname: '테스트',
       });
+      usersService.findExisting.mockResolvedValue(null);
       usersService.findOrCreate.mockResolvedValue({
         id: 'user-1',
         email: 'user@example.com',
@@ -83,6 +91,12 @@ describe('AuthService', () => {
         provider: 'google',
       });
       expect(tokenService.generateRefreshToken).toHaveBeenCalledWith('user-1', undefined);
+      expect(authAuditService.record).toHaveBeenCalledWith({
+        requestId: 'request-1',
+        userId: 'user-1',
+        eventType: AuthAuditEventType.SIGNUP_SUCCESS,
+        provider: 'google',
+      });
     });
 
     it('로그인 정보가 없으면 실패 감사 로그를 기록한다', async () => {

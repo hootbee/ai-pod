@@ -228,3 +228,33 @@ curl -X POST http://localhost:3000/card-news/test/$(
 | `AUTH_AUDIT_IP_HASH_SECRET` | — | 인증 감사 로그 IP 해시용 비밀키 (선택) |
 
 인증 감사 로그는 `auth_audit_logs`에 로그인, refresh, logout 성공·실패 이력을 저장합니다. IP 주소는 원문으로 저장하지 않고 `AUTH_AUDIT_IP_HASH_SECRET`이 설정된 경우에만 해시로 저장합니다. Refresh Token은 `refresh_tokens.revokedAt`으로 폐기 시각을 보존하며 원문 토큰은 저장하지 않습니다.
+
+## 사용자 행동 분석 API
+
+행동 분석 이벤트는 `analytics_events`에 append-only 방식으로 저장합니다. 기존의 `episode_play_logs`와 `card_news_view_logs`는 하위 호환성을 위해 유지하며 분석 조회에서 함께 사용합니다.
+
+이벤트 기록:
+
+```text
+POST /analytics/events
+```
+
+관리자 분석 API는 ADMIN 권한이 필요합니다.
+
+```text
+GET /admin/analytics/overview
+GET /admin/analytics/funnel
+GET /admin/analytics/users?page=1&limit=20&sort=lastActivityAt&order=desc
+GET /admin/analytics/episodes
+GET /admin/analytics/card-news
+GET /admin/analytics/retention
+GET /admin/analytics/auth
+```
+
+모든 분석 조회 API는 `from`과 `to` ISO 날짜 필터를 지원합니다. 이메일은 분석 API에서 마스킹되어 반환됩니다.
+
+운영 DB에서는 자동 스키마 동기화 대신 migration을 사용합니다.
+
+```bash
+npm run migration:run
+```

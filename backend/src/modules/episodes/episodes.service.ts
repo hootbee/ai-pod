@@ -11,6 +11,8 @@ import { EpisodeThumbnail } from '../thumbnail/entities/episode-thumbnail.entity
 import { EpisodePlayLog } from './entities/episode-play-log.entity';
 import { toPublicMediaPath } from '../../common/media-path.util';
 import { PaginatedResponse, toPaginatedResponse } from '../../common/dto/paginated-response.dto';
+import { AnalyticsEventService } from '../analytics/analytics-event.service';
+import { AnalyticsEventType } from '../analytics/entities/analytics-event.entity';
 
 export type PodcastEpisodeWithMedia = PodcastEpisode & {
   thumbnailPath: string | null;
@@ -26,6 +28,7 @@ export class EpisodesService {
     private readonly thumbnailsRepository: Repository<EpisodeThumbnail>,
     @InjectRepository(EpisodePlayLog)
     private readonly playLogRepository: Repository<EpisodePlayLog>,
+    private readonly analyticsEventService: AnalyticsEventService,
   ) {}
 
   async create(createEpisodeDto: CreateEpisodeDto): Promise<PodcastEpisode> {
@@ -85,6 +88,10 @@ export class EpisodesService {
   }
 
   async incrementAudioPlayCount(id: string, userId: string): Promise<{ alreadyCounted: boolean }> {
+    await this.analyticsEventService.recordSafe(userId, {
+      eventType: AnalyticsEventType.EPISODE_START,
+      episodeId: id,
+    });
     const existing = await this.playLogRepository.findOne({ where: { userId, episodeId: id } });
     if (existing) {
       await this.playLogRepository.update({ id: existing.id }, { lastPlayedAt: new Date() });
