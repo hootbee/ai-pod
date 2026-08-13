@@ -11,6 +11,8 @@ import { RendererService } from './renderer.service';
 import { ResearcherService } from './researcher.service';
 import { EpisodesService } from '../episodes/episodes.service';
 import { PaginatedResponse, toPaginatedResponse } from '../../common/dto/paginated-response.dto';
+import { AnalyticsEventService } from '../analytics/analytics-event.service';
+import { AnalyticsEventType } from '../analytics/entities/analytics-event.entity';
 
 @Injectable()
 export class CardNewsService {
@@ -26,6 +28,7 @@ export class CardNewsService {
     private readonly researcherService: ResearcherService,
     private readonly designMakerService: DesignMakerService,
     private readonly rendererService: RendererService,
+    private readonly analyticsEventService: AnalyticsEventService,
   ) {}
 
   async generate(episodeId: string): Promise<CardNews> {
@@ -129,6 +132,10 @@ export class CardNewsService {
   }
 
   async incrementViewCount(id: string, userId: string): Promise<{ alreadyCounted: boolean }> {
+    await this.analyticsEventService.recordSafe(userId, {
+      eventType: AnalyticsEventType.CARD_NEWS_OPEN,
+      cardNewsId: id,
+    });
     const existing = await this.viewLogRepository.findOne({ where: { userId, cardNewsId: id } });
     if (existing) return { alreadyCounted: true };
 

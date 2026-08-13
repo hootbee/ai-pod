@@ -7,6 +7,8 @@ import { AuthAuditEventType } from './entities/auth-audit-log.entity';
 import type { AuthAuditContext } from './auth-audit.service';
 import type { IAuthService } from './interfaces/auth.service.interface';
 import type { TokenPair } from './interfaces/token.service.interface';
+import { AnalyticsEventService } from '../analytics/analytics-event.service';
+import { AnalyticsEventType } from '../analytics/entities/analytics-event.entity';
 
 @Injectable()
 export class AuthService implements IAuthService {
@@ -15,6 +17,7 @@ export class AuthService implements IAuthService {
     private readonly usersService: UsersService,
     private readonly tokenService: TokenService,
     private readonly authAuditService: AuthAuditService,
+    private readonly analyticsEventService: AnalyticsEventService,
   ) {}
 
   async loginWithGoogle(
@@ -29,6 +32,9 @@ export class AuthService implements IAuthService {
         provider: 'google',
         failureReason: 'missing_credentials',
       });
+      await this.analyticsEventService.recordSafe(null, {
+        eventType: AnalyticsEventType.LOGIN_FAILED,
+      });
       throw new UnauthorizedException('idToken or accessToken is required');
     }
 
@@ -36,6 +42,7 @@ export class AuthService implements IAuthService {
       const googleUser = idToken
         ? await this.googleAuthService.verify(idToken)
         : await this.googleAuthService.verifyAccessToken(googleAccessToken!);
+      const existingUser = await this.usersService.findExisting(googleUser);
       const user = await this.usersService.findOrCreate(googleUser);
 
       const issuedAccessToken = this.tokenService.generateAccessToken({
@@ -51,6 +58,20 @@ export class AuthService implements IAuthService {
         eventType: AuthAuditEventType.LOGIN_SUCCESS,
         provider: 'google',
       });
+      await this.analyticsEventService.recordSafe(user.id, {
+        eventType: AnalyticsEventType.LOGIN_SUCCESS,
+      });
+      if (!existingUser) {
+        await this.authAuditService.record({
+          ...context,
+          userId: user.id,
+          eventType: AuthAuditEventType.SIGNUP_SUCCESS,
+          provider: 'google',
+        });
+        await this.analyticsEventService.recordSafe(user.id, {
+          eventType: AnalyticsEventType.SIGNUP_COMPLETE,
+        });
+      }
 
       return { accessToken: issuedAccessToken, refreshToken };
     } catch (error) {
@@ -59,6 +80,9 @@ export class AuthService implements IAuthService {
         eventType: AuthAuditEventType.LOGIN_FAILURE,
         provider: 'google',
         failureReason: 'provider_verification_or_token_issue',
+      });
+      await this.analyticsEventService.recordSafe(null, {
+        eventType: AnalyticsEventType.LOGIN_FAILED,
       });
       throw error;
     }
@@ -80,6 +104,9 @@ export class AuthService implements IAuthService {
         eventType: AuthAuditEventType.REFRESH_FAILURE,
         failureReason: 'invalid_refresh_token',
       });
+      await this.analyticsEventService.recordSafe(null, {
+        eventType: AnalyticsEventType.REFRESH_FAILED,
+      });
       throw new UnauthorizedException('Invalid refresh token');
     }
 
@@ -91,6 +118,9 @@ export class AuthService implements IAuthService {
         eventType: AuthAuditEventType.REFRESH_FAILURE,
         failureReason: 'refresh_token_not_found_or_expired',
       });
+      await this.analyticsEventService.recordSafe(userId, {
+        eventType: AnalyticsEventType.REFRESH_FAILED,
+      });
       throw new UnauthorizedException('Refresh token not found or expired');
     }
 
@@ -101,6 +131,9 @@ export class AuthService implements IAuthService {
         userId,
         eventType: AuthAuditEventType.REFRESH_FAILURE,
         failureReason: 'user_not_found',
+      });
+      await this.analyticsEventService.recordSafe(userId, {
+        eventType: AnalyticsEventType.REFRESH_FAILED,
       });
       throw new UnauthorizedException('User not found');
     }
@@ -123,6 +156,9 @@ export class AuthService implements IAuthService {
         userId: user.id,
         eventType: AuthAuditEventType.REFRESH_SUCCESS,
       });
+      await this.analyticsEventService.recordSafe(user.id, {
+        eventType: AnalyticsEventType.REFRESH_SUCCESS,
+      });
 
       return { accessToken: newAccessToken, refreshToken: newRefreshToken };
     } catch (error) {
@@ -131,6 +167,9 @@ export class AuthService implements IAuthService {
         userId: user.id,
         eventType: AuthAuditEventType.REFRESH_FAILURE,
         failureReason: 'token_rotation_failed',
+      });
+      await this.analyticsEventService.recordSafe(user.id, {
+        eventType: AnalyticsEventType.REFRESH_FAILED,
       });
       throw error;
     }
@@ -145,12 +184,18 @@ export class AuthService implements IAuthService {
         eventType: revoked ? AuthAuditEventType.LOGOUT_SUCCESS : AuthAuditEventType.LOGOUT_FAILURE,
         ...(revoked ? {} : { failureReason: 'refresh_token_not_found' }),
       });
+      await this.analyticsEventService.recordSafe(userId, {
+        eventType: AnalyticsEventType.LOGOUT,
+      });
     } catch (error) {
       await this.authAuditService.record({
         ...context,
         userId,
         eventType: AuthAuditEventType.LOGOUT_FAILURE,
         failureReason: 'token_revoke_failed',
+      });
+      await this.analyticsEventService.recordSafe(userId, {
+        eventType: AnalyticsEventType.LOGOUT,
       });
       throw error;
     }

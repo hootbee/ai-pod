@@ -2,7 +2,7 @@ import { Process, Processor } from '@nestjs/bull';
 import { Logger } from '@nestjs/common';
 import type { Job } from 'bull';
 import { TtsService } from './tts.service';
-import { TTS_JOB, TTS_QUEUE } from './tts.constants';
+import { TTS_JOB, TTS_QUEUE } from '../../common/queues/tts.constants';
 
 export interface TtsGenerateJobData {
   episodeId: string;

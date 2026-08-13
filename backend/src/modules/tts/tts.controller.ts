@@ -5,7 +5,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from '../users/entities/user.entity';
-import { TTS_JOB, TTS_QUEUE } from './tts.constants';
+import { TTS_JOB, TTS_QUEUE } from '../../common/queues/tts.constants';
 
 @Controller('tts')
 @UseGuards(JwtAuthGuard, RolesGuard)

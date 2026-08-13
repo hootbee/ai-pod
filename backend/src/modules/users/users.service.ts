@@ -28,10 +28,12 @@ export class UsersService {
     });
   }
 
+  async findExisting(info: GoogleUserInfo): Promise<User | null> {
+    return (await this.findByProvider(AuthProvider.GOOGLE, info.googleId)) ?? this.findByEmail(info.email);
+  }
+
   async findOrCreate(info: GoogleUserInfo): Promise<User> {
-    const existing =
-      (await this.findByProvider(AuthProvider.GOOGLE, info.googleId)) ??
-      (await this.findByEmail(info.email));
+    const existing = await this.findExisting(info);
 
     if (existing) {
       existing.nickname = info.name;

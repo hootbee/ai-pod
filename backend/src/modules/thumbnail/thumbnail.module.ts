@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { EpisodeThumbnail } from './entities/episode-thumbnail.entity';
+import { EpisodeThumbnail } from '../episodes/entities/episode-thumbnail.entity';
 import { ThumbnailController } from './thumbnail.controller';
 import { ThumbnailService } from './thumbnail.service';
 import { ThumbnailPromptService } from './thumbnail-prompt.service';
