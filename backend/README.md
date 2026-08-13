@@ -258,3 +258,20 @@ GET /admin/analytics/auth
 ```bash
 npm run migration:run
 ```
+
+## 아키텍처 피트니스 함수
+
+백엔드의 NestJS `*.module.ts` 런타임 import 그래프를 검사해 모듈 순환 의존성과 `common` 계층의 feature 역참조를 감지합니다. 기존 위반은 `architecture/architecture-baseline.json`에 기준선으로 기록하고, 이후 신규 위반만 CI에서 실패 처리합니다.
+
+```bash
+# 구조 검사 단위 테스트
+npm run architecture:unit
+
+# 신규 아키텍처 위반 검사
+npm run architecture:test
+
+# 의도적으로 기존 기준선을 갱신할 때만 실행
+npm run architecture:baseline
+```
+
+기준선 갱신은 구조 변경으로 기존 위반을 실제로 검토한 뒤 별도 커밋으로 수행합니다. 단순히 CI를 통과시키기 위한 기준선 갱신은 금지합니다.

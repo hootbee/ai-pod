@@ -19,7 +19,7 @@ import { CardNews } from './modules/card-news/entities/card-news.entity';
 import { CardNewsViewLog } from './modules/card-news/entities/card-news-view-log.entity';
 import { PodcastEpisode } from './modules/episodes/entities/podcast-episode.entity';
 import { EpisodePlayLog } from './modules/episodes/entities/episode-play-log.entity';
-import { EpisodeThumbnail } from './modules/thumbnail/entities/episode-thumbnail.entity';
+import { EpisodeThumbnail } from './modules/episodes/entities/episode-thumbnail.entity';
 import { User } from './modules/users/entities/user.entity';
 import { RefreshToken } from './modules/auth/entities/refresh-token.entity';
 import { AuthAuditLog } from './modules/auth/entities/auth-audit-log.entity';

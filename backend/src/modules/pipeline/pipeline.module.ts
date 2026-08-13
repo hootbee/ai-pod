@@ -1,6 +1,5 @@
 import { Module } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
-import { BullModule } from '@nestjs/bull';
 import { PipelineService } from './pipeline.service';
 import { PipelineScheduler } from './pipeline.scheduler';
 import { PipelineController } from './pipeline.controller';
@@ -9,12 +8,12 @@ import { AiProcessorModule } from '../ai-processor/ai-processor.module';
 import { EpisodesModule } from '../episodes/episodes.module';
 import { CardNewsModule } from '../card-news/card-news.module';
 import { ThumbnailModule } from '../thumbnail/thumbnail.module';
-import { TTS_QUEUE } from '../tts/tts.constants';
+import { TtsQueueModule } from '../../common/queues/tts-queue.module';
 
 @Module({
   imports: [
     ScheduleModule.forRoot(),
-    BullModule.registerQueue({ name: TTS_QUEUE }),
+    TtsQueueModule,
     GroundingModule,
     AiProcessorModule,
     EpisodesModule,

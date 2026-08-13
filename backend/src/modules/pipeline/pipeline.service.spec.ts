@@ -8,7 +8,7 @@ import { CrawlerService } from '../crawler/crawler.service';
 import { CardNewsService } from '../card-news/card-news.service';
 import { HeadlineService } from '../episodes/headline.service';
 import { ThumbnailService } from '../thumbnail/thumbnail.service';
-import { TTS_QUEUE } from '../tts/tts.constants';
+import { TTS_QUEUE } from '../../common/queues/tts.constants';
 import { GroundingService } from '../grounding/grounding.service';
 
 // ── 공통 Mock 팩토리 ────────────────────────────────────────────────────────

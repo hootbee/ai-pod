@@ -37,6 +37,12 @@ jobs:
       - name: Test
         run: npm test -- --runInBand
 
+      - name: Architecture fitness checks
+        run: npm run architecture:test
+
+      - name: Architecture checker unit tests
+        run: npm run architecture:unit
+
       - name: Lint changed backend modules
         run: >-
           npx eslint

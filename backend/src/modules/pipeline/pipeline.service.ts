@@ -11,7 +11,7 @@ import { EpisodesService } from '../episodes/episodes.service';
 import { HeadlineService } from '../episodes/headline.service';
 import { CardNewsService } from '../card-news/card-news.service';
 import { ThumbnailService } from '../thumbnail/thumbnail.service';
-import { TTS_JOB, TTS_QUEUE } from '../tts/tts.constants';
+import { TTS_JOB, TTS_QUEUE } from '../../common/queues/tts.constants';
 import type { BriefingArticle } from '../ai-processor/interfaces/ai-provider.interface';
 
 const PIPELINE_LOCK_KEY = 'pipeline:daily:lock';

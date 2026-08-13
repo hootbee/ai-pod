@@ -7,7 +7,7 @@ import { CreateEpisodeDto } from './dto/create-episode.dto';
 import { PaginateEpisodesDto } from './dto/paginate-episodes.dto';
 import { UpdateAudioPathDto } from './dto/update-audio-path.dto';
 import { AudioStatus, PodcastEpisode } from './entities/podcast-episode.entity';
-import { EpisodeThumbnail } from '../thumbnail/entities/episode-thumbnail.entity';
+import { EpisodeThumbnail } from './entities/episode-thumbnail.entity';
 import { EpisodePlayLog } from './entities/episode-play-log.entity';
 import { toPublicMediaPath } from '../../common/media-path.util';
 import { PaginatedResponse, toPaginatedResponse } from '../../common/dto/paginated-response.dto';
