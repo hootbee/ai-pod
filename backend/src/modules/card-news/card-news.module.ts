@@ -9,9 +9,10 @@ import { DesignMakerService } from './design-maker.service';
 import { RendererService } from './renderer.service';
 import { ResearcherService } from './researcher.service';
 import { EpisodesModule } from '../episodes/episodes.module';
+import { AnalyticsModule } from '../analytics/analytics.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([CardNews, CardNewsViewLog]), EpisodesModule],
+  imports: [TypeOrmModule.forFeature([CardNews, CardNewsViewLog]), EpisodesModule, AnalyticsModule],
   controllers: [CardNewsController],
   providers: [CardNewsService, DirectorService, ResearcherService, DesignMakerService, RendererService],
   exports: [CardNewsService],

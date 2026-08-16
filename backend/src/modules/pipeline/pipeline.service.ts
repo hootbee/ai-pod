@@ -11,7 +11,7 @@ import { EpisodesService } from '../episodes/episodes.service';
 import { HeadlineService } from '../episodes/headline.service';
 import { CardNewsService } from '../card-news/card-news.service';
 import { ThumbnailService } from '../thumbnail/thumbnail.service';
-import { TTS_JOB, TTS_QUEUE } from '../tts/tts.constants';
+import { TTS_JOB, TTS_QUEUE } from '../../common/queues/tts.constants';
 import type { BriefingArticle } from '../ai-processor/interfaces/ai-provider.interface';
 
 const PIPELINE_LOCK_KEY = 'pipeline:daily:lock';
@@ -208,14 +208,31 @@ export class PipelineService {
     }
 
     try {
-      await fetch(webhookUrl, {
+      const response = await fetch(webhookUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content }),
       });
+
+      if (!response.ok) {
+        let responseBody = '';
+        try {
+          responseBody = await response.text();
+        } catch (err) {
+          responseBody = `응답 본문 읽기 실패: ${this.formatError(err)}`;
+        }
+
+        const status = `${response.status}${response.statusText ? ` ${response.statusText}` : ''}`;
+        const detail = responseBody.trim().replace(/\s+/g, ' ').slice(0, 500) || '응답 본문 없음';
+        this.logger.warn(`[Pipeline] 웹훅 발송 실패: status=${status}, response=${detail}`);
+      }
     } catch (err) {
-      this.logger.warn(`[Pipeline] 웹훅 발송 실패: ${err instanceof Error ? err.message : err}`);
+      this.logger.warn(`[Pipeline] 웹훅 요청 오류: ${this.formatError(err)}`);
     }
+  }
+
+  private formatError(error: unknown): string {
+    return error instanceof Error ? `${error.name}: ${error.message}` : String(error);
   }
 
   private async resetRuntimeState(): Promise<void> {

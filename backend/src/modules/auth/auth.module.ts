@@ -11,6 +11,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { RefreshToken } from './entities/refresh-token.entity';
 import { AuthAuditLog } from './entities/auth-audit-log.entity';
 import { AuthAuditService } from './auth-audit.service';
+import { AnalyticsModule } from '../analytics/analytics.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { AuthAuditService } from './auth-audit.service';
     JwtModule.register({}),
     TypeOrmModule.forFeature([RefreshToken, AuthAuditLog]),
     UsersModule,
+    AnalyticsModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, AuthAuditService, GoogleAuthService, TokenService, JwtStrategy],

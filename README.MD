@@ -99,6 +99,39 @@ flutter test integration_test/auth_refresh_test.dart
 
 ---
 
+## 🚀 백엔드 프로덕션 CD
+
+`.github/workflows/deploy-production.yml`은 `main` 브랜치에 병합된 커밋을
+기준으로 백엔드를 프로덕션 서버에 배포합니다.
+
+배포 순서:
+
+1. 백엔드 build, test, architecture 검증
+2. `linux/amd64` Docker 이미지 빌드
+3. `hootbee/aipod-backend:<commit-sha>` 이미지 푸시
+4. 프로덕션 서버에서 해당 이미지 pull 및 backend 컨테이너 재생성
+5. `http://127.0.0.1:3000/` health check
+6. 실패 시 직전 이미지로 롤백 시도
+
+GitHub 저장소의 `Settings > Environments > production`에 아래 Secrets를
+등록해야 합니다.
+
+```text
+DOCKERHUB_USERNAME  Docker Hub 사용자명
+DOCKERHUB_TOKEN     Docker Hub 접근 토큰
+PROD_HOST           프로덕션 서버 호스트명 또는 IP
+PROD_USER           SSH 사용자명
+PROD_SSH_KEY        프로덕션 서버 접속용 SSH private key
+PROD_PATH           원격 docker-compose.yml 디렉터리
+```
+
+`production` Environment에 Required reviewers를 지정하면 검증은 자동으로
+진행하고, 실제 서버 배포는 승인 후 실행할 수 있습니다. 프로덕션 서버의
+`docker-compose.yml`은 backend 서비스에 `build` 없이 Docker Hub 이미지의
+`image` 항목을 사용해야 합니다.
+
+---
+
 ## ⚠️ 주의사항
 
 * `main` 브랜치에서 직접 작업하거나 push 금지

@@ -8,7 +8,7 @@ import { CrawlerService } from '../crawler/crawler.service';
 import { CardNewsService } from '../card-news/card-news.service';
 import { HeadlineService } from '../episodes/headline.service';
 import { ThumbnailService } from '../thumbnail/thumbnail.service';
-import { TTS_QUEUE } from '../tts/tts.constants';
+import { TTS_QUEUE } from '../../common/queues/tts.constants';
 import { GroundingService } from '../grounding/grounding.service';
 
 // ── 공통 Mock 팩토리 ────────────────────────────────────────────────────────
@@ -337,6 +337,67 @@ describe('PipelineService', () => {
     it('timeout 초과 시 에러 throw', async () => {
       const neverResolves = () => new Promise<void>(() => {});
       await expect(service.retryWithTimeout(neverResolves, 50, 1)).rejects.toThrow('Timeout');
+    });
+  });
+
+  // ── 8. Discord 웹훅 실패 로깅 ───────────────────────────────────────────
+  describe('Discord 웹훅 실패 처리', () => {
+    beforeEach(() => {
+      process.env.DISCORD_WEBHOOK_URL = 'https://discord.example/webhook';
+      episodesService.findTodayEpisode.mockResolvedValue(null);
+      process.env.MIN_ARTICLES = '3';
+      groundingService.fetchLatestTechArticles.mockResolvedValue({
+        articles: [
+          { link: 'http://a.com', sourceId: 's1', source: 'S1', title: 'A' },
+          { link: 'http://b.com', sourceId: 's2', source: 'S2', title: 'B' },
+          { link: 'http://c.com', sourceId: 's3', source: 'S3', title: 'C' },
+        ],
+        sources: [],
+      });
+      aiProcessorService.processNewsBriefing.mockResolvedValue({ title: 'T', script: 'S' });
+      episodesService.create.mockResolvedValue({ id: 'ep-webhook', createdAt: new Date() });
+      cardNewsService.generateDeepDive.mockResolvedValue({ id: 'cn-webhook', slideCount: 2 });
+      ttsQueue.add.mockResolvedValue({ id: 'job-webhook' });
+    });
+
+    afterEach(() => {
+      delete process.env.DISCORD_WEBHOOK_URL;
+    });
+
+    it('HTTP 실패 응답의 상태와 본문을 로그로 남기고 파이프라인 결과는 유지한다', async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: false,
+        status: 401,
+        statusText: 'Unauthorized',
+        text: jest.fn().mockResolvedValue('{"message":"invalid webhook token"}'),
+      });
+      const warnSpy = jest.spyOn(
+        (service as unknown as { logger: { warn: (message: string) => void } }).logger,
+        'warn',
+      );
+
+      const result = await service.runDailyPipeline();
+
+      expect(result.episodeId).toBe('ep-webhook');
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('웹훅 발송 실패: status=401 Unauthorized'),
+      );
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('invalid webhook token'));
+    });
+
+    it('네트워크 예외의 타입과 메시지를 로그로 남긴다', async () => {
+      global.fetch = jest.fn().mockRejectedValue(new TypeError('fetch failed'));
+      const warnSpy = jest.spyOn(
+        (service as unknown as { logger: { warn: (message: string) => void } }).logger,
+        'warn',
+      );
+
+      const result = await service.runDailyPipeline();
+
+      expect(result.episodeId).toBe('ep-webhook');
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('웹훅 요청 오류: TypeError: fetch failed'),
+      );
     });
   });
 });

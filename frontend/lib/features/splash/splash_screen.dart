@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'dart:async';
 import '../auth/auth_service.dart';
 import '../auth/login_screen.dart';
 import '../podcast/main_screen.dart';
@@ -22,19 +21,18 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _init() async {
-    // 스플래시 최소 노출(2.5초)과 자동 로그인 체크를 동시에 실행
+    // 자동 로그인과 업데이트 확인이 완료되는 즉시 다음 화면으로 전환한다.
     // 어떤 예외가 나도 앱이 로딩 화면에 갇히지 않도록 로그인 화면으로 안전하게 이동한다.
     bool isLoggedIn = false;
     AppUpdateInfo? updateInfo;
 
     try {
       final results = await Future.wait([
-        Future.delayed(const Duration(milliseconds: 2500)),
         _tryAutoLoginSafely(),
         AppUpdateService.instance.checkForUpdate(),
       ]);
-      isLoggedIn = results[1] as bool;
-      updateInfo = results[2] as AppUpdateInfo?;
+      isLoggedIn = results[0] as bool;
+      updateInfo = results[1] as AppUpdateInfo?;
     } catch (e, stackTrace) {
       debugPrint('Splash init failed: $e');
       debugPrintStack(stackTrace: stackTrace);

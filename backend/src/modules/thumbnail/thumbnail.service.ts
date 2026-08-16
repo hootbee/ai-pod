@@ -2,7 +2,7 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as path from 'path';
-import { EpisodeThumbnail } from './entities/episode-thumbnail.entity';
+import { EpisodeThumbnail } from '../episodes/entities/episode-thumbnail.entity';
 import { ThumbnailPromptService } from './thumbnail-prompt.service';
 import { ThumbnailGeneratorService } from './thumbnail-generator.service';
 import { PodcastEpisode } from '../episodes/entities/podcast-episode.entity';

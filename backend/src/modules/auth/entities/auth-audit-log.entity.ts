@@ -1,6 +1,7 @@
 import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn } from 'typeorm';
 
 export enum AuthAuditEventType {
+  SIGNUP_SUCCESS = 'signup_success',
   LOGIN_SUCCESS = 'login_success',
   LOGIN_FAILURE = 'login_failure',
   REFRESH_SUCCESS = 'refresh_success',

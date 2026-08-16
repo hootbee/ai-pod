@@ -7,7 +7,7 @@ import { UpdateAudioPathDto } from './dto/update-audio-path.dto';
 import { EpisodesService } from './episodes.service';
 import { HeadlineService } from './headline.service';
 import { AudioStreamService } from '../audio/audio-stream.service';
-import { TTS_JOB, TTS_QUEUE } from '../tts/tts.constants';
+import { TTS_JOB, TTS_QUEUE } from '../../common/queues/tts.constants';
 import type { Request, Response } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
