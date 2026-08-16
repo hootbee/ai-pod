@@ -1,0 +1,92 @@
+name: Deploy Android to closed testing
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-closed-testing
+  cancel-in-progress: false
+
+env:
+  PLAY_PACKAGE_NAME: com.aipod.app
+  PLAY_TRACK: beta
+
+jobs:
+  verify-and-upload:
+    name: Build and upload Android App Bundle
+    runs-on: ubuntu-latest
+    environment: play-closed
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Test
+        run: flutter test
+
+      - name: Restore Android release signing files
+        shell: bash
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "$ANDROID_KEYSTORE_BASE64"
+          test -n "$ANDROID_KEYSTORE_PASSWORD"
+          test -n "$ANDROID_KEY_ALIAS"
+          test -n "$ANDROID_KEY_PASSWORD"
+          mkdir -p android/keystore
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/keystore/aipod-upload.jks
+          chmod 600 android/keystore/aipod-upload.jks
+          cat > android/key.properties <<EOF
+          storeFile=keystore/aipod-upload.jks
+          storePassword=$ANDROID_KEYSTORE_PASSWORD
+          keyAlias=$ANDROID_KEY_ALIAS
+          keyPassword=$ANDROID_KEY_PASSWORD
+          EOF
+
+      - name: Validate release version
+        shell: bash
+        run: |
+          set -euo pipefail
+          version_line=$(awk '/^version:/ { print $2; exit }' pubspec.yaml)
+          version_name=${version_line%%+*}
+          version_code=${version_line##*+}
+          [[ "$version_name" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          [[ "$version_code" =~ ^[1-9][0-9]*$ ]]
+          echo "Release version: $version_name (versionCode $version_code)"
+
+      - name: Build release app bundle
+        run: flutter build appbundle --release
+
+      - name: Upload to Google Play closed testing
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: ${{ env.PLAY_PACKAGE_NAME }}
+          releaseFiles: frontend/build/app/outputs/bundle/release/app-release.aab
+          tracks: ${{ env.PLAY_TRACK }}
+          status: completed
+          changesNotSentForReview: true
