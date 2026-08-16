@@ -1,0 +1,134 @@
+name: Deploy backend to production
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-backend-deploy
+  cancel-in-progress: false
+
+env:
+  IMAGE_NAME: hootbee/aipod-backend
+
+jobs:
+  verify:
+    name: Verify backend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm test -- --runInBand
+
+      - name: Architecture checks
+        run: npm run architecture:test && npm run architecture:unit
+
+  deploy:
+    name: Build and deploy backend
+    needs: verify
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      IMAGE_TAG: ${{ github.sha }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push immutable image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Configure SSH
+        shell: bash
+        env:
+          PROD_SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          install -m 700 -d "$HOME/.ssh"
+          printf '%s\n' "$PROD_SSH_KEY" > "$HOME/.ssh/id_ed25519"
+          chmod 600 "$HOME/.ssh/id_ed25519"
+          ssh-keyscan -H "${{ secrets.PROD_HOST }}" >> "$HOME/.ssh/known_hosts"
+
+      - name: Deploy and verify
+        shell: bash
+        env:
+          PROD_HOST: ${{ secrets.PROD_HOST }}
+          PROD_USER: ${{ secrets.PROD_USER }}
+          PROD_PATH: ${{ secrets.PROD_PATH }}
+          IMAGE: ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+        run: |
+          set -euo pipefail
+          ssh "$PROD_USER@$PROD_HOST" "IMAGE='$IMAGE' PROD_PATH='$PROD_PATH' bash -s" <<'REMOTE'
+          set -euo pipefail
+          cd "$PROD_PATH"
+
+          compose_file="docker-compose.yml"
+          backup_file="docker-compose.yml.bak-${IMAGE##*:}"
+          cp "$compose_file" "$backup_file"
+          previous_image=$(sed -n 's/^[[:space:]]*image:[[:space:]]*//p' "$compose_file" | head -n 1)
+
+          rollback() {
+            if [ -n "${previous_image:-}" ]; then
+              sed -i "0,/^[[:space:]]*image:.*/s//    image: $previous_image/" "$compose_file"
+              docker compose pull backend
+              docker compose up -d --no-deps --force-recreate backend
+            fi
+          }
+          trap rollback ERR
+
+          sed -i "0,/^[[:space:]]*image:.*/s//    image: $IMAGE/" "$compose_file"
+          docker compose pull backend
+          docker compose up -d --no-deps --force-recreate backend
+
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent --show-error --max-time 5 http://127.0.0.1:3000/ >/dev/null; then
+              trap - ERR
+              docker image prune -f >/dev/null
+              echo "Production deployment verified: $IMAGE"
+              exit 0
+            fi
+            sleep 2
+          done
+
+          echo "Production health check failed" >&2
+          exit 1
+          REMOTE
