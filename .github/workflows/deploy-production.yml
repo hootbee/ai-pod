@@ -106,16 +106,28 @@ jobs:
           cp "$compose_file" "$backup_file"
           previous_image=$(sed -n 's/^[[:space:]]*image:[[:space:]]*//p' "$compose_file" | head -n 1)
 
+          set_image() {
+            awk -v image="$1" '
+              /^[[:space:]]*image:/ && !replaced {
+                print "    image: " image
+                replaced = 1
+                next
+              }
+              { print }
+            ' "$compose_file" > "$compose_file.tmp"
+            mv "$compose_file.tmp" "$compose_file"
+          }
+
           rollback() {
             if [ -n "${previous_image:-}" ]; then
-              sed -i "0,/^[[:space:]]*image:.*/s//    image: $previous_image/" "$compose_file"
+              set_image "$previous_image"
               docker compose pull backend
               docker compose up -d --no-deps --force-recreate backend
             fi
           }
           trap rollback ERR
 
-          sed -i "0,/^[[:space:]]*image:.*/s//    image: $IMAGE/" "$compose_file"
+          set_image "$IMAGE"
           docker compose pull backend
           docker compose up -d --no-deps --force-recreate backend
 
