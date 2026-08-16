@@ -130,6 +130,37 @@ PROD_PATH           원격 docker-compose.yml 디렉터리
 `docker-compose.yml`은 backend 서비스에 `build` 없이 Docker Hub 이미지의
 `image` 항목을 사용해야 합니다.
 
+## 📱 Android 비공개 테스트 CD
+
+`.github/workflows/deploy-android-closed-testing.yml`은 `main` 브랜치에
+병합된 커밋 또는 수동 실행을 기준으로 Android App Bundle을 빌드하고
+Google Play의 `beta` 비공개 테스트 트랙에 업로드합니다.
+
+배포 전에 다음 조건을 Google Play Console에서 한 번 설정해야 합니다.
+
+1. 앱 패키지 `com.aipod.app`을 Play Console에 등록
+2. 비공개 테스트 트랙을 생성하고 테스트 참여자를 등록
+3. Google Cloud 서비스 계정을 만들고 Google Play Developer API를 활성화
+4. Play Console 사용자 및 권한 메뉴에서 해당 서비스 계정에 앱 정보 관리 권한 부여
+5. 현재 업로드 키를 Play Console에 등록
+
+GitHub 저장소의 `Settings > Environments > play-closed`에 아래 Secrets를
+등록해야 합니다.
+
+```text
+ANDROID_KEYSTORE_BASE64       업로드 keystore의 base64 값
+ANDROID_KEYSTORE_PASSWORD     keystore 비밀번호
+ANDROID_KEY_ALIAS             업로드 key alias
+ANDROID_KEY_PASSWORD          업로드 key 비밀번호
+GOOGLE_PLAY_SERVICE_ACCOUNT_JSON  Google Play 서비스 계정 JSON 원문
+```
+
+현재 workflow의 `PLAY_TRACK`은 `beta`입니다. Play Console에서 별도의
+커스텀 비공개 트랙을 사용하는 경우 workflow의 값을 해당 트랙 ID로 변경해야
+합니다. 버전은 `frontend/pubspec.yaml`에서 직접 증가해야 하며, `+` 뒤의
+`versionCode`는 이전 Play 업로드보다 큰 값이어야 합니다. CD는 버전을
+자동으로 변경하지 않고 형식과 릴리스 빌드 가능 여부만 검증합니다.
+
 ---
 
 ## ⚠️ 주의사항

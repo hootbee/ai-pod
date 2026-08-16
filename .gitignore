@@ -11,3 +11,6 @@ aipod-demo/
 .env
 .env.*
 !.env.example
+
+# Local CI/CD credentials (never commit)
+.secrets/
