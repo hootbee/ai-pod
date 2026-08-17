@@ -15,7 +15,7 @@ concurrency:
 
 env:
   PLAY_PACKAGE_NAME: com.aipod.app
-  PLAY_TRACK: beta
+  PLAY_TRACK: alpha
 
 jobs:
   verify-and-upload:

@@ -134,7 +134,7 @@ PROD_PATH           원격 docker-compose.yml 디렉터리
 
 `.github/workflows/deploy-android-closed-testing.yml`은 `main` 브랜치에
 병합된 커밋 또는 수동 실행을 기준으로 Android App Bundle을 빌드하고
-Google Play의 `beta` 비공개 테스트 트랙에 업로드합니다.
+Google Play의 `alpha` 비공개 테스트 트랙에 업로드합니다.
 
 배포 전에 다음 조건을 Google Play Console에서 한 번 설정해야 합니다.
 
@@ -156,7 +156,7 @@ GOOGLE_PLAY_SERVICE_ACCOUNT_JSON  Google Play 서비스 계정 JSON 원문
 GOOGLE_SERVICES_JSON               Firebase Android 설정 JSON 원문
 ```
 
-현재 workflow의 `PLAY_TRACK`은 `beta`입니다. Play Console에서 별도의
+현재 workflow의 `PLAY_TRACK`은 `alpha`입니다. Play Console에서 별도의
 커스텀 비공개 트랙을 사용하는 경우 workflow의 값을 해당 트랙 ID로 변경해야
 합니다. 버전은 `frontend/pubspec.yaml`에서 직접 증가해야 하며, `+` 뒤의
 `versionCode`는 이전 Play 업로드보다 큰 값이어야 합니다. CD는 버전을
