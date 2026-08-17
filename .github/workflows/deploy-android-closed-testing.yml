@@ -61,7 +61,7 @@ jobs:
           printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/keystore/aipod-upload.jks
           chmod 600 android/keystore/aipod-upload.jks
           cat > android/key.properties <<EOF
-          storeFile=keystore/aipod-upload.jks
+          storeFile=../keystore/aipod-upload.jks
           storePassword=$ANDROID_KEYSTORE_PASSWORD
           keyAlias=$ANDROID_KEY_ALIAS
           keyPassword=$ANDROID_KEY_PASSWORD
