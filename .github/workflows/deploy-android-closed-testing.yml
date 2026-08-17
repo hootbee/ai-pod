@@ -99,4 +99,3 @@ jobs:
           releaseFiles: frontend/build/app/outputs/bundle/release/app-release.aab
           tracks: ${{ env.PLAY_TRACK }}
           status: completed
-          changesNotSentForReview: true
