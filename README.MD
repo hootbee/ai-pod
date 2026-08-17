@@ -153,6 +153,7 @@ ANDROID_KEYSTORE_PASSWORD     keystore 비밀번호
 ANDROID_KEY_ALIAS             업로드 key alias
 ANDROID_KEY_PASSWORD          업로드 key 비밀번호
 GOOGLE_PLAY_SERVICE_ACCOUNT_JSON  Google Play 서비스 계정 JSON 원문
+GOOGLE_SERVICES_JSON               Firebase Android 설정 JSON 원문
 ```
 
 현재 workflow의 `PLAY_TRACK`은 `beta`입니다. Play Console에서 별도의
