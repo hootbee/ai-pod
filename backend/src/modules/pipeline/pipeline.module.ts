@@ -9,6 +9,11 @@ import { EpisodesModule } from '../episodes/episodes.module';
 import { CardNewsModule } from '../card-news/card-news.module';
 import { ThumbnailModule } from '../thumbnail/thumbnail.module';
 import { TtsQueueModule } from '../../common/queues/tts-queue.module';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { PipelineRun } from './entities/pipeline-run.entity';
+import { PipelineRunStep } from './entities/pipeline-run-step.entity';
+import { PipelineRunService } from './pipeline-run.service';
+import { PipelineRunController } from './pipeline-run.controller';
 
 @Module({
   imports: [
@@ -19,8 +24,10 @@ import { TtsQueueModule } from '../../common/queues/tts-queue.module';
     EpisodesModule,
     CardNewsModule,
     ThumbnailModule,
+    TypeOrmModule.forFeature([PipelineRun, PipelineRunStep]),
   ],
-  controllers: [PipelineController],
-  providers: [PipelineService, PipelineScheduler],
+  controllers: [PipelineController, PipelineRunController],
+  providers: [PipelineService, PipelineScheduler, PipelineRunService],
+  exports: [PipelineRunService],
 })
 export class PipelineModule {}

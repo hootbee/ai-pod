@@ -5,13 +5,10 @@ import { TtsService } from './tts.service';
 import { TtsController } from './tts.controller';
 import { TtsProcessor } from './tts.processor';
 import { TtsQueueModule } from '../../common/queues/tts-queue.module';
+import { PipelineModule } from '../pipeline/pipeline.module';
 
 @Module({
-  imports: [
-    EpisodesModule,
-    AudioModule,
-    TtsQueueModule,
-  ],
+  imports: [EpisodesModule, AudioModule, TtsQueueModule, PipelineModule],
   controllers: [TtsController],
   providers: [TtsService, TtsProcessor],
   exports: [TtsService],

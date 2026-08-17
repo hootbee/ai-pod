@@ -162,6 +162,37 @@ GOOGLE_SERVICES_JSON               Firebase Android 설정 JSON 원문
 `versionCode`는 이전 Play 업로드보다 큰 값이어야 합니다. CD는 버전을
 자동으로 변경하지 않고 형식과 릴리스 빌드 가능 여부만 검증합니다.
 
+## 🧾 백엔드 발행 이력 및 로그
+
+백엔드 일일 발행은 PostgreSQL의 `pipeline_runs`와
+`pipeline_run_steps`에 실행 상태를 저장합니다. 컨테이너가 재생성되어도
+실행 이력과 단계별 실패 원인은 유지됩니다.
+
+관리자 API:
+
+```text
+GET /admin/pipeline/runs
+GET /admin/pipeline/runs/:id
+```
+
+프로덕션 Compose는 백엔드 stdout/stderr를 `backend_logs` Docker volume의
+`/app/logs/backend.log`에 추가 기록합니다. 기술 로그는 컨테이너 로그와
+분리해서 보존하고, 비즈니스 발행 상태는 DB 이력을 기준으로 확인합니다.
+
+주요 발행 단계:
+
+```text
+article_collection
+script_generation
+episode_save
+headline_generation
+thumbnail_generation
+card_news_generation
+tts_enqueue
+tts_completion
+discord_notification
+```
+
 ---
 
 ## ⚠️ 주의사항

@@ -10,6 +10,7 @@ import { HeadlineService } from '../episodes/headline.service';
 import { ThumbnailService } from '../thumbnail/thumbnail.service';
 import { TTS_QUEUE } from '../../common/queues/tts.constants';
 import { GroundingService } from '../grounding/grounding.service';
+import { PipelineRunService } from './pipeline-run.service';
 
 // ── 공통 Mock 팩토리 ────────────────────────────────────────────────────────
 
@@ -42,6 +43,17 @@ const mockThumbnailService = () => ({
 
 const mockDataSource = () => ({
   query: jest.fn(),
+});
+
+const mockPipelineRunService = () => ({
+  startRun: jest.fn().mockResolvedValue({ id: 'run-1', warnings: [], episodeId: null }),
+  startStep: jest.fn().mockResolvedValue(undefined),
+  completeStep: jest.fn().mockResolvedValue(undefined),
+  failStep: jest.fn().mockResolvedValue(undefined),
+  finishRun: jest.fn().mockResolvedValue(undefined),
+  failRun: jest.fn().mockResolvedValue(undefined),
+  recordAsyncFailure: jest.fn().mockResolvedValue(undefined),
+  skipRun: jest.fn().mockResolvedValue(undefined),
 });
 
 const mockTtsQueue = () => ({
@@ -81,6 +93,7 @@ describe('PipelineService', () => {
         { provide: HeadlineService, useFactory: mockHeadlineService },
         { provide: ThumbnailService, useFactory: mockThumbnailService },
         { provide: DataSource, useFactory: mockDataSource },
+        { provide: PipelineRunService, useFactory: mockPipelineRunService },
         { provide: getQueueToken(TTS_QUEUE), useFactory: mockTtsQueue },
         { provide: GroundingService, useFactory: mockGroundingService },
       ],
@@ -379,6 +392,9 @@ describe('PipelineService', () => {
       const result = await service.runDailyPipeline();
 
       expect(result.episodeId).toBe('ep-webhook');
+      expect(result.warnings).toEqual(
+        expect.arrayContaining([expect.stringContaining('Discord 알림 실패')]),
+      );
       expect(warnSpy).toHaveBeenCalledWith(
         expect.stringContaining('웹훅 발송 실패: status=401 Unauthorized'),
       );

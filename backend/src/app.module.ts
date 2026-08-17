@@ -26,6 +26,8 @@ import { AuthAuditLog } from './modules/auth/entities/auth-audit-log.entity';
 import { AppVersionModule } from './modules/app-version/app-version.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { AnalyticsEvent } from './modules/analytics/entities/analytics-event.entity';
+import { PipelineRun } from './modules/pipeline/entities/pipeline-run.entity';
+import { PipelineRunStep } from './modules/pipeline/entities/pipeline-run-step.entity';
 
 @Module({
   imports: [
@@ -63,6 +65,8 @@ import { AnalyticsEvent } from './modules/analytics/entities/analytics-event.ent
         CardNews,
         CardNewsViewLog,
         EpisodeThumbnail,
+        PipelineRun,
+        PipelineRunStep,
       ],
       synchronize: (process.env.DB_SYNC ?? 'true') === 'true',
     }),
