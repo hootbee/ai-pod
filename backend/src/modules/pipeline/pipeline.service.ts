@@ -13,7 +13,7 @@ import { CardNewsService } from '../card-news/card-news.service';
 import { ThumbnailService } from '../thumbnail/thumbnail.service';
 import { TTS_JOB, TTS_QUEUE } from '../../common/queues/tts.constants';
 import type { BriefingArticle } from '../ai-processor/interfaces/ai-provider.interface';
-import { PipelineRun, PipelineRunType } from './entities/pipeline-run.entity';
+import { PipelineRun, PipelineRunType, PipelineTriggerType } from './entities/pipeline-run.entity';
 import { PipelineRunService } from './pipeline-run.service';
 
 export interface PipelineResult {
@@ -45,10 +45,15 @@ export class PipelineService {
    * 전체 파이프라인 실행
    * @param force true이면 오늘 에피소드가 있어도 재실행
    */
-  async runDailyPipeline(force = false): Promise<PipelineResult> {
+  async runDailyPipeline(
+    force = false,
+    context?: { requestId?: string; triggerType?: PipelineTriggerType },
+  ): Promise<PipelineResult> {
     const run = await this.pipelineRunService.startRun(
       force ? PipelineRunType.MANUAL : PipelineRunType.DAILY,
       this.getBusinessDate(),
+      undefined,
+      context,
     );
 
     try {
@@ -176,6 +181,7 @@ export class PipelineService {
       const job = await this.ttsQueue.add(TTS_JOB.GENERATE, {
         episodeId: episode.id,
         pipelineRunId: run.id,
+        requestId: run.requestId,
       });
       result.ttsJobId = job.id;
       await this.pipelineRunService.completeStep(run, 'tts_enqueue', { jobId: job.id });
@@ -224,17 +230,20 @@ export class PipelineService {
   }
 
   /** TTS만 재트리거 */
-  async retryTts(episodeId: string) {
-    const job = await this.ttsQueue.add(TTS_JOB.GENERATE, { episodeId });
+  async retryTts(episodeId: string, requestId?: string) {
+    const job = await this.ttsQueue.add(TTS_JOB.GENERATE, { episodeId, requestId });
     this.logger.log(`[Pipeline] TTS 재큐 등록 완료: jobId=${job.id}`);
     return { jobId: job.id, episodeId, status: 'queued' };
   }
 
   /** DB/캐시/생성 파일 전체 초기화 후 파이프라인 실행 */
-  async resetAndRun(force = true): Promise<PipelineResult & { reset: { ok: true } }> {
+  async resetAndRun(
+    force = true,
+    context?: { requestId?: string; triggerType?: PipelineTriggerType },
+  ): Promise<PipelineResult & { reset: { ok: true } }> {
     this.logger.warn('[Pipeline] reset-and-run 시작: DB/Redis/파일 초기화 수행');
     await this.resetRuntimeState();
-    const result = await this.runDailyPipeline(force);
+    const result = await this.runDailyPipeline(force, context);
     return { ...result, reset: { ok: true } };
   }
 

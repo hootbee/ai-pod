@@ -9,6 +9,7 @@ import { PipelineRun } from '../pipeline/entities/pipeline-run.entity';
 export interface TtsGenerateJobData {
   episodeId: string;
   pipelineRunId?: string;
+  requestId?: string;
 }
 
 export interface TtsTestJobData {

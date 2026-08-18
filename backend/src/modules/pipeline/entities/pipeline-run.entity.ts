@@ -21,9 +21,16 @@ export enum PipelineRunStatus {
   SKIPPED = 'skipped',
 }
 
+export enum PipelineTriggerType {
+  HTTP = 'http',
+  SCHEDULER = 'scheduler',
+  RETRY = 'retry',
+}
+
 @Entity({ name: 'pipeline_runs' })
 @Index(['businessDate', 'runType'])
 @Index(['status', 'startedAt'])
+@Index(['requestId', 'startedAt'])
 export class PipelineRun {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -42,6 +49,12 @@ export class PipelineRun {
 
   @Column({ type: 'uuid', nullable: true })
   episodeId: string | null;
+
+  @Column({ type: 'varchar', length: 16, default: PipelineTriggerType.SCHEDULER })
+  triggerType: PipelineTriggerType;
+
+  @Column({ type: 'varchar', length: 128, nullable: true })
+  requestId: string | null;
 
   @Column({ type: 'jsonb', default: [] })
   warnings: string[];

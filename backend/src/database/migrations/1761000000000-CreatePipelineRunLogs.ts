@@ -12,6 +12,8 @@ export class CreatePipelineRunLogs1761000000000 implements MigrationInterface {
         "status" varchar(32) NOT NULL,
         "currentStep" varchar(64),
         "episodeId" uuid,
+        "triggerType" varchar(16) NOT NULL DEFAULT 'scheduler',
+        "requestId" varchar(128),
         "warnings" jsonb NOT NULL DEFAULT '[]'::jsonb,
         "errorMessage" text,
         "startedAt" timestamptz NOT NULL,
@@ -36,8 +38,14 @@ export class CreatePipelineRunLogs1761000000000 implements MigrationInterface {
         CONSTRAINT "FK_pipeline_run_steps_run" FOREIGN KEY ("pipelineRunId") REFERENCES "pipeline_runs"("id") ON DELETE CASCADE
       )
     `);
+    await queryRunner.query(`
+      ALTER TABLE "pipeline_runs"
+      ADD COLUMN IF NOT EXISTS "triggerType" varchar(16) NOT NULL DEFAULT 'scheduler',
+      ADD COLUMN IF NOT EXISTS "requestId" varchar(128)
+    `);
     await queryRunner.query('CREATE INDEX IF NOT EXISTS "IDX_pipeline_runs_date_type" ON "pipeline_runs" ("businessDate", "runType")');
     await queryRunner.query('CREATE INDEX IF NOT EXISTS "IDX_pipeline_runs_status_started" ON "pipeline_runs" ("status", "startedAt")');
+    await queryRunner.query('CREATE INDEX IF NOT EXISTS "IDX_pipeline_runs_request_started" ON "pipeline_runs" ("requestId", "startedAt")');
     await queryRunner.query('CREATE INDEX IF NOT EXISTS "IDX_pipeline_run_steps_run_created" ON "pipeline_run_steps" ("pipelineRunId", "createdAt")');
     await queryRunner.query('CREATE INDEX IF NOT EXISTS "IDX_pipeline_run_steps_step_status" ON "pipeline_run_steps" ("step", "status", "createdAt")');
   }

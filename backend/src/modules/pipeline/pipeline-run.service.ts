@@ -1,7 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { PipelineRun, PipelineRunStatus, PipelineRunType } from './entities/pipeline-run.entity';
+import {
+  PipelineRun,
+  PipelineRunStatus,
+  PipelineRunType,
+  PipelineTriggerType,
+} from './entities/pipeline-run.entity';
 import { PipelineRunStep, PipelineRunStepStatus } from './entities/pipeline-run-step.entity';
 
 @Injectable()
@@ -17,6 +22,7 @@ export class PipelineRunService {
     runType: PipelineRunType,
     businessDate: string,
     episodeId?: string,
+    context?: { requestId?: string; triggerType?: PipelineTriggerType },
   ): Promise<PipelineRun> {
     return this.runRepository.save(
       this.runRepository.create({
@@ -25,6 +31,8 @@ export class PipelineRunService {
         status: PipelineRunStatus.RUNNING,
         currentStep: null,
         episodeId: episodeId ?? null,
+        triggerType: context?.triggerType ?? PipelineTriggerType.SCHEDULER,
+        requestId: context?.requestId?.slice(0, 128) ?? null,
         warnings: [],
         errorMessage: null,
         startedAt: new Date(),

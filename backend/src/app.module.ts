@@ -1,5 +1,5 @@
-import { Module } from '@nestjs/common';
-import { APP_GUARD } from '@nestjs/core';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
+import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bull';
@@ -28,6 +28,9 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { AnalyticsEvent } from './modules/analytics/entities/analytics-event.entity';
 import { PipelineRun } from './modules/pipeline/entities/pipeline-run.entity';
 import { PipelineRunStep } from './modules/pipeline/entities/pipeline-run-step.entity';
+import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
+import { RequestLoggingInterceptor } from './common/interceptors/request-logging.interceptor';
+import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 
 @Module({
   imports: [
@@ -83,6 +86,15 @@ import { PipelineRunStep } from './modules/pipeline/entities/pipeline-run-step.e
     AnalyticsModule,
   ],
   controllers: [AppController],
-  providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],
+  providers: [
+    AppService,
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_INTERCEPTOR, useClass: RequestLoggingInterceptor },
+    { provide: APP_FILTER, useClass: HttpExceptionFilter },
+  ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer): void {
+    consumer.apply(RequestIdMiddleware).forRoutes('*');
+  }
+}

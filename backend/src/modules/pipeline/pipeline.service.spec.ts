@@ -11,6 +11,7 @@ import { ThumbnailService } from '../thumbnail/thumbnail.service';
 import { TTS_QUEUE } from '../../common/queues/tts.constants';
 import { GroundingService } from '../grounding/grounding.service';
 import { PipelineRunService } from './pipeline-run.service';
+import { PipelineTriggerType } from './entities/pipeline-run.entity';
 
 // ── 공통 Mock 팩토리 ────────────────────────────────────────────────────────
 
@@ -81,6 +82,7 @@ describe('PipelineService', () => {
   let groundingService: ReturnType<typeof mockGroundingService>;
   let cardNewsService: ReturnType<typeof mockCardNewsService>;
   let ttsQueue: ReturnType<typeof mockTtsQueue>;
+  let pipelineRunService: ReturnType<typeof mockPipelineRunService>;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -106,6 +108,7 @@ describe('PipelineService', () => {
     groundingService = module.get(GroundingService);
     cardNewsService = module.get(CardNewsService);
     ttsQueue = module.get(getQueueToken(TTS_QUEUE));
+    pipelineRunService = module.get(PipelineRunService);
 
     // 기본적으로 fetch 전역 mock (Discord webhook)
     global.fetch = jest.fn().mockResolvedValue({ ok: true });
@@ -222,6 +225,20 @@ describe('PipelineService', () => {
       expect(result.cardNewsId).toBe('cn-456');
       expect(result.ttsJobId).toBe('job-789');
       expect(result.warnings).toHaveLength(0);
+    });
+
+    it('HTTP 실행의 requestId와 triggerType을 실행 이력에 전달한다', async () => {
+      await service.runDailyPipeline(false, {
+        requestId: 'request-1',
+        triggerType: PipelineTriggerType.HTTP,
+      });
+
+      expect(pipelineRunService.startRun).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.any(String),
+        undefined,
+        { requestId: 'request-1', triggerType: PipelineTriggerType.HTTP },
+      );
     });
 
     it('개별 기사 fetch 실패해도 성공한 기사로 진행', async () => {
