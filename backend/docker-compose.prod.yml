@@ -9,6 +9,8 @@ services:
     image: hootbee/aipod-backend:latest                        # Docker Hub 이미지 사용
     container_name: aipod-backend
     restart: always
+    init: true
+    command: ["sh", "-c", "node dist/main 2>&1 | tee -a /app/logs/backend.log"]
     ports:
       - "3000:3000"
     env_file:
@@ -22,6 +24,7 @@ services:
       - audio_files:/app/audio-files                # 오디오 파일 영구 저장
       - thumbnails:/app/thumbnails                  # 썸네일 파일 영구 저장
       - card_news_images:/app/card-news-images      # 카드뉴스 이미지 영구 저장
+      - backend_logs:/app/logs                      # 컨테이너 재생성 후에도 기술 로그 보존
     depends_on:
       postgres:
         condition: service_healthy
@@ -61,3 +64,4 @@ volumes:
   audio_files:
   thumbnails:
   card_news_images:
+  backend_logs:

@@ -13,9 +13,8 @@ import { CardNewsService } from '../card-news/card-news.service';
 import { ThumbnailService } from '../thumbnail/thumbnail.service';
 import { TTS_JOB, TTS_QUEUE } from '../../common/queues/tts.constants';
 import type { BriefingArticle } from '../ai-processor/interfaces/ai-provider.interface';
-
-const PIPELINE_LOCK_KEY = 'pipeline:daily:lock';
-const PIPELINE_LOCK_TTL_SEC = 2 * 60 * 60; // 2시간
+import { PipelineRun, PipelineRunType, PipelineTriggerType } from './entities/pipeline-run.entity';
+import { PipelineRunService } from './pipeline-run.service';
 
 export interface PipelineResult {
   skipped?: boolean;
@@ -38,6 +37,7 @@ export class PipelineService {
     private readonly cardNewsService: CardNewsService,
     private readonly thumbnailService: ThumbnailService,
     private readonly dataSource: DataSource,
+    private readonly pipelineRunService: PipelineRunService,
     @InjectQueue(TTS_QUEUE) private readonly ttsQueue: Queue,
   ) {}
 
@@ -45,7 +45,32 @@ export class PipelineService {
    * 전체 파이프라인 실행
    * @param force true이면 오늘 에피소드가 있어도 재실행
    */
-  async runDailyPipeline(force = false): Promise<PipelineResult> {
+  async runDailyPipeline(
+    force = false,
+    context?: { requestId?: string; triggerType?: PipelineTriggerType },
+  ): Promise<PipelineResult> {
+    const run = await this.pipelineRunService.startRun(
+      force ? PipelineRunType.MANUAL : PipelineRunType.DAILY,
+      this.getBusinessDate(),
+      undefined,
+      context,
+    );
+
+    try {
+      const result = await this.executeDailyPipeline(force, run);
+      if (result.skipped) {
+        await this.pipelineRunService.skipRun(run, result.reason ?? 'skipped', result.episodeId);
+      } else {
+        await this.pipelineRunService.finishRun(run, result.warnings, result.episodeId);
+      }
+      return result;
+    } catch (error) {
+      await this.pipelineRunService.failRun(run, error);
+      throw error;
+    }
+  }
+
+  private async executeDailyPipeline(force: boolean, run: PipelineRun): Promise<PipelineResult> {
     const warnings: string[] = [];
 
     // ── 0. 중복 실행 방지 (오늘 에피소드 체크) ──────────────────────────
@@ -53,13 +78,22 @@ export class PipelineService {
       const todayEpisode = await this.episodesService.findTodayEpisode();
       if (todayEpisode) {
         this.logger.warn(`[Pipeline] 오늘 에피소드 이미 존재: ${todayEpisode.id}`);
-        return { skipped: true, reason: 'today_episode_exists', episodeId: todayEpisode.id, warnings };
+        return {
+          skipped: true,
+          reason: 'today_episode_exists',
+          episodeId: todayEpisode.id,
+          warnings,
+        };
       }
     }
 
     // ── 1. 기사 수집 (Gemini Grounding) ─────────────────────────────────
+    await this.pipelineRunService.startStep(run, 'article_collection');
     this.logger.log('[Pipeline] Grounding 검색 시작');
     const { articles, sources } = await this.collectArticlesSafely();
+    await this.pipelineRunService.completeStep(run, 'article_collection', {
+      articleCount: articles.length,
+    });
 
     const minArticles = Number(process.env.MIN_ARTICLES ?? 3);
     if (articles.length < minArticles) {
@@ -69,11 +103,19 @@ export class PipelineService {
 
     // ── 2. AI 스크립트 생성 (timeout + 재시도) ────────────────────────────
     this.logger.log(`[Pipeline] AI 스크립트 생성 (기사 ${articles.length}건)`);
-    const briefing = await this.retryWithTimeout(
-      () => this.aiProcessorService.processNewsBriefing(articles),
-      60_000,
-      2,
-    );
+    await this.pipelineRunService.startStep(run, 'script_generation');
+    let briefing;
+    try {
+      briefing = await this.retryWithTimeout(
+        () => this.aiProcessorService.processNewsBriefing(articles),
+        60_000,
+        2,
+      );
+      await this.pipelineRunService.completeStep(run, 'script_generation');
+    } catch (error) {
+      await this.pipelineRunService.failStep(run, 'script_generation', error);
+      throw error;
+    }
 
     // ── 3. DB 에피소드 저장 ───────────────────────────────────────────────
     const episode = await this.episodesService.create({
@@ -82,56 +124,102 @@ export class PipelineService {
       sourceCount: articles.length,
       sources,
     });
+    run.episodeId = episode.id;
+    await this.pipelineRunService.completeStep(run, 'episode_save', { episodeId: episode.id });
     this.logger.log(`[Pipeline] 에피소드 저장 완료: ${episode.id}`);
 
     const result: PipelineResult = { episodeId: episode.id, warnings };
 
     // ── 3.5. 헤드라인 + 부제 생성 (실패해도 에피소드 유지) ────────────────
     try {
+      await this.pipelineRunService.startStep(run, 'headline_generation');
       await this.headlineService.generateAndSave(episode.id);
+      await this.pipelineRunService.completeStep(run, 'headline_generation');
       this.logger.log(`[Pipeline] 헤드라인 생성 완료`);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       warnings.push(`헤드라인 생성 실패: ${msg}`);
+      await this.pipelineRunService.failStep(run, 'headline_generation', err);
       this.logger.warn(`[Pipeline] 헤드라인 실패 (에피소드 유지) → ${msg}`);
     }
 
     // ── 3.6. 썸네일 생성 (실패해도 에피소드 유지) ──────────────────────────
     try {
+      await this.pipelineRunService.startStep(run, 'thumbnail_generation');
       const thumbnail = await this.thumbnailService.generateAndSave(episode.id);
+      await this.pipelineRunService.completeStep(run, 'thumbnail_generation', {
+        imagePath: thumbnail.imagePath,
+      });
       this.logger.log(`[Pipeline] 썸네일 생성 완료: ${thumbnail.imagePath}`);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       warnings.push(`썸네일 생성 실패: ${msg}`);
+      await this.pipelineRunService.failStep(run, 'thumbnail_generation', err);
       this.logger.warn(`[Pipeline] 썸네일 실패 (에피소드 유지) → ${msg}`);
     }
 
     // ── 4. 카드뉴스 생성 (실패해도 에피소드 유지) ─────────────────────────
     try {
+      await this.pipelineRunService.startStep(run, 'card_news_generation');
       const cardNews = await this.cardNewsService.generateDeepDive(episode.id);
       result.cardNewsId = cardNews.id;
+      await this.pipelineRunService.completeStep(run, 'card_news_generation', {
+        cardNewsId: cardNews.id,
+        slideCount: cardNews.slideCount,
+      });
       this.logger.log(`[Pipeline] 카드뉴스 생성 완료: ${cardNews.id} (${cardNews.slideCount}장)`);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       warnings.push(`카드뉴스 생성 실패: ${msg}`);
+      await this.pipelineRunService.failStep(run, 'card_news_generation', err);
       this.logger.warn(`[Pipeline] 카드뉴스 실패 (에피소드 유지) → ${msg}`);
     }
 
     // ── 5. TTS 큐 등록 (실패해도 에피소드 유지) ──────────────────────────
     try {
-      const job = await this.ttsQueue.add(TTS_JOB.GENERATE, { episodeId: episode.id });
+      await this.pipelineRunService.startStep(run, 'tts_enqueue');
+      const job = await this.ttsQueue.add(TTS_JOB.GENERATE, {
+        episodeId: episode.id,
+        pipelineRunId: run.id,
+        requestId: run.requestId,
+      });
       result.ttsJobId = job.id;
+      await this.pipelineRunService.completeStep(run, 'tts_enqueue', { jobId: job.id });
       this.logger.log(`[Pipeline] TTS 큐 등록 완료: jobId=${job.id}`);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       warnings.push(`TTS 큐 등록 실패: ${msg}`);
+      await this.pipelineRunService.failStep(run, 'tts_enqueue', err);
       this.logger.warn(`[Pipeline] TTS 실패 (에피소드 유지) → ${msg}`);
     }
 
     // ── 6. Discord 웹훅 알림 ─────────────────────────────────────────────
-    await this.sendWebhook(result);
+    await this.pipelineRunService.startStep(run, 'discord_notification');
+    const webhookResult = await this.sendWebhook(result);
+    if (webhookResult.attempted && !webhookResult.ok) {
+      const warning = `Discord 알림 실패: ${webhookResult.errorMessage ?? '알 수 없는 오류'}`;
+      warnings.push(warning);
+      await this.pipelineRunService.failStep(
+        run,
+        'discord_notification',
+        webhookResult.errorMessage ?? warning,
+      );
+    } else {
+      await this.pipelineRunService.completeStep(run, 'discord_notification', {
+        attempted: webhookResult.attempted,
+      });
+    }
 
     return result;
+  }
+
+  private getBusinessDate(): string {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Seoul',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(new Date());
   }
 
   /** 카드뉴스만 재트리거 */
@@ -142,17 +230,20 @@ export class PipelineService {
   }
 
   /** TTS만 재트리거 */
-  async retryTts(episodeId: string) {
-    const job = await this.ttsQueue.add(TTS_JOB.GENERATE, { episodeId });
+  async retryTts(episodeId: string, requestId?: string) {
+    const job = await this.ttsQueue.add(TTS_JOB.GENERATE, { episodeId, requestId });
     this.logger.log(`[Pipeline] TTS 재큐 등록 완료: jobId=${job.id}`);
     return { jobId: job.id, episodeId, status: 'queued' };
   }
 
   /** DB/캐시/생성 파일 전체 초기화 후 파이프라인 실행 */
-  async resetAndRun(force = true): Promise<PipelineResult & { reset: { ok: true } }> {
+  async resetAndRun(
+    force = true,
+    context?: { requestId?: string; triggerType?: PipelineTriggerType },
+  ): Promise<PipelineResult & { reset: { ok: true } }> {
     this.logger.warn('[Pipeline] reset-and-run 시작: DB/Redis/파일 초기화 수행');
     await this.resetRuntimeState();
-    const result = await this.runDailyPipeline(force);
+    const result = await this.runDailyPipeline(force, context);
     return { ...result, reset: { ok: true } };
   }
 
@@ -167,11 +258,7 @@ export class PipelineService {
   }
 
   /** Promise에 timeout + retryCount 적용 */
-  async retryWithTimeout<T>(
-    fn: () => Promise<T>,
-    timeoutMs: number,
-    retries: number,
-  ): Promise<T> {
+  async retryWithTimeout<T>(fn: () => Promise<T>, timeoutMs: number, retries: number): Promise<T> {
     let lastError: unknown;
     for (let attempt = 1; attempt <= retries; attempt++) {
       try {
@@ -192,9 +279,11 @@ export class PipelineService {
   }
 
   /** Discord/Slack 웹훅 알림 */
-  private async sendWebhook(result: PipelineResult): Promise<void> {
+  private async sendWebhook(
+    result: PipelineResult,
+  ): Promise<{ attempted: boolean; ok: boolean; errorMessage?: string }> {
     const webhookUrl = process.env.DISCORD_WEBHOOK_URL;
-    if (!webhookUrl) return;
+    if (!webhookUrl) return { attempted: false, ok: true };
 
     const today = new Date().toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' });
     let content: string;
@@ -225,9 +314,13 @@ export class PipelineService {
         const status = `${response.status}${response.statusText ? ` ${response.statusText}` : ''}`;
         const detail = responseBody.trim().replace(/\s+/g, ' ').slice(0, 500) || '응답 본문 없음';
         this.logger.warn(`[Pipeline] 웹훅 발송 실패: status=${status}, response=${detail}`);
+        return { attempted: true, ok: false, errorMessage: `HTTP ${status}: ${detail}` };
       }
+      return { attempted: true, ok: true };
     } catch (err) {
-      this.logger.warn(`[Pipeline] 웹훅 요청 오류: ${this.formatError(err)}`);
+      const errorMessage = this.formatError(err);
+      this.logger.warn(`[Pipeline] 웹훅 요청 오류: ${errorMessage}`);
+      return { attempted: true, ok: false, errorMessage };
     }
   }
 
