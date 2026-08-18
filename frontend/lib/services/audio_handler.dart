@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:just_audio/just_audio.dart';
+import 'package:just_audio_background/just_audio_background.dart';
 import '../core/app_config.dart';
 import '../features/auth/auth_service.dart';
 import '../features/podcast/main_screen.dart';
@@ -34,9 +35,18 @@ class AudioHandler {
 
       final token = await AuthService.readAccessToken();
       final headers = token != null ? {'Authorization': 'Bearer $token'} : null;
+      final thumbnailUrl = episode.thumbnailUrl;
       final source = AudioSource.uri(
         Uri.parse(episode.audioUrl ?? episode.streamUrl),
         headers: headers,
+        tag: MediaItem(
+          id: episode.id,
+          title: episode.title,
+          artist: 'AIPOD',
+          artUri: thumbnailUrl == null || thumbnailUrl.isEmpty
+              ? null
+              : Uri.tryParse(thumbnailUrl),
+        ),
       );
 
       await player.setAudioSource(source);
