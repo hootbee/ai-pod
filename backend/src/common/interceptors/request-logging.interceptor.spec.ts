@@ -1,4 +1,5 @@
 import { CallHandler, ExecutionContext } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
 import { of, throwError } from 'rxjs';
 import { RequestLoggingInterceptor } from './request-logging.interceptor';
 
@@ -11,7 +12,7 @@ const context = (request: Record<string, unknown>, response: Record<string, unkn
 
 describe('RequestLoggingInterceptor', () => {
   it('정상 응답을 통과시키고 요청 정보를 기록한다', () => {
-    const interceptor = new RequestLoggingInterceptor();
+    const interceptor = new RequestLoggingInterceptor(new Reflector());
     const logSpy = jest.spyOn(
       (interceptor as unknown as { logger: { log: (message: string) => void } }).logger,
       'log',
@@ -40,7 +41,7 @@ describe('RequestLoggingInterceptor', () => {
   });
 
   it('예외를 다시 전달하면서 error 로그를 기록한다', (done) => {
-    const interceptor = new RequestLoggingInterceptor();
+    const interceptor = new RequestLoggingInterceptor(new Reflector());
     const errorSpy = jest.spyOn(
       (interceptor as unknown as { logger: { error: (message: string) => void } }).logger,
       'error',
