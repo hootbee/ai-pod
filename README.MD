@@ -154,13 +154,19 @@ ANDROID_KEY_ALIAS             업로드 key alias
 ANDROID_KEY_PASSWORD          업로드 key 비밀번호
 GOOGLE_PLAY_SERVICE_ACCOUNT_JSON  Google Play 서비스 계정 JSON 원문
 GOOGLE_SERVICES_JSON               Firebase Android 설정 JSON 원문
+PROD_HOST                          프로덕션 서버 호스트
+PROD_USER                          프로덕션 서버 SSH 사용자명
+PROD_SSH_KEY                       프로덕션 서버 접속용 SSH private key
+PROD_PATH                          원격 docker-compose.yml 디렉터리
 ```
 
 현재 workflow의 `PLAY_TRACK`은 `alpha`입니다. Play Console에서 별도의
 커스텀 비공개 트랙을 사용하는 경우 workflow의 값을 해당 트랙 ID로 변경해야
-합니다. 버전은 `frontend/pubspec.yaml`에서 직접 증가해야 하며, `+` 뒤의
-`versionCode`는 이전 Play 업로드보다 큰 값이어야 합니다. CD는 버전을
-자동으로 변경하지 않고 형식과 릴리스 빌드 가능 여부만 검증합니다.
+합니다. `versionName`은 `frontend/pubspec.yaml`에서 관리하고,
+`versionCode`는 CD가 Play 트랙의 최신 값을 조회한 뒤 자동으로 1 증가시켜
+빌드합니다. Play 업로드가 성공한 뒤에만 같은 build number를 프로덕션 서버의
+`APP_LATEST_BUILD_NUMBER`에 반영합니다. 서버 갱신이 실패하면 이전 `.env`를
+복원합니다.
 
 ## 🧾 백엔드 발행 이력 및 로그
 
