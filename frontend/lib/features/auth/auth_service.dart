@@ -237,8 +237,33 @@ class AuthService {
         body: jsonEncode({'refreshToken': _refreshToken}),
       );
     }
-    await googleSignIn.signOut();
-    await _clearTokens();
+    try {
+      await googleSignIn.signOut();
+    } finally {
+      await _clearTokens();
+    }
+  }
+
+  Future<void> deleteAccount() async {
+    final token = _accessToken ?? await readAccessToken();
+    if (token == null) throw Exception('로그인이 필요합니다.');
+
+    final response = await _httpClient
+        .delete(
+          Uri.parse('$_backendUrl/users/me'),
+          headers: {'Authorization': 'Bearer $token'},
+        )
+        .timeout(const Duration(seconds: 10));
+
+    if (response.statusCode != 204 && response.statusCode != 200) {
+      throw Exception('계정 삭제에 실패했습니다.');
+    }
+
+    try {
+      await googleSignIn.signOut();
+    } finally {
+      await _clearTokens();
+    }
   }
 
   Future<UserProfile?> fetchUserProfile() async {

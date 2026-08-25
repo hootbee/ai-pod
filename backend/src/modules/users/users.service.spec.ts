@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { UsersService } from './users.service';
 import { AuthProvider, User, UserRole } from './entities/user.entity';
 
@@ -10,9 +10,14 @@ const mockUserRepository = () => ({
   save: jest.fn(),
 });
 
+const mockDataSource = () => ({
+  transaction: jest.fn(),
+});
+
 describe('UsersService', () => {
   let service: UsersService;
   let usersRepository: jest.Mocked<Repository<User>>;
+  let dataSource: { transaction: jest.Mock };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -22,11 +27,16 @@ describe('UsersService', () => {
           provide: getRepositoryToken(User),
           useFactory: mockUserRepository,
         },
+        {
+          provide: DataSource,
+          useFactory: mockDataSource,
+        },
       ],
     }).compile();
 
     service = module.get(UsersService);
     usersRepository = module.get(getRepositoryToken(User));
+    dataSource = module.get(DataSource);
   });
 
   afterEach(() => jest.clearAllMocks());
@@ -109,5 +119,20 @@ describe('UsersService', () => {
     expect(result.lastLoginAt).toEqual(now);
 
     jest.useRealTimers();
+  });
+
+  it('계정 삭제 시 사용자 관련 데이터를 하나의 트랜잭션에서 삭제한다', async () => {
+    const manager = { delete: jest.fn().mockResolvedValue({ affected: 1 }) };
+    dataSource.transaction.mockImplementation((callback) => Promise.resolve(callback(manager)));
+
+    await service.deleteAccount('user-1');
+
+    expect(dataSource.transaction).toHaveBeenCalledTimes(1);
+    expect(manager.delete).toHaveBeenNthCalledWith(1, expect.anything(), { userId: 'user-1' });
+    expect(manager.delete).toHaveBeenNthCalledWith(2, expect.anything(), { userId: 'user-1' });
+    expect(manager.delete).toHaveBeenNthCalledWith(3, expect.anything(), { userId: 'user-1' });
+    expect(manager.delete).toHaveBeenNthCalledWith(4, expect.anything(), { userId: 'user-1' });
+    expect(manager.delete).toHaveBeenNthCalledWith(5, expect.anything(), { userId: 'user-1' });
+    expect(manager.delete).toHaveBeenNthCalledWith(6, expect.anything(), { id: 'user-1' });
   });
 });

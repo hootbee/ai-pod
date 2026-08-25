@@ -4,8 +4,13 @@ import '../../shared/theme/app_theme_controller.dart';
 
 class SettingsScreen extends StatelessWidget {
   final Future<void> Function() onLogout;
+  final Future<void> Function() onDeleteAccount;
 
-  const SettingsScreen({super.key, required this.onLogout});
+  const SettingsScreen({
+    super.key,
+    required this.onLogout,
+    required this.onDeleteAccount,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -46,6 +51,15 @@ class SettingsScreen extends StatelessWidget {
                             ),
                           );
                         },
+                      ),
+                      const SizedBox(height: 12),
+                      _SettingsActionTile(
+                        icon: Icons.delete_forever_rounded,
+                        title: '계정 삭제',
+                        subtitle: '계정과 관련 데이터를 삭제합니다',
+                        iconColor: const Color(0xFFFF6B6B),
+                        titleColor: const Color(0xFFFF6B6B),
+                        onTap: onDeleteAccount,
                       ),
                       const SizedBox(height: 12),
                       _SettingsActionTile(
