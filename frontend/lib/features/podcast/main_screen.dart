@@ -107,6 +107,43 @@ class _MainScreenState extends State<MainScreen>
     );
   }
 
+  Future<void> _deleteAccount() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('계정을 삭제할까요?'),
+        content: const Text(
+          '계정과 로그인 토큰, 재생 기록, 카드뉴스 기록이 삭제됩니다. 이 작업은 되돌릴 수 없습니다.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('취소'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('삭제'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    try {
+      await AuthService().deleteAccount();
+      if (!mounted) return;
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+        (_) => false,
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('계정 삭제에 실패했습니다: $error')),
+      );
+    }
+  }
+
   Future<void> _loadEpisodes() async {
     try {
       final response = await NetworkCacheService.instance.dio.get<dynamic>(
@@ -877,7 +914,10 @@ class _MainScreenState extends State<MainScreen>
         onTap: () {
           Navigator.of(context).push(
             MaterialPageRoute(
-              builder: (_) => SettingsScreen(onLogout: _logout),
+              builder: (_) => SettingsScreen(
+                onLogout: _logout,
+                onDeleteAccount: _deleteAccount,
+              ),
             ),
           );
         },
