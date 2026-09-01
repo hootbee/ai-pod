@@ -31,7 +31,7 @@ export class HeadlineService {
     this.baseUrl =
       process.env.MINDLOGIC_BASE_URL ??
       'https://factchat-cloud.mindlogic.ai/v1/gateway/chat/completions/';
-    this.modelName = process.env.MINDLOGIC_MODEL ?? 'gemini-2.5-flash';
+    this.modelName = process.env.MINDLOGIC_MODEL ?? 'gemini-3.5-flash-lite';
   }
 
   /**
