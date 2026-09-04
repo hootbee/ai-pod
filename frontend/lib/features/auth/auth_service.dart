@@ -5,6 +5,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../../core/app_config.dart';
+import '../../services/network_cache_service.dart';
 import '../../shared/models/user_profile.dart';
 
 abstract interface class AuthTokenStore {
@@ -53,14 +54,25 @@ class AuthService {
   final http.Client _httpClient;
   final AuthTokenStore _tokenStore;
   final String _backendUrl;
+  final Future<void> Function() _googleSignOut;
+  final Future<void> Function() _clearUserLocalData;
 
   AuthService({
     http.Client? httpClient,
     AuthTokenStore? tokenStore,
     String? backendUrl,
+    Future<void> Function()? googleSignOut,
+    Future<void> Function()? clearUserLocalData,
   }) : _httpClient = httpClient ?? _defaultHttpClient,
        _tokenStore = tokenStore ?? _defaultTokenStore,
-       _backendUrl = backendUrl ?? AppConfig.apiBaseUrl;
+       _backendUrl = backendUrl ?? AppConfig.apiBaseUrl,
+       _googleSignOut =
+           googleSignOut ??
+           (() async {
+             await googleSignIn.signOut();
+           }),
+       _clearUserLocalData =
+           clearUserLocalData ?? NetworkCacheService.clearAuthenticatedUserData;
 
   String? get accessToken => _accessToken;
   bool get isLoggedIn => _accessToken != null;
@@ -238,14 +250,15 @@ class AuthService {
       );
     }
     try {
-      await googleSignIn.signOut();
+      await _googleSignOut();
     } finally {
       await _clearTokens();
     }
   }
 
   Future<void> deleteAccount() async {
-    final token = _accessToken ?? await readAccessToken();
+    final token =
+        _accessToken ?? await _tokenStore.read(key: _keyAccessToken);
     if (token == null) throw Exception('로그인이 필요합니다.');
 
     final response = await _httpClient
@@ -260,10 +273,18 @@ class AuthService {
     }
 
     try {
-      await googleSignIn.signOut();
-    } finally {
-      await _clearTokens();
+      await _googleSignOut();
+    } catch (error) {
+      debugPrint('Google sign-out after account deletion failed: $error');
     }
+    try {
+      await _clearUserLocalData();
+    } catch (error) {
+      debugPrint(
+        'Local user data cleanup after account deletion failed: $error',
+      );
+    }
+    await _clearTokens();
   }
 
   Future<UserProfile?> fetchUserProfile() async {
@@ -297,10 +318,16 @@ class AuthService {
   }
 
   Future<void> _clearTokens() async {
-    await _tokenStore.delete(key: _keyAccessToken);
-    await _tokenStore.delete(key: _keyRefreshToken);
-    _accessToken = null;
-    _refreshToken = null;
+    try {
+      await _tokenStore.delete(key: _keyAccessToken);
+    } finally {
+      try {
+        await _tokenStore.delete(key: _keyRefreshToken);
+      } finally {
+        _accessToken = null;
+        _refreshToken = null;
+      }
+    }
   }
 
   static Future<String?> readAccessToken() {

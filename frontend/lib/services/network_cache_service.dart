@@ -106,6 +106,15 @@ class NetworkCacheService {
   /// ETag 캐싱이 적용된 전역 Dio 인스턴스
   Dio get dio => _dio;
 
+  static Future<void> clearAuthenticatedUserData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final userCacheKeys = prefs.getKeys().where((key) {
+      if (!key.startsWith('etag:') && !key.startsWith('cache:')) return false;
+      return key.contains('/users/me');
+    });
+    await Future.wait(userCacheKeys.map(prefs.remove));
+  }
+
   NetworkCacheService._internal() {
     _dio = Dio(
       BaseOptions(

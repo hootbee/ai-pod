@@ -2,85 +2,171 @@ import 'package:flutter/material.dart';
 
 import '../../shared/theme/app_theme_controller.dart';
 
-class SettingsScreen extends StatelessWidget {
+class SettingsScreen extends StatefulWidget {
   final Future<void> Function() onLogout;
   final Future<void> Function() onDeleteAccount;
+  final VoidCallback onAccountDeleted;
 
   const SettingsScreen({
     super.key,
     required this.onLogout,
     required this.onDeleteAccount,
+    required this.onAccountDeleted,
   });
 
   @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  bool _isAccountDeletionDialogOpen = false;
+  bool _isDeletingAccount = false;
+
+  Future<void> _confirmAndDeleteAccount() async {
+    if (_isAccountDeletionDialogOpen || _isDeletingAccount) return;
+
+    _isAccountDeletionDialogOpen = true;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('회원탈퇴를 진행할까요?'),
+        content: const Text(
+          '회원탈퇴 시 계정과 로그인 정보, 재생 기록, 카드뉴스 기록이 삭제되며 되돌릴 수 없습니다.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('취소'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFFFF6B6B),
+            ),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('회원탈퇴'),
+          ),
+        ],
+      ),
+    );
+    _isAccountDeletionDialogOpen = false;
+    if (!mounted || confirmed != true || _isDeletingAccount) return;
+
+    setState(() => _isDeletingAccount = true);
+    try {
+      await widget.onDeleteAccount();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isDeletingAccount = false);
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(content: Text('회원탈퇴에 실패했습니다. 잠시 후 다시 시도해 주세요.')),
+        );
+      return;
+    }
+
+    if (!mounted) return;
+    setState(() => _isDeletingAccount = false);
+    widget.onAccountDeleted();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<bool>(
-      valueListenable: AppThemeController.isLightMode,
-      builder: (context, isLightMode, _) {
-        return Scaffold(
-          backgroundColor: AppThemeController.backgroundColor,
-          body: SafeArea(
-            child: Column(
+    return PopScope(
+      canPop: !_isDeletingAccount,
+      child: ValueListenableBuilder<bool>(
+        valueListenable: AppThemeController.isLightMode,
+        builder: (context, isLightMode, _) {
+          return Scaffold(
+            backgroundColor: AppThemeController.backgroundColor,
+            body: Stack(
               children: [
-                _SettingsHeader(
-                  title: '설정',
-                  onBack: () => Navigator.of(context).pop(),
-                ),
-                Expanded(
-                  child: ListView(
-                    padding: const EdgeInsets.fromLTRB(24, 18, 24, 32),
-                    children: [
-                      _SettingsToggleTile(
-                        icon: Icons.light_mode_rounded,
-                        title: '라이트 모드',
-                        subtitle: '밝은 화면 테마',
-                        value: isLightMode,
-                        onChanged: (value) {
-                          AppThemeController.isLightMode.value = value;
-                        },
-                      ),
-                      const SizedBox(height: 12),
-                      _SettingsActionTile(
-                        icon: Icons.download_done_rounded,
-                        title: '오프라인 저장 컨텐츠',
-                        subtitle: '저장한 에피소드가 여기에 표시됩니다',
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => const OfflineContentScreen(),
-                            ),
-                          );
-                        },
-                      ),
-                      const SizedBox(height: 12),
-                      _SettingsActionTile(
-                        icon: Icons.delete_forever_rounded,
-                        title: '계정 삭제',
-                        subtitle: '계정과 관련 데이터를 삭제합니다',
-                        iconColor: const Color(0xFFFF6B6B),
-                        titleColor: const Color(0xFFFF6B6B),
-                        onTap: onDeleteAccount,
-                      ),
-                      const SizedBox(height: 12),
-                      _SettingsActionTile(
-                        icon: Icons.logout_rounded,
-                        title: '로그아웃',
-                        subtitle: '현재 계정에서 로그아웃합니다',
-                        iconColor: const Color(0xFFFF6B6B),
-                        titleColor: const Color(0xFFFF6B6B),
-                        trailing: const SizedBox.shrink(),
-                        onTap: () {
-                          onLogout();
-                        },
-                      ),
-                    ],
+                AbsorbPointer(
+                  absorbing: _isDeletingAccount,
+                  child: SafeArea(
+                    child: Column(
+                      children: [
+                        _SettingsHeader(
+                          title: '설정',
+                          onBack: () => Navigator.of(context).pop(),
+                        ),
+                        Expanded(
+                          child: ListView(
+                            padding: const EdgeInsets.fromLTRB(24, 18, 24, 32),
+                            children: [
+                              _SettingsToggleTile(
+                                icon: Icons.light_mode_rounded,
+                                title: '라이트 모드',
+                                subtitle: '밝은 화면 테마',
+                                value: isLightMode,
+                                onChanged: (value) {
+                                  AppThemeController.isLightMode.value = value;
+                                },
+                              ),
+                              const SizedBox(height: 12),
+                              _SettingsActionTile(
+                                icon: Icons.download_done_rounded,
+                                title: '오프라인 저장 컨텐츠',
+                                subtitle: '저장한 에피소드가 여기에 표시됩니다',
+                                onTap: () {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (_) =>
+                                          const OfflineContentScreen(),
+                                    ),
+                                  );
+                                },
+                              ),
+                              const SizedBox(height: 12),
+                              _SettingsActionTile(
+                                icon: Icons.delete_forever_rounded,
+                                title: '회원탈퇴',
+                                subtitle: '계정과 관련 데이터를 영구 삭제합니다',
+                                iconColor: const Color(0xFFFF6B6B),
+                                titleColor: const Color(0xFFFF6B6B),
+                                trailing: const SizedBox.shrink(),
+                                onTap: _confirmAndDeleteAccount,
+                              ),
+                              const SizedBox(height: 12),
+                              _SettingsActionTile(
+                                icon: Icons.logout_rounded,
+                                title: '로그아웃',
+                                subtitle: '현재 계정에서 로그아웃합니다',
+                                iconColor: const Color(0xFFFF6B6B),
+                                titleColor: const Color(0xFFFF6B6B),
+                                trailing: const SizedBox.shrink(),
+                                onTap: () {
+                                  widget.onLogout();
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
+                if (_isDeletingAccount) ...[
+                  const Positioned.fill(
+                    child: ColoredBox(color: Color(0x99000000)),
+                  ),
+                  const Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CircularProgressIndicator(),
+                        SizedBox(height: 16),
+                        Text('회원탈퇴 처리 중입니다...'),
+                      ],
+                    ),
+                  ),
+                ],
               ],
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 }
