@@ -111,7 +111,8 @@ class _MainScreenState extends State<MainScreen>
     await AuthService().deleteAccount();
   }
 
-  void _onAccountDeleted() {
+  Future<void> _onAccountDeleted() async {
+    await AudioHandler.instance.clearSession();
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => const LoginScreen()),

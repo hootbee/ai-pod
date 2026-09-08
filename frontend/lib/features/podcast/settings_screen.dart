@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../../shared/theme/app_theme_controller.dart';
+import '../auth/auth_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   final Future<void> Function() onLogout;
   final Future<void> Function() onDeleteAccount;
-  final VoidCallback onAccountDeleted;
+  final Future<void> Function() onAccountDeleted;
 
   const SettingsScreen({
     super.key,
@@ -55,6 +56,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() => _isDeletingAccount = true);
     try {
       await widget.onDeleteAccount();
+    } on AccountDeletionCleanupException {
+      if (!mounted) return;
+      setState(() => _isDeletingAccount = false);
+      await _showCleanupFailureDialog();
+      if (!mounted) return;
+      setState(() => _isDeletingAccount = true);
+      await widget.onAccountDeleted();
+      if (mounted) setState(() => _isDeletingAccount = false);
+      return;
     } catch (_) {
       if (!mounted) return;
       setState(() => _isDeletingAccount = false);
@@ -67,8 +77,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
 
     if (!mounted) return;
-    setState(() => _isDeletingAccount = false);
-    widget.onAccountDeleted();
+    await widget.onAccountDeleted();
+    if (mounted) setState(() => _isDeletingAccount = false);
+  }
+
+  Future<void> _showCleanupFailureDialog() {
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => PopScope(
+        canPop: false,
+        child: AlertDialog(
+          title: const Text('기기 데이터 정리가 필요합니다'),
+          content: const Text(
+            '회원탈퇴는 완료됐지만 기기의 로그인 정보 또는 캐시를 완전히 정리하지 못했습니다. '
+            '안전을 위해 로그인 화면으로 이동합니다. 다시 로그인하기 전에 앱 또는 브라우저 데이터를 삭제해 주세요.',
+          ),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('확인'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override

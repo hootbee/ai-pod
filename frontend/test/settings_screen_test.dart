@@ -2,17 +2,18 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:frontend/features/auth/auth_service.dart';
 import 'package:frontend/features/podcast/settings_screen.dart';
 
 Widget _buildSettings({
   required Future<void> Function() onDeleteAccount,
-  VoidCallback? onAccountDeleted,
+  Future<void> Function()? onAccountDeleted,
 }) {
   return MaterialApp(
     home: SettingsScreen(
       onLogout: () async {},
       onDeleteAccount: onDeleteAccount,
-      onAccountDeleted: onAccountDeleted ?? () {},
+      onAccountDeleted: onAccountDeleted ?? () async {},
     ),
   );
 }
@@ -75,7 +76,7 @@ void main() {
           deleteCalls++;
           return deletion.future;
         },
-        onAccountDeleted: () {
+        onAccountDeleted: () async {
           deletedCalls++;
         },
       ),
@@ -106,7 +107,7 @@ void main() {
             return SettingsScreen(
               onLogout: () async {},
               onDeleteAccount: () async {},
-              onAccountDeleted: () {
+              onAccountDeleted: () async {
                 Navigator.of(navigationContext).pushAndRemoveUntil(
                   MaterialPageRoute<void>(
                     builder: (_) => const Scaffold(body: Text('로그인 화면')),
@@ -141,7 +142,7 @@ void main() {
           deleteCalls++;
           if (deleteCalls == 1) throw Exception('network error');
         },
-        onAccountDeleted: () {
+        onAccountDeleted: () async {
           deletedCalls++;
         },
       ),
@@ -161,5 +162,33 @@ void main() {
 
     expect(deleteCalls, 2);
     expect(deletedCalls, 1);
+  });
+
+  testWidgets('서버 탈퇴 후 로컬 정리가 실패하면 안내 후 세션을 종료한다', (tester) async {
+    var deletedCalls = 0;
+    await tester.pumpWidget(
+      _buildSettings(
+        onDeleteAccount: () async {
+          throw const AccountDeletionCleanupException();
+        },
+        onAccountDeleted: () async {
+          deletedCalls++;
+        },
+      ),
+    );
+
+    await _openConfirmation(tester);
+    await _confirmDeletion(tester);
+    await tester.pumpAndSettle();
+
+    expect(find.text('기기 데이터 정리가 필요합니다'), findsOneWidget);
+    expect(find.textContaining('회원탈퇴는 완료됐지만'), findsOneWidget);
+    expect(deletedCalls, 0);
+
+    await tester.tap(find.widgetWithText(FilledButton, '확인'));
+    await tester.pumpAndSettle();
+
+    expect(deletedCalls, 1);
+    expect(find.text('기기 데이터 정리가 필요합니다'), findsNothing);
   });
 }

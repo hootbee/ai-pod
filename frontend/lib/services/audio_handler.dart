@@ -80,6 +80,17 @@ class AudioHandler {
     }
   }
 
+  Future<void> clearSession() async {
+    _playRequested = false;
+    _playRequestVersion++;
+    currentEpisodeId = null;
+    try {
+      await player.stop();
+    } catch (error) {
+      debugPrint('회원탈퇴 후 오디오 세션 정리 실패: $error');
+    }
+  }
+
   Future<void> resume() async {
     _playRequested = true;
     try {

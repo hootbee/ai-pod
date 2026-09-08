@@ -19,6 +19,11 @@ class _MemoryTokenStore implements AuthTokenStore {
   Future<void> delete({required String key}) async {
     _tokens.remove(key);
   }
+
+  @override
+  Future<void> clear() async {
+    _tokens.clear();
+  }
 }
 
 class _AuthFlowClient extends http.BaseClient {

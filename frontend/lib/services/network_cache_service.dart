@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/painting.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:just_audio/just_audio.dart' show AudioSource;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -107,12 +108,50 @@ class NetworkCacheService {
   Dio get dio => _dio;
 
   static Future<void> clearAuthenticatedUserData() async {
+    await _removeResponseCacheKeys((key) => key.contains('/users/me'));
+  }
+
+  static Future<void> clearAccountData({
+    Future<void> Function()? clearImageCache,
+  }) async {
+    await clearAuthenticatedUserData();
+    await (clearImageCache ?? _clearImageCache)();
+  }
+
+  static Future<void> clearAllLocalData({
+    Future<void> Function()? clearImageCache,
+  }) async {
     final prefs = await SharedPreferences.getInstance();
-    final userCacheKeys = prefs.getKeys().where((key) {
-      if (!key.startsWith('etag:') && !key.startsWith('cache:')) return false;
-      return key.contains('/users/me');
-    });
-    await Future.wait(userCacheKeys.map(prefs.remove));
+    final cleared = await prefs.clear();
+    if (!cleared && prefs.getKeys().isNotEmpty) {
+      throw StateError('Failed to clear local app storage.');
+    }
+    await (clearImageCache ?? _clearImageCache)();
+  }
+
+  static Future<void> _removeResponseCacheKeys(
+    bool Function(String key) shouldRemove,
+  ) async {
+    final prefs = await SharedPreferences.getInstance();
+    final keys = prefs.getKeys().where((key) {
+      final isResponseCache =
+          key.startsWith('etag:') || key.startsWith('cache:');
+      return isResponseCache && shouldRemove(key);
+    }).toList();
+
+    for (final key in keys) {
+      final removed = await prefs.remove(key);
+      if (!removed && prefs.containsKey(key)) {
+        throw StateError('Failed to clear cached API response.');
+      }
+    }
+  }
+
+  static Future<void> _clearImageCache() async {
+    await AppImageCacheManager.instance.emptyCache();
+    PaintingBinding.instance.imageCache
+      ..clear()
+      ..clearLiveImages();
   }
 
   NetworkCacheService._internal() {
