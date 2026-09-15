@@ -1,5 +1,12 @@
 package com.example.frontend
 
-import io.flutter.embedding.android.FlutterActivity
+import android.os.Bundle
+import androidx.core.view.WindowCompat
+import com.ryanheise.audioservice.AudioServiceActivity
 
-class MainActivity : FlutterActivity()
+class MainActivity : AudioServiceActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        WindowCompat.enableEdgeToEdge(window)
+    }
+}

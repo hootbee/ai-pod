@@ -20,7 +20,7 @@ val isReleaseTaskRequested = gradle.startParameter.taskNames.any {
 android {
     namespace = "com.example.frontend"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = "27.0.12077973"
+    ndkVersion = "28.2.13676358"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -74,6 +74,10 @@ android {
             excludes += listOf("**/x86/*.so", "**/x86_64/*.so")
         }
     }
+}
+
+dependencies {
+    implementation("androidx.core:core:1.17.0")
 }
 
 flutter {

@@ -233,7 +233,7 @@ class _CardNewsScreenState extends State<CardNewsScreen> {
         ),
         title: const Text('오늘의 AI 뉴스', style: TextStyle(color: Colors.white)),
       ),
-      body: _buildBody(),
+      body: SafeArea(top: false, child: _buildBody()),
     );
   }
 

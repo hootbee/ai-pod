@@ -142,7 +142,12 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
       ),
       builder: (context) {
         return Padding(
-          padding: const EdgeInsets.symmetric(vertical: 24),
+          padding: EdgeInsets.fromLTRB(
+            0,
+            24,
+            0,
+            24 + MediaQuery.paddingOf(context).bottom,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: _playbackSpeeds.map((speed) {
@@ -260,7 +265,6 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF1E211A),
       body: SafeArea(
-        bottom: false,
         child: Column(
           children: [
             _buildHeader(),

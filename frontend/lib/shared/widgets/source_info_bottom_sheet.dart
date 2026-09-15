@@ -16,9 +16,12 @@ void showSourceInfoBottomSheet(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
-    builder: (context) => SourceInfoBottomSheet(
-      sources: sources,
-      thumbnailUrl: thumbnailUrl,
+    builder: (context) => SafeArea(
+      top: false,
+      child: SourceInfoBottomSheet(
+        sources: sources,
+        thumbnailUrl: thumbnailUrl,
+      ),
     ),
   );
 }
