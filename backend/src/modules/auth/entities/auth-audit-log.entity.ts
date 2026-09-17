@@ -8,6 +8,9 @@ export enum AuthAuditEventType {
   REFRESH_FAILURE = 'refresh_failure',
   LOGOUT_SUCCESS = 'logout_success',
   LOGOUT_FAILURE = 'logout_failure',
+  ACCOUNT_DELETION_REQUESTED = 'account_deletion_requested',
+  ACCOUNT_DELETION_SUCCEEDED = 'account_deletion_succeeded',
+  ACCOUNT_DELETION_FAILED = 'account_deletion_failed',
 }
 
 @Entity({ name: 'auth_audit_logs' })
