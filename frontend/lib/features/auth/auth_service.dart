@@ -5,12 +5,14 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../../core/app_config.dart';
+import '../../services/network_cache_service.dart';
 import '../../shared/models/user_profile.dart';
 
 abstract interface class AuthTokenStore {
   Future<String?> read({required String key});
   Future<void> write({required String key, required String value});
   Future<void> delete({required String key});
+  Future<void> clear();
 }
 
 class _SecureAuthTokenStore implements AuthTokenStore {
@@ -25,6 +27,16 @@ class _SecureAuthTokenStore implements AuthTokenStore {
 
   @override
   Future<void> delete({required String key}) => _storage.delete(key: key);
+
+  @override
+  Future<void> clear() => _storage.deleteAll();
+}
+
+class AccountDeletionCleanupException implements Exception {
+  const AccountDeletionCleanupException();
+
+  @override
+  String toString() => '회원탈퇴 후 기기 내 로그인 정보 정리에 실패했습니다.';
 }
 
 class AuthService {
@@ -53,14 +65,36 @@ class AuthService {
   final http.Client _httpClient;
   final AuthTokenStore _tokenStore;
   final String _backendUrl;
+  final Future<void> Function() _googleSignOut;
+  final Future<void> Function() _googleDisconnect;
+  final Future<void> Function() _clearUserLocalData;
+  final Future<void> Function() _clearAllLocalData;
 
   AuthService({
     http.Client? httpClient,
     AuthTokenStore? tokenStore,
     String? backendUrl,
+    Future<void> Function()? googleSignOut,
+    Future<void> Function()? googleDisconnect,
+    Future<void> Function()? clearUserLocalData,
+    Future<void> Function()? clearAllLocalData,
   }) : _httpClient = httpClient ?? _defaultHttpClient,
        _tokenStore = tokenStore ?? _defaultTokenStore,
-       _backendUrl = backendUrl ?? AppConfig.apiBaseUrl;
+       _backendUrl = backendUrl ?? AppConfig.apiBaseUrl,
+       _googleSignOut =
+           googleSignOut ??
+           (() async {
+             await googleSignIn.signOut();
+           }),
+       _googleDisconnect =
+           googleDisconnect ??
+           (() async {
+             await googleSignIn.disconnect();
+           }),
+       _clearUserLocalData =
+           clearUserLocalData ?? NetworkCacheService.clearAccountData,
+       _clearAllLocalData =
+           clearAllLocalData ?? (() => NetworkCacheService.clearAllLocalData());
 
   String? get accessToken => _accessToken;
   bool get isLoggedIn => _accessToken != null;
@@ -238,14 +272,15 @@ class AuthService {
       );
     }
     try {
-      await googleSignIn.signOut();
+      await _googleSignOut();
     } finally {
       await _clearTokens();
     }
   }
 
   Future<void> deleteAccount() async {
-    final token = _accessToken ?? await readAccessToken();
+    final token =
+        _accessToken ?? await _tokenStore.read(key: _keyAccessToken);
     if (token == null) throw Exception('로그인이 필요합니다.');
 
     final response = await _httpClient
@@ -259,10 +294,44 @@ class AuthService {
       throw Exception('계정 삭제에 실패했습니다.');
     }
 
+    final cleanupFailures = <Object>[];
+    await _clearGoogleSession(cleanupFailures);
+    await _clearLocalAccountData(cleanupFailures);
     try {
-      await googleSignIn.signOut();
-    } finally {
       await _clearTokens();
+    } catch (error) {
+      cleanupFailures.add(error);
+    }
+
+    if (cleanupFailures.isNotEmpty) {
+      debugPrint(
+        'Account deletion completed with ${cleanupFailures.length} local cleanup failure(s).',
+      );
+      throw const AccountDeletionCleanupException();
+    }
+  }
+
+  Future<void> _clearGoogleSession(List<Object> cleanupFailures) async {
+    try {
+      await _googleSignOut();
+    } catch (_) {
+      try {
+        await _googleDisconnect();
+      } catch (error) {
+        cleanupFailures.add(error);
+      }
+    }
+  }
+
+  Future<void> _clearLocalAccountData(List<Object> cleanupFailures) async {
+    try {
+      await _clearUserLocalData();
+    } catch (_) {
+      try {
+        await _clearAllLocalData();
+      } catch (error) {
+        cleanupFailures.add(error);
+      }
     }
   }
 
@@ -297,10 +366,24 @@ class AuthService {
   }
 
   Future<void> _clearTokens() async {
-    await _tokenStore.delete(key: _keyAccessToken);
-    await _tokenStore.delete(key: _keyRefreshToken);
-    _accessToken = null;
-    _refreshToken = null;
+    Object? deletionError;
+    try {
+      await _tokenStore.delete(key: _keyAccessToken);
+    } catch (error) {
+      deletionError = error;
+    }
+    try {
+      await _tokenStore.delete(key: _keyRefreshToken);
+    } catch (error) {
+      deletionError ??= error;
+    }
+
+    try {
+      if (deletionError != null) await _tokenStore.clear();
+    } finally {
+      _accessToken = null;
+      _refreshToken = null;
+    }
   }
 
   static Future<String?> readAccessToken() {
