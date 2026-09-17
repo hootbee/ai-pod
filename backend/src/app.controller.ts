@@ -1,11 +1,4 @@
-import {
-  BadRequestException,
-  Body,
-  Controller,
-  Get,
-  Header,
-  Post,
-} from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Header, Post } from '@nestjs/common';
 import { AppService } from './app.service';
 import { AiProcessorService } from './modules/ai-processor/ai-processor.service';
 import { CrawlerService } from './modules/crawler/crawler.service';
@@ -203,6 +196,50 @@ export class AppController {
   @Header('Content-Type', 'text/html; charset=utf-8')
   getPrivacyPolicyAlias(): string {
     return this.getPrivacyPage();
+  }
+
+  @Get('account-deletion')
+  @Header('Content-Type', 'text/html; charset=utf-8')
+  getAccountDeletionPage(): string {
+    return `
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AiPod 계정 및 데이터 삭제</title>
+    <style>
+      body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f6f8f2; color: #1f241a; line-height: 1.7; }
+      main { padding: 40px 20px 80px; }
+      .card { width: min(760px, 100%); margin: 0 auto; background: #fff; border: 1px solid #d8e0d0; border-radius: 20px; padding: 32px; box-shadow: 0 16px 40px rgba(47, 63, 31, 0.08); }
+      h1, h2 { color: #1f241a; } h1 { margin-top: 0; font-size: 32px; } h2 { margin-top: 32px; font-size: 22px; }
+      a { color: #6c7f2d; font-weight: 700; } li { margin: 6px 0; }
+      .notice { padding: 16px; background: #f0f4e8; border-radius: 12px; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="card">
+        <h1>AiPod 계정 및 데이터 삭제</h1>
+        <p>AiPod 계정과 관련 데이터를 삭제하려면 아래 이메일로 삭제 요청을 보내 주세요.</p>
+        <p class="notice"><a href="mailto:hootbee0327@gmail.com?subject=AiPod%20계정%20삭제%20요청">계정 삭제 요청 이메일 보내기</a></p>
+        <h2>앱에서 삭제하는 방법</h2>
+        <p>앱의 설정 화면에서 <strong>계정 삭제</strong>를 선택하면 로그인한 계정을 즉시 삭제할 수 있습니다.</p>
+        <h2>삭제되는 데이터</h2>
+        <ul>
+          <li>계정 정보와 Google 연결 정보</li>
+          <li>로그인 토큰</li>
+          <li>팟캐스트 재생 기록</li>
+          <li>카드뉴스 조회 기록</li>
+          <li>서비스 이용 분석 이벤트와 인증 감사 기록</li>
+        </ul>
+        <h2>처리 안내</h2>
+        <p>삭제 요청 확인 후 관련 계정 데이터는 삭제됩니다. 법령상 보존이 필요한 정보가 있는 경우에는 해당 법령에서 정한 기간 동안만 보관합니다.</p>
+        <p><a href="/privacy">개인정보처리방침</a></p>
+      </section>
+    </main>
+  </body>
+</html>`;
   }
 
   @Post('ai/test')
