@@ -3,6 +3,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { UsersService } from './users.service';
 import { AuthProvider, User, UserRole } from './entities/user.entity';
+import { AuthAuditEventType, AuthAuditLog } from '../auth/entities/auth-audit-log.entity';
 
 const mockUserRepository = () => ({
   findOne: jest.fn(),
@@ -14,9 +15,15 @@ const mockDataSource = () => ({
   transaction: jest.fn(),
 });
 
+const mockAuthAuditRepository = () => ({
+  create: jest.fn((entity) => entity),
+  save: jest.fn().mockResolvedValue(undefined),
+});
+
 describe('UsersService', () => {
   let service: UsersService;
   let usersRepository: jest.Mocked<Repository<User>>;
+  let authAuditRepository: jest.Mocked<Repository<AuthAuditLog>>;
   let dataSource: { transaction: jest.Mock };
 
   beforeEach(async () => {
@@ -28,6 +35,10 @@ describe('UsersService', () => {
           useFactory: mockUserRepository,
         },
         {
+          provide: getRepositoryToken(AuthAuditLog),
+          useFactory: mockAuthAuditRepository,
+        },
+        {
           provide: DataSource,
           useFactory: mockDataSource,
         },
@@ -36,6 +47,7 @@ describe('UsersService', () => {
 
     service = module.get(UsersService);
     usersRepository = module.get(getRepositoryToken(User));
+    authAuditRepository = module.get(getRepositoryToken(AuthAuditLog));
     dataSource = module.get(DataSource);
   });
 
@@ -122,7 +134,10 @@ describe('UsersService', () => {
   });
 
   it('계정 삭제 시 사용자 관련 데이터를 하나의 트랜잭션에서 삭제한다', async () => {
-    const manager = { delete: jest.fn().mockResolvedValue({ affected: 1 }) };
+    const manager = {
+      delete: jest.fn().mockResolvedValue({ affected: 1 }),
+      update: jest.fn().mockResolvedValue({ affected: 1 }),
+    };
     dataSource.transaction.mockImplementation((callback) => Promise.resolve(callback(manager)));
 
     await service.deleteAccount('user-1');
@@ -132,7 +147,66 @@ describe('UsersService', () => {
     expect(manager.delete).toHaveBeenNthCalledWith(2, expect.anything(), { userId: 'user-1' });
     expect(manager.delete).toHaveBeenNthCalledWith(3, expect.anything(), { userId: 'user-1' });
     expect(manager.delete).toHaveBeenNthCalledWith(4, expect.anything(), { userId: 'user-1' });
-    expect(manager.delete).toHaveBeenNthCalledWith(5, expect.anything(), { userId: 'user-1' });
-    expect(manager.delete).toHaveBeenNthCalledWith(6, expect.anything(), { id: 'user-1' });
+    expect(manager.update).toHaveBeenCalledWith(
+      AuthAuditLog,
+      { userId: 'user-1' },
+      { userId: null },
+    );
+    expect(manager.delete).toHaveBeenNthCalledWith(5, expect.anything(), { id: 'user-1' });
+    expect(authAuditRepository.save).toHaveBeenCalledTimes(2);
+    expect(authAuditRepository.save).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        userId: null,
+        eventType: AuthAuditEventType.ACCOUNT_DELETION_REQUESTED,
+        requestId: expect.any(String),
+      }),
+    );
+    expect(authAuditRepository.save).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        userId: null,
+        eventType: AuthAuditEventType.ACCOUNT_DELETION_SUCCEEDED,
+        requestId: expect.any(String),
+      }),
+    );
+  });
+
+  it('존재하지 않는 사용자 탈퇴 요청은 실패 감사 로그를 남기고 404를 반환한다', async () => {
+    const manager = {
+      delete: jest.fn().mockResolvedValue({ affected: 0 }),
+      update: jest.fn().mockResolvedValue({ affected: 0 }),
+    };
+    dataSource.transaction.mockImplementation((callback) => Promise.resolve(callback(manager)));
+
+    await expect(service.deleteAccount('missing-user')).rejects.toThrow('User account not found');
+
+    expect(authAuditRepository.save).toHaveBeenCalledTimes(2);
+    expect(authAuditRepository.save).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        eventType: AuthAuditEventType.ACCOUNT_DELETION_FAILED,
+        failureReason: 'User account not found',
+        requestId: expect.any(String),
+      }),
+    );
+  });
+
+  it('트랜잭션 실패 시 실패 감사 로그를 남기고 원래 오류를 전달한다', async () => {
+    const deletionError = new Error('database failure');
+    const manager = {
+      delete: jest.fn().mockRejectedValue(deletionError),
+      update: jest.fn(),
+    };
+    dataSource.transaction.mockImplementation((callback) => Promise.resolve(callback(manager)));
+
+    await expect(service.deleteAccount('user-1')).rejects.toThrow('database failure');
+
+    expect(authAuditRepository.save).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        eventType: AuthAuditEventType.ACCOUNT_DELETION_FAILED,
+        failureReason: 'Account deletion failed',
+        requestId: expect.any(String),
+      }),
+    );
   });
 });

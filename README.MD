@@ -163,10 +163,11 @@ PROD_PATH                          원격 docker-compose.yml 디렉터리
 현재 workflow의 `PLAY_TRACK`은 `alpha`입니다. Play Console에서 별도의
 커스텀 비공개 트랙을 사용하는 경우 workflow의 값을 해당 트랙 ID로 변경해야
 합니다. `versionName`은 `frontend/pubspec.yaml`에서 관리하고,
-`versionCode`는 CD가 Play 트랙의 최신 값을 조회한 뒤 자동으로 1 증가시켜
-빌드합니다. Play 업로드가 성공한 뒤에만 같은 build number를 프로덕션 서버의
-`APP_LATEST_BUILD_NUMBER`에 반영합니다. 서버 갱신이 실패하면 이전 `.env`를
-복원합니다.
+`versionCode`는 CD가 Play의 모든 트랙에서 가장 높은 값을 조회한 뒤 자동으로
+1 증가시켜 빌드합니다. 따라서 비공개 테스트에서 먼저 업로드된 versionCode와
+프로덕션 versionCode가 충돌하지 않습니다. Play 업로드가 성공한 뒤에만 같은
+build number를 프로덕션 서버의 `APP_LATEST_BUILD_NUMBER`에 반영합니다. 서버
+갱신이 실패하면 이전 `.env`를 복원합니다.
 
 ## 🧾 백엔드 발행 이력 및 로그
 

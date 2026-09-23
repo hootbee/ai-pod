@@ -227,7 +227,7 @@ curl -X POST http://localhost:3000/card-news/test/$(
 | `JWT_REFRESH_SECRET` | — | Refresh Token 서명 키 (필수) |
 | `AUTH_AUDIT_IP_HASH_SECRET` | — | 인증 감사 로그 IP 해시용 비밀키 (선택) |
 
-인증 감사 로그는 `auth_audit_logs`에 로그인, refresh, logout 성공·실패 이력을 저장합니다. IP 주소는 원문으로 저장하지 않고 `AUTH_AUDIT_IP_HASH_SECRET`이 설정된 경우에만 해시로 저장합니다. Refresh Token은 `refresh_tokens.revokedAt`으로 폐기 시각을 보존하며 원문 토큰은 저장하지 않습니다.
+인증 감사 로그는 `auth_audit_logs`에 로그인, refresh, logout, 계정 삭제 요청·성공·실패 이력을 저장합니다. IP 주소는 원문으로 저장하지 않고 `AUTH_AUDIT_IP_HASH_SECRET`이 설정된 경우에만 해시로 저장합니다. Refresh Token은 `refresh_tokens.revokedAt`으로 폐기 시각을 보존하며 원문 토큰은 저장하지 않습니다. 계정 삭제가 성공하면 기존 인증 감사 로그의 `userId`는 `NULL`로 익명화하고, 계정 삭제 흐름은 개인정보 없이 `requestId`로 연결해 보존합니다.
 
 ## 사용자 행동 분석 API
 
