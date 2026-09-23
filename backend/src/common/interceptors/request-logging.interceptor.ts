@@ -9,7 +9,7 @@ import { RequestWithContext } from '../request-context';
 export class RequestLoggingInterceptor implements NestInterceptor {
   private readonly logger = new Logger(RequestLoggingInterceptor.name);
 
-  constructor(private readonly reflector = new Reflector()) {}
+  constructor(private readonly reflector: Reflector) {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const request = context

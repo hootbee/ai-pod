@@ -107,6 +107,19 @@ class _MainScreenState extends State<MainScreen>
     );
   }
 
+  Future<void> _deleteAccount() async {
+    await AuthService().deleteAccount();
+  }
+
+  Future<void> _onAccountDeleted() async {
+    await AudioHandler.instance.clearSession();
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      (_) => false,
+    );
+  }
+
   Future<void> _loadEpisodes() async {
     try {
       final response = await NetworkCacheService.instance.dio.get<dynamic>(
@@ -877,7 +890,11 @@ class _MainScreenState extends State<MainScreen>
         onTap: () {
           Navigator.of(context).push(
             MaterialPageRoute(
-              builder: (_) => SettingsScreen(onLogout: _logout),
+              builder: (_) => SettingsScreen(
+                onLogout: _logout,
+                onDeleteAccount: _deleteAccount,
+                onAccountDeleted: _onAccountDeleted,
+              ),
             ),
           );
         },

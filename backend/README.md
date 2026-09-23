@@ -47,7 +47,7 @@ DB_NAME=aipod_db
 # AI (Mindlogic / Gemini)
 MINDLOGIC_API_KEY=your_mindlogic_api_key
 MINDLOGIC_BASE_URL=https://factchat-cloud.mindlogic.ai/v1/api/google/models/generate-content
-MINDLOGIC_MODEL=gemini-2.5-flash
+MINDLOGIC_MODEL=gemini-3.5-flash-lite
 
 # Google OAuth (로그인 검증용)
 GOOGLE_CLIENT_ID=711427859481-ishgmphcatvfecfio6pqat1tfnbc7rl7.apps.googleusercontent.com
@@ -213,7 +213,7 @@ curl -X POST http://localhost:3000/card-news/test/$(
 | `REDIS_URL` | `redis://localhost:6379` | Redis 연결 URL |
 | `MINDLOGIC_API_KEY` | — | Mindlogic API 키 (필수) |
 | `MINDLOGIC_BASE_URL` | — | Mindlogic 엔드포인트 |
-| `MINDLOGIC_MODEL` | `gemini-2.5-flash` | 사용할 모델명 |
+| `MINDLOGIC_MODEL` | `gemini-3.5-flash-lite` | 사용할 모델명 |
 | `GOOGLE_CLIENT_ID` | — | Google OAuth Web Client ID (필수) |
 | `GOOGLE_IOS_CLIENT_ID` | — | iOS Client ID (iOS 앱 지원 시) |
 | `GOOGLE_CLOUD_TTS_API_KEY` | — | Google Cloud TTS API 키 (필수) |
