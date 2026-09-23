@@ -1,0 +1,82 @@
+name: Publish Android version policy
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_code:
+        description: Android versionCode confirmed as available in Play Console
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-app-version-policy
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish Android version policy to production
+    runs-on: ubuntu-latest
+    environment: play-closed
+    env:
+      PROD_SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
+      PROD_HOST: ${{ secrets.PROD_HOST }}
+      PROD_USER: ${{ secrets.PROD_USER }}
+      PROD_PATH: ${{ secrets.PROD_PATH }}
+      VERSION_CODE: ${{ inputs.version_code }}
+    steps:
+      - name: Update production app version policy
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$PROD_SSH_KEY"
+          test -n "$PROD_HOST"
+          test -n "$PROD_USER"
+          test -n "$PROD_PATH"
+          [[ "$VERSION_CODE" =~ ^[1-9][0-9]*$ ]]
+
+          install -m 700 -d "$HOME/.ssh"
+          printf '%s\n' "$PROD_SSH_KEY" > "$HOME/.ssh/id_ed25519"
+          chmod 600 "$HOME/.ssh/id_ed25519"
+          ssh-keyscan -H "$PROD_HOST" >> "$HOME/.ssh/known_hosts"
+
+          ssh "$PROD_USER@$PROD_HOST" "APP_BUILD_NUMBER='$VERSION_CODE' PROD_PATH='$PROD_PATH' bash -s" <<'REMOTE'
+          set -euo pipefail
+          cd "$PROD_PATH"
+          test -f .env
+
+          backup_file=".env.bak-version-${APP_BUILD_NUMBER}-$(date +%Y%m%d%H%M%S)"
+          cp .env "$backup_file"
+
+          rollback() {
+            cp "$backup_file" .env
+            docker compose up -d --no-deps --force-recreate backend
+          }
+          trap rollback ERR
+
+          if grep -q '^APP_LATEST_BUILD_NUMBER=' .env; then
+            sed -i "s/^APP_LATEST_BUILD_NUMBER=.*/APP_LATEST_BUILD_NUMBER=$APP_BUILD_NUMBER/" .env
+          else
+            printf '\nAPP_LATEST_BUILD_NUMBER=%s\n' "$APP_BUILD_NUMBER" >> .env
+          fi
+
+          docker compose up -d --no-deps --force-recreate backend
+
+          for attempt in $(seq 1 30); do
+            response=$(curl --fail --silent --show-error --max-time 5 \
+              http://127.0.0.1:3000/app-version 2>/dev/null || true)
+            case "$response" in
+              *"\"latestBuildNumber\":$APP_BUILD_NUMBER"*)
+                trap - ERR
+                echo "Production app version verified: $APP_BUILD_NUMBER"
+                exit 0
+                ;;
+            esac
+            sleep 2
+          done
+
+          echo "Production app version health check failed" >&2
+          exit 1
+          REMOTE
