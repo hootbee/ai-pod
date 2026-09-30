@@ -1,9 +1,21 @@
-import { BadRequestException, Body, Controller, Get, Header, Post } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  Header,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { AppService } from './app.service';
 import { AiProcessorService } from './modules/ai-processor/ai-processor.service';
 import { CrawlerService } from './modules/crawler/crawler.service';
 import type { BriefingArticle } from './modules/ai-processor/interfaces/ai-provider.interface';
 import { EpisodesService } from './modules/episodes/episodes.service';
+import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
+import { RolesGuard } from './modules/auth/guards/roles.guard';
+import { Roles } from './modules/auth/decorators/roles.decorator';
+import { UserRole } from './modules/users/entities/user.entity';
 
 type AiTestRequest = {
   content?: string;
@@ -244,6 +256,8 @@ export class AppController {
   }
 
   @Post('ai/test')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
   async testAi(@Body() body: AiTestRequest) {
     const content = body?.content?.trim();
     if (!content) {
@@ -254,6 +268,8 @@ export class AppController {
   }
 
   @Post('ai/briefing/test')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
   async testBriefing(@Body() body: BriefingTestRequest) {
     const articles = (body?.articles ?? [])
       .map((article) => ({
@@ -271,6 +287,8 @@ export class AppController {
   }
 
   @Post('pipeline/briefing/preview')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
   async previewBriefingPipeline(@Body() body: PipelinePreviewRequest) {
     const { articles } = await this.collectBriefingArticles(body);
 
@@ -286,6 +304,8 @@ export class AppController {
   }
 
   @Post('pipeline/briefing/run')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
   async runBriefingPipeline(@Body() body: PipelinePreviewRequest) {
     const { articles } = await this.collectBriefingArticles(body);
 
