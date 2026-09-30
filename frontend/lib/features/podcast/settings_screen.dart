@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../shared/theme/app_theme_controller.dart';
 import '../auth/auth_service.dart';
+
+const _contactEmail = 'hootbee0327@gmail.com';
 
 class SettingsScreen extends StatefulWidget {
   final Future<void> Function() onLogout;
@@ -81,6 +85,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (mounted) setState(() => _isDeletingAccount = false);
   }
 
+  Future<void> _contactDeveloper() async {
+    final uri = Uri(
+      scheme: 'mailto',
+      path: _contactEmail,
+      query: 'subject=${Uri.encodeComponent('[AIPod] 문의')}',
+    );
+    var launched = false;
+    try {
+      launched = await launchUrl(uri);
+    } catch (_) {}
+    if (launched || !mounted) return;
+
+    // 메일 앱이 없으면 주소를 복사해 준다.
+    await Clipboard.setData(const ClipboardData(text: _contactEmail));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        const SnackBar(content: Text('이메일 주소를 복사했습니다: $_contactEmail')),
+      );
+  }
+
   Future<void> _showCleanupFailureDialog() {
     return showDialog<void>(
       context: context,
@@ -150,6 +176,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                     ),
                                   );
                                 },
+                              ),
+                              const SizedBox(height: 12),
+                              _SettingsActionTile(
+                                icon: Icons.mail_outline_rounded,
+                                title: '문의하기',
+                                subtitle: '개발자 이메일: $_contactEmail',
+                                onTap: _contactDeveloper,
                               ),
                               const SizedBox(height: 12),
                               _SettingsActionTile(
