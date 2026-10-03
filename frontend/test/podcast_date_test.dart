@@ -23,4 +23,16 @@ void main() {
       '테크 인사이트',
     );
   });
+
+  test('콘텐츠 날짜는 로컬(KST) 기준으로 표시한다', () {
+    // 04:00 KST pipeline run is stored as 19:00 UTC on the previous day.
+    final label = formatContentDate(DateTime.utc(2026, 10, 1, 19));
+    final expected = DateTime.utc(2026, 10, 1, 19).toLocal();
+    expect(
+      label,
+      '${expected.year}.${expected.month.toString().padLeft(2, '0')}.'
+      '${expected.day.toString().padLeft(2, '0')}',
+    );
+    expect(formatContentDate(DateTime(2026, 3, 5)), '2026.03.05');
+  });
 }

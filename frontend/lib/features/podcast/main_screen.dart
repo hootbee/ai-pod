@@ -10,6 +10,7 @@ import '../../shared/widgets/click_wheel.dart';
 import '../auth/auth_service.dart';
 import '../auth/login_screen.dart';
 import '../card_news/deep_dive_screen.dart';
+import 'podcast_date.dart';
 import 'podcast_player_screen.dart';
 import 'settings_screen.dart';
 import 'package:just_audio/just_audio.dart';
@@ -1219,6 +1220,27 @@ class _FlipThumbnailCardState extends State<FlipThumbnailCard>
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    if (widget.episode.createdAt != null) ...[
+                      Padding(
+                        padding: const EdgeInsets.only(left: 16),
+                        child: Text(
+                          formatContentDate(widget.episode.createdAt!),
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFFD6E36F),
+                            shadows: [
+                              Shadow(
+                                offset: const Offset(0, 1),
+                                blurRadius: 4.0,
+                                color: Colors.black.withValues(alpha: 0.8),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                    ],
                     if (hasHeadline) ...[
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1367,9 +1389,7 @@ class _FlipThumbnailCardState extends State<FlipThumbnailCard>
 
   Widget _buildBack() {
     final date = widget.episode.createdAt;
-    final dateStr = date != null
-        ? '${date.year}.${date.month.toString().padLeft(2, '0')}.${date.day.toString().padLeft(2, '0')}'
-        : '';
+    final dateStr = date != null ? formatContentDate(date) : '';
 
     return Container(
       decoration: BoxDecoration(

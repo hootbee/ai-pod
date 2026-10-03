@@ -437,6 +437,9 @@ class _PodcastPlayerScreenState extends State<PodcastPlayerScreen> {
                             context,
                             sources: widget.episode.sources,
                             thumbnailUrl: widget.episode.thumbnailUrl,
+                            dateLabel: widget.episode.createdAt == null
+                                ? null
+                                : formatContentDate(widget.episode.createdAt!),
                           )
                         : null,
                   ),

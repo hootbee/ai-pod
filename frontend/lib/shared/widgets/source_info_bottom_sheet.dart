@@ -9,6 +9,7 @@ void showSourceInfoBottomSheet(
   BuildContext context, {
   required List<EpisodeSource> sources,
   String? thumbnailUrl,
+  String? dateLabel,
 }) {
   if (sources.isEmpty) return;
 
@@ -21,6 +22,7 @@ void showSourceInfoBottomSheet(
       child: SourceInfoBottomSheet(
         sources: sources,
         thumbnailUrl: thumbnailUrl,
+        dateLabel: dateLabel,
       ),
     ),
   );
@@ -29,11 +31,13 @@ void showSourceInfoBottomSheet(
 class SourceInfoBottomSheet extends StatefulWidget {
   final List<EpisodeSource> sources;
   final String? thumbnailUrl;
+  final String? dateLabel;
 
   const SourceInfoBottomSheet({
     super.key,
     required this.sources,
     this.thumbnailUrl,
+    this.dateLabel,
   });
 
   @override
@@ -91,6 +95,20 @@ class _SourceInfoBottomSheetState extends State<SourceInfoBottomSheet> {
               ],
             ),
           ),
+          if (widget.dateLabel != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  '${widget.dateLabel} 에피소드에 사용된 기사',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.6),
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+            ),
           const SizedBox(height: 12),
           
           Expanded(
