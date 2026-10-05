@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 
 import '../../core/app_config.dart';
 import '../auth/auth_service.dart';
+import '../podcast/podcast_date.dart';
 import '../../services/network_cache_service.dart';
 import '../../shared/models/episode_source.dart';
 import '../../shared/models/user_profile.dart';
@@ -264,6 +265,7 @@ class _DeepDiveScreenState extends State<DeepDiveScreen> {
           id: (item['id'] as String?) ?? '',
           episodeId: episodeId,
           dayLabel: _toDayLabel(createdAt),
+          createdAt: DateTime.tryParse(createdAt),
           topicTitle: topicTitle,
           cards: cards,
           sources: sources,
@@ -421,7 +423,7 @@ class _DeepDiveScreenState extends State<DeepDiveScreen> {
                   }
 
                   final day = _days[dayIndex];
-                  return PageView.custom(
+                  final pages = PageView.custom(
                     key: ValueKey('pageview_$dayIndex'),
                     scrollDirection: Axis.horizontal,
                     controller: _controllerFor(dayIndex),
@@ -445,6 +447,24 @@ class _DeepDiveScreenState extends State<DeepDiveScreen> {
                       addRepaintBoundaries: true,
                       childCount: day.cards.length,
                     ),
+                  );
+                  if (day.createdAt == null) return pages;
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
+                        child: Text(
+                          formatContentDate(day.createdAt!),
+                          style: TextStyle(
+                            color: AppThemeController.secondaryTextColor(0.7),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      Expanded(child: pages),
+                    ],
                   );
                 },
               ),
@@ -980,6 +1000,7 @@ class DeepDiveDay {
   final String id;
   final String episodeId;
   final String dayLabel;
+  final DateTime? createdAt;
   final String topicTitle;
   final List<DeepDiveCardMeta> cards;
   final List<EpisodeSource> sources;
@@ -988,6 +1009,7 @@ class DeepDiveDay {
     required this.id,
     required this.episodeId,
     required this.dayLabel,
+    this.createdAt,
     required this.topicTitle,
     required this.cards,
     this.sources = const [],

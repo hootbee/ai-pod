@@ -18,3 +18,11 @@ String formatPodcastScreenTitle({
   return '${localCreatedAt.year}년 ${localCreatedAt.month}월 '
       '${localCreatedAt.day}일 뉴스';
 }
+
+/// Local-date label (e.g. 2026.10.02) shown so users can see how fresh
+/// each piece of content is (Play News & Magazines policy).
+String formatContentDate(DateTime date) {
+  final local = date.toLocal();
+  return '${local.year}.${local.month.toString().padLeft(2, '0')}.'
+      '${local.day.toString().padLeft(2, '0')}';
+}
