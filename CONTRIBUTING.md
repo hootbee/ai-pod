@@ -1,0 +1,206 @@
+# Contributing
+
+이 문서는 AiPod 저장소의 협업 규칙과 검증·배포·운영 절차를 정리합니다. 프로젝트 소개는 [README](README.MD)를 참고하세요.
+
+---
+
+## 📂 Git 브랜치 전략
+
+```plaintext
+main        : 최종 제품 릴리스를 위한 안정된 브랜치
+dev         : 개발 중인 기능이 병합되는 브랜치
+feature/*   : 개별 기능 개발을 위한 브랜치
+hotfix/*    : 배포 후 급한 버그 수정용 브랜치
+```
+
+* **main 브랜치**는 오직 PR(Pull Request)을 통해서만 병합됩니다.
+* **개발자는 feature 브랜치에서 작업 후 dev로 PR을 보냅니다.**
+* 기능이 완료되면 `dev` → `main` 순서로 병합합니다.
+
+---
+
+## 💬 커밋 컨벤션
+
+형식: `타입: 작업 내용`
+
+### 커밋 타입 예시
+
+* `feat` : 새로운 기능 추가
+* `fix` : 버그 수정
+* `docs` : 문서 수정
+* `style` : 코드 포맷팅, 세미콜론 누락 등
+* `refactor` : 코드 리팩토링
+* `test` : 테스트 코드 추가/수정
+* `chore` : 기타 변경사항 (빌드 설정, 패키지 매니저 등)
+
+### 예시
+
+```bash
+git commit -m "feat: 로그인 기능 구현"
+git commit -m "fix: 로그인 시 비밀번호 오류 수정"
+```
+
+---
+
+## 🔄 작업 순서
+
+1. `main`과 `dev` 브랜치를 최신 상태로 유지
+
+   ```bash
+   git checkout main
+   git pull origin main
+   git checkout dev
+   git pull origin dev
+   ```
+
+2. 기능 브랜치 생성
+
+   ```bash
+   git checkout -b feature/기능이름
+   ```
+
+3. 작업 후 커밋 및 푸시
+
+   ```bash
+   git add .
+   git commit -m "feat: 기능 설명"
+   git push origin feature/기능이름
+   ```
+
+4. GitHub에서 Pull Request 생성 (base: dev ← compare: feature/기능이름)
+
+5. 코드 리뷰 후 병합
+
+---
+
+## 🔍 코드 리뷰 가이드
+
+* PR은 되도록 작고 명확하게 나누어 작성
+* 리뷰어는 `Approve` 또는 `Comment`로 피드백 제공
+* 리뷰를 반영한 후 `Re-request review` 요청
+
+---
+
+## 🧪 Flutter 검증 명령어
+
+```bash
+cd frontend
+flutter pub get
+flutter analyze
+flutter test
+flutter test integration_test/auth_refresh_test.dart
+```
+
+`auth_refresh_test.dart`는 실제 토큰을 사용하지 않고 `401 → refresh` 성공과
+실패 흐름을 디바이스 환경에서 검증합니다.
+
+---
+
+## 🚀 백엔드 프로덕션 CD
+
+`.github/workflows/deploy-production.yml`은 `main` 브랜치에 병합된 커밋을
+기준으로 백엔드를 프로덕션 서버에 배포합니다.
+
+배포 순서:
+
+1. 백엔드 build, test, architecture 검증
+2. `linux/amd64` Docker 이미지 빌드
+3. `hootbee/aipod-backend:<commit-sha>` 이미지 푸시
+4. 프로덕션 서버에서 해당 이미지 pull 및 backend 컨테이너 재생성
+5. `http://127.0.0.1:3000/` health check
+6. 실패 시 직전 이미지로 롤백 시도
+
+GitHub 저장소의 `Settings > Environments > production`에 아래 Secrets를
+등록해야 합니다.
+
+```text
+DOCKERHUB_USERNAME  Docker Hub 사용자명
+DOCKERHUB_TOKEN     Docker Hub 접근 토큰
+PROD_HOST           프로덕션 서버 호스트명 또는 IP
+PROD_USER           SSH 사용자명
+PROD_SSH_KEY        프로덕션 서버 접속용 SSH private key
+PROD_PATH           원격 docker-compose.yml 디렉터리
+```
+
+`production` Environment에 Required reviewers를 지정하면 검증은 자동으로
+진행하고, 실제 서버 배포는 승인 후 실행할 수 있습니다. 프로덕션 서버의
+`docker-compose.yml`은 backend 서비스에 `build` 없이 Docker Hub 이미지의
+`image` 항목을 사용해야 합니다.
+
+## 📱 Android 비공개 테스트 CD
+
+`.github/workflows/deploy-android-closed-testing.yml`은 `main` 브랜치에
+병합된 커밋 또는 수동 실행을 기준으로 Android App Bundle을 빌드하고
+Google Play의 `alpha` 비공개 테스트 트랙에 업로드합니다.
+
+배포 전에 다음 조건을 Google Play Console에서 한 번 설정해야 합니다.
+
+1. 앱 패키지 `com.aipod.app`을 Play Console에 등록
+2. 비공개 테스트 트랙을 생성하고 테스트 참여자를 등록
+3. Google Cloud 서비스 계정을 만들고 Google Play Developer API를 활성화
+4. Play Console 사용자 및 권한 메뉴에서 해당 서비스 계정에 앱 정보 관리 권한 부여
+5. 현재 업로드 키를 Play Console에 등록
+
+GitHub 저장소의 `Settings > Environments > play-closed`에 아래 Secrets를
+등록해야 합니다.
+
+```text
+ANDROID_KEYSTORE_BASE64       업로드 keystore의 base64 값
+ANDROID_KEYSTORE_PASSWORD     keystore 비밀번호
+ANDROID_KEY_ALIAS             업로드 key alias
+ANDROID_KEY_PASSWORD          업로드 key 비밀번호
+GOOGLE_PLAY_SERVICE_ACCOUNT_JSON  Google Play 서비스 계정 JSON 원문
+GOOGLE_SERVICES_JSON               Firebase Android 설정 JSON 원문
+PROD_HOST                          프로덕션 서버 호스트
+PROD_USER                          프로덕션 서버 SSH 사용자명
+PROD_SSH_KEY                       프로덕션 서버 접속용 SSH private key
+PROD_PATH                          원격 docker-compose.yml 디렉터리
+```
+
+현재 workflow의 `PLAY_TRACK`은 `alpha`입니다. Play Console에서 별도의
+커스텀 비공개 트랙을 사용하는 경우 workflow의 값을 해당 트랙 ID로 변경해야
+합니다. `versionName`은 `frontend/pubspec.yaml`에서 관리하고,
+`versionCode`는 CD가 Play의 모든 트랙에서 가장 높은 값을 조회한 뒤 자동으로
+1 증가시켜 빌드합니다. 따라서 비공개 테스트에서 먼저 업로드된 versionCode와
+프로덕션 versionCode가 충돌하지 않습니다. Play 업로드가 성공한 뒤에만 같은
+build number를 프로덕션 서버의 `APP_LATEST_BUILD_NUMBER`에 반영합니다. 서버
+갱신이 실패하면 이전 `.env`를 복원합니다.
+
+## 🧾 백엔드 발행 이력 및 로그
+
+백엔드 일일 발행은 PostgreSQL의 `pipeline_runs`와
+`pipeline_run_steps`에 실행 상태를 저장합니다. 컨테이너가 재생성되어도
+실행 이력과 단계별 실패 원인은 유지됩니다.
+
+관리자 API:
+
+```text
+GET /admin/pipeline/runs
+GET /admin/pipeline/runs/:id
+```
+
+프로덕션 Compose는 백엔드 stdout/stderr를 `backend_logs` Docker volume의
+`/app/logs/backend.log`에 추가 기록합니다. 기술 로그는 컨테이너 로그와
+분리해서 보존하고, 비즈니스 발행 상태는 DB 이력을 기준으로 확인합니다.
+
+주요 발행 단계:
+
+```text
+article_collection
+script_generation
+episode_save
+headline_generation
+thumbnail_generation
+card_news_generation
+tts_enqueue
+tts_completion
+discord_notification
+```
+
+---
+
+## ⚠️ 주의사항
+
+* `main` 브랜치에서 직접 작업하거나 push 금지
+* 충돌 발생 시 직접 해결 후 PR
+* 커밋 메시지와 PR 제목은 명확하게 작성

@@ -144,6 +144,9 @@ jobs:
             sleep 2
           done
 
-          echo "Production health check failed" >&2
+          # exit does not fire the ERR trap, so roll back explicitly.
+          echo "Production health check failed; rolling back to ${previous_image:-<none>}" >&2
+          trap - ERR
+          rollback || echo "Rollback failed; backend may still be on $IMAGE" >&2
           exit 1
           REMOTE

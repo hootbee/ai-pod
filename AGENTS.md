@@ -12,7 +12,8 @@ This repository contains:
 
 - `frontend/`: Flutter app using `flutter_lints`.
 - `backend/`: NestJS/TypeScript backend using Jest and ESLint.
-- `README.MD`: Git collaboration, branch, PR, and commit conventions.
+- `README.MD`: Project overview.
+- `CONTRIBUTING.md`: Git collaboration, branch, PR, and commit conventions.
 
 ---
 
@@ -71,7 +72,7 @@ For changes touching both `frontend/` and `backend/`:
 
 - Preserve user changes. Do not revert unrelated modifications.
 - Do not use `git add .` when unrelated changes exist.
-- Follow the root `README.MD` commit convention:
+- Follow the root `CONTRIBUTING.md` commit convention:
   - `feat:` for features
   - `fix:` for bug fixes
   - `docs:` for documentation-only changes
