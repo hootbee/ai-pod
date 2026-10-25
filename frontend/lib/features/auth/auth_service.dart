@@ -39,6 +39,10 @@ class AccountDeletionCleanupException implements Exception {
   String toString() => '회원탈퇴 후 기기 내 로그인 정보 정리에 실패했습니다.';
 }
 
+class _RefreshRejectedException implements Exception {
+  const _RefreshRejectedException();
+}
+
 class AuthService {
   // URL은 AppConfig에서 환경별로 자동 결정됨
   static const _googleClientId = String.fromEnvironment(
@@ -251,16 +255,25 @@ class AuthService {
         )
         .timeout(const Duration(seconds: 10));
 
+    if (response.statusCode == 401 || response.statusCode == 403) {
+      throw const _RefreshRejectedException();
+    }
     if (response.statusCode != 200) throw Exception('세션 갱신에 실패했습니다.');
 
     final data = jsonDecode(response.body) as Map<String, dynamic>;
-    _accessToken = data['accessToken'] as String?;
-    _refreshToken = data['refreshToken'] as String?;
+    final accessToken = data['accessToken'];
+    final refreshToken = data['refreshToken'];
+    if (accessToken is! String || refreshToken is! String) {
+      throw Exception('세션 갱신 응답이 올바르지 않습니다.');
+    }
+    _accessToken = accessToken;
+    _refreshToken = refreshToken;
     await _saveTokens();
   }
 
   /// 로그아웃
   Future<void> logout() async {
+    await _waitForPendingRefresh();
     if (_accessToken != null && _refreshToken != null) {
       await _httpClient.post(
         Uri.parse('$_backendUrl/auth/logout'),
@@ -279,6 +292,7 @@ class AuthService {
   }
 
   Future<void> deleteAccount() async {
+    await _waitForPendingRefresh();
     final token =
         _accessToken ?? await _tokenStore.read(key: _keyAccessToken);
     if (token == null) throw Exception('로그인이 필요합니다.');
@@ -336,7 +350,7 @@ class AuthService {
   }
 
   Future<UserProfile?> fetchUserProfile() async {
-    final token = await readAccessToken();
+    final token = await readValidAccessToken();
     if (token == null) return null;
 
     try {
@@ -386,7 +400,62 @@ class AuthService {
     }
   }
 
-  static Future<String?> readAccessToken() {
-    return _defaultTokenStore.read(key: _keyAccessToken);
+  static Future<String?> readAccessToken() =>
+      AuthService().readValidAccessToken();
+
+  static Future<String?>? _validAccessTokenRequest;
+
+  /// 저장된 access token을 읽고, 만료가 임박했으면 refresh 후 새 토큰을 반환한다.
+  /// refresh token은 사용 시 회전되므로 동시 refresh가 서로를 무효화하지 않게 요청을 합친다.
+  Future<String?> readValidAccessToken() {
+    return _validAccessTokenRequest ??= _readValidAccessToken().whenComplete(
+      () => _validAccessTokenRequest = null,
+    );
+  }
+
+  Future<String?> _readValidAccessToken() async {
+    _accessToken = await _tokenStore.read(key: _keyAccessToken);
+    final token = _accessToken;
+    if (token == null || !_isExpiringSoon(token)) return token;
+
+    _refreshToken = await _tokenStore.read(key: _keyRefreshToken);
+    try {
+      await _refresh();
+    } on _RefreshRejectedException {
+      // 서버가 refresh token을 거부하면 tryAutoLogin과 같이 세션을 정리한다.
+      await _clearTokens();
+    } catch (_) {
+      // 일시적인 네트워크 오류로 로그아웃시키지 않는다. 기존 토큰을 그대로 쓴다.
+    }
+    return _accessToken;
+  }
+
+  /// 진행 중인 refresh가 끝난 뒤 토큰을 지워야 새 토큰이 다시 저장되지 않는다.
+  Future<void> _waitForPendingRefresh() async {
+    try {
+      await _validAccessTokenRequest;
+    } catch (_) {}
+  }
+
+  // ponytail: 기기 시계 기준 판단. 시계가 1시간 이상 늦으면 refresh하지 않는다.
+  // 이런 기기가 문제 되면 401 응답 시 refresh 후 재시도를 추가한다.
+  static bool _isExpiringSoon(String token) {
+    try {
+      final payload =
+          jsonDecode(
+                utf8.decode(
+                  base64Url.decode(base64Url.normalize(token.split('.')[1])),
+                ),
+              )
+              as Map<String, dynamic>;
+      final expiresAt = DateTime.fromMillisecondsSinceEpoch(
+        (payload['exp'] as num).toInt() * 1000,
+      );
+      return DateTime.now().isAfter(
+        expiresAt.subtract(const Duration(seconds: 60)),
+      );
+    } catch (_) {
+      return false;
+    }
   }
 }
