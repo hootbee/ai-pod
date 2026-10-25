@@ -142,7 +142,7 @@ flowchart LR
 ### 6. 구조를 지키는 CI
 
 - **Architecture fitness check** — NestJS 모듈 import 그래프에서 순환 의존과 `common` → feature 역참조를 검사합니다. 새 위반이 생기면 CI를 실패시키고, 의도적으로 남기는 위반은 baseline으로 관리합니다 (현재 0건).
-- **Backend CD** — `main` 머지 → commit SHA 태그로 Docker 이미지 빌드 → 서버 배포 → health check. 이미지 pull·컨테이너 기동이 실패하면 직전 이미지로 롤백합니다.
+- **Backend CD** — `main` 머지 → commit SHA 태그로 Docker 이미지 빌드 → 서버 배포 → health check. 이미지 pull·컨테이너 기동이나 health check가 실패하면 직전 이미지로 롤백합니다.
 - **Android CD** — Play 비공개 테스트(alpha) 트랙에 업로드합니다 (검토 제출은 수동). `versionCode`는 Play의 모든 트랙에서 가장 높은 값에 1을 더해 충돌을 막습니다.
 
 ---
