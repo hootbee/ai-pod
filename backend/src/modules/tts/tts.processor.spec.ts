@@ -11,6 +11,9 @@ describe('TtsProcessor', () => {
     failStep: jest.fn(),
     recordAsyncFailure: jest.fn(),
   };
+  const notifier = {
+    notifyPublishFailure: jest.fn(),
+  };
   const job = {
     id: 'job-1',
     data: { episodeId: 'episode-1', pipelineRunId: 'run-1' },
@@ -23,7 +26,11 @@ describe('TtsProcessor', () => {
   });
 
   it('TTS 성공 시 완료 단계를 기록한다', async () => {
-    const processor = new TtsProcessor(ttsService as never, pipelineRunService as never);
+    const processor = new TtsProcessor(
+      ttsService as never,
+      pipelineRunService as never,
+      notifier as never,
+    );
 
     await processor.handleGenerate(job as never);
 
@@ -40,7 +47,11 @@ describe('TtsProcessor', () => {
   it('TTS 실패 시 단계와 파이프라인 경고를 모두 기록한다', async () => {
     const error = new Error('Cloud TTS unavailable');
     ttsService.generateAudio.mockRejectedValue(error);
-    const processor = new TtsProcessor(ttsService as never, pipelineRunService as never);
+    const processor = new TtsProcessor(
+      ttsService as never,
+      pipelineRunService as never,
+      notifier as never,
+    );
 
     await expect(processor.handleGenerate(job as never)).rejects.toThrow('Cloud TTS unavailable');
 
@@ -55,5 +66,24 @@ describe('TtsProcessor', () => {
       'TTS 생성 실패: Cloud TTS unavailable',
       error,
     );
+    expect(notifier.notifyPublishFailure).toHaveBeenCalledWith({
+      step: 'tts_completion',
+      error,
+      detail: 'TTS job: job-1',
+      episodeId: 'episode-1',
+      runId: 'run-1',
+    });
+  });
+
+  it('TTS 성공 시 실패 알림을 보내지 않는다', async () => {
+    const processor = new TtsProcessor(
+      ttsService as never,
+      pipelineRunService as never,
+      notifier as never,
+    );
+
+    await processor.handleGenerate(job as never);
+
+    expect(notifier.notifyPublishFailure).not.toHaveBeenCalled();
   });
 });

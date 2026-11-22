@@ -11,6 +11,7 @@ import { ThumbnailService } from '../thumbnail/thumbnail.service';
 import { TTS_QUEUE } from '../../common/queues/tts.constants';
 import { GroundingService } from '../grounding/grounding.service';
 import { PipelineRunService } from './pipeline-run.service';
+import { PipelineNotifier } from './pipeline-notifier.service';
 import { PipelineTriggerType } from './entities/pipeline-run.entity';
 
 // ── 공통 Mock 팩토리 ────────────────────────────────────────────────────────
@@ -48,7 +49,11 @@ const mockDataSource = () => ({
 
 const mockPipelineRunService = () => ({
   startRun: jest.fn().mockResolvedValue({ id: 'run-1', warnings: [], episodeId: null }),
-  startStep: jest.fn().mockResolvedValue(undefined),
+  // 실제 PipelineRunService처럼 currentStep을 갱신해 실패 알림의 단계 구분을 검증한다.
+  startStep: jest.fn().mockImplementation((run: { currentStep?: string }, step: string) => {
+    run.currentStep = step;
+    return Promise.resolve(undefined);
+  }),
   completeStep: jest.fn().mockResolvedValue(undefined),
   failStep: jest.fn().mockResolvedValue(undefined),
   finishRun: jest.fn().mockResolvedValue(undefined),
@@ -83,6 +88,7 @@ describe('PipelineService', () => {
   let cardNewsService: ReturnType<typeof mockCardNewsService>;
   let ttsQueue: ReturnType<typeof mockTtsQueue>;
   let pipelineRunService: ReturnType<typeof mockPipelineRunService>;
+  let notifier: PipelineNotifier;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -98,6 +104,7 @@ describe('PipelineService', () => {
         { provide: PipelineRunService, useFactory: mockPipelineRunService },
         { provide: getQueueToken(TTS_QUEUE), useFactory: mockTtsQueue },
         { provide: GroundingService, useFactory: mockGroundingService },
+        PipelineNotifier,
       ],
     }).compile();
 
@@ -109,6 +116,7 @@ describe('PipelineService', () => {
     cardNewsService = module.get(CardNewsService);
     ttsQueue = module.get(getQueueToken(TTS_QUEUE));
     pipelineRunService = module.get(PipelineRunService);
+    notifier = module.get(PipelineNotifier);
 
     // 기본적으로 fetch 전역 mock (Discord webhook)
     global.fetch = jest.fn().mockResolvedValue({ ok: true });
@@ -402,7 +410,7 @@ describe('PipelineService', () => {
         text: jest.fn().mockResolvedValue('{"message":"invalid webhook token"}'),
       });
       const warnSpy = jest.spyOn(
-        (service as unknown as { logger: { warn: (message: string) => void } }).logger,
+        (notifier as unknown as { logger: { warn: (message: string) => void } }).logger,
         'warn',
       );
 
@@ -421,7 +429,7 @@ describe('PipelineService', () => {
     it('네트워크 예외의 타입과 메시지를 로그로 남긴다', async () => {
       global.fetch = jest.fn().mockRejectedValue(new TypeError('fetch failed'));
       const warnSpy = jest.spyOn(
-        (service as unknown as { logger: { warn: (message: string) => void } }).logger,
+        (notifier as unknown as { logger: { warn: (message: string) => void } }).logger,
         'warn',
       );
 
@@ -431,6 +439,133 @@ describe('PipelineService', () => {
       expect(warnSpy).toHaveBeenCalledWith(
         expect.stringContaining('웹훅 요청 오류: TypeError: fetch failed'),
       );
+    });
+  });
+
+  // ── 발행 실패 알림 ─────────────────────────────────────────────────────────
+  describe('발행 실패 알림', () => {
+    const threeArticles = {
+      articles: [
+        { link: 'http://a.com', sourceId: 's1', source: 'S1', title: 'A' },
+        { link: 'http://b.com', sourceId: 's2', source: 'S2', title: 'B' },
+        { link: 'http://c.com', sourceId: 's3', source: 'S3', title: 'C' },
+      ],
+      sources: [],
+    };
+
+    const sentContents = () =>
+      (global.fetch as jest.Mock).mock.calls.map(
+        ([, init]: [string, { body: string }]) =>
+          (JSON.parse(init.body) as { content: string }).content,
+      );
+
+    beforeEach(() => {
+      process.env.DISCORD_WEBHOOK_URL = 'https://discord.example/webhook';
+      process.env.MIN_ARTICLES = '3';
+      episodesService.findTodayEpisode.mockResolvedValue(null);
+    });
+
+    afterEach(() => {
+      delete process.env.DISCORD_WEBHOOK_URL;
+    });
+
+    it('대본 생성 실패 시 실패 유형과 오류를 알리고 원래 예외를 다시 던진다', async () => {
+      groundingService.fetchLatestTechArticles.mockResolvedValue(threeArticles);
+      jest.spyOn(service, 'retryWithTimeout').mockRejectedValue(new Error('Timeout after 60000ms'));
+
+      await expect(service.runDailyPipeline()).rejects.toThrow('Timeout after 60000ms');
+
+      const [content] = sentContents();
+      expect(content).toContain('AiPod 발행 실패: 대본 생성 실패 (script_generation)');
+      expect(content).toContain('오류: Error: Timeout after 60000ms');
+      expect(content).toContain('run: run-1');
+      expect(pipelineRunService.failRun).toHaveBeenCalled();
+    });
+
+    it('기사 수집 API 오류는 기사 수집 실패로 구분한다', async () => {
+      groundingService.fetchLatestTechArticles.mockRejectedValue(
+        new Error('Gemini Grounding API 오류: 503'),
+      );
+
+      await expect(service.runDailyPipeline()).rejects.toThrow('503');
+
+      expect(sentContents()[0]).toContain('기사 수집 실패 (article_collection)');
+    });
+
+    it('에피소드 저장 실패는 에피소드 저장 실패로 구분한다', async () => {
+      groundingService.fetchLatestTechArticles.mockResolvedValue(threeArticles);
+      aiProcessorService.processNewsBriefing.mockResolvedValue({ title: 'T', script: 'S' });
+      episodesService.create.mockRejectedValue(new Error('connection refused'));
+
+      await expect(service.runDailyPipeline()).rejects.toThrow('connection refused');
+
+      expect(sentContents()[0]).toContain('에피소드 저장 실패 (episode_save)');
+    });
+
+    it('기사 부족 skip은 수집 건수와 함께 알린다', async () => {
+      groundingService.fetchLatestTechArticles.mockResolvedValue({
+        articles: threeArticles.articles.slice(0, 2),
+        sources: [],
+      });
+
+      const result = await service.runDailyPipeline();
+
+      expect(result.reason).toBe('insufficient_articles');
+      const [content] = sentContents();
+      expect(content).toContain('기사 부족 (insufficient_articles)');
+      expect(content).toContain('수집 기사 2건 < 최소 3건');
+    });
+
+    it('오늘 에피소드가 이미 있어 skip한 경우는 알리지 않는다', async () => {
+      episodesService.findTodayEpisode.mockResolvedValue({ id: 'existing-ep' });
+
+      await service.runDailyPipeline();
+
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
+
+    it('알림 전송이 실패해도 원래 예외와 실행 이력 기록은 유지된다', async () => {
+      global.fetch = jest.fn().mockRejectedValue(new TypeError('fetch failed'));
+      groundingService.fetchLatestTechArticles.mockRejectedValue(new Error('grounding down'));
+
+      await expect(service.runDailyPipeline()).rejects.toThrow('grounding down');
+      expect(pipelineRunService.failRun).toHaveBeenCalled();
+    });
+
+    it('실행 기록 시작(startRun)이 실패해도 알리고 예외를 다시 던진다', async () => {
+      pipelineRunService.startRun.mockRejectedValue(new Error('ECONNREFUSED'));
+
+      await expect(
+        service.runDailyPipeline(false, { triggerType: PipelineTriggerType.SCHEDULER }),
+      ).rejects.toThrow('ECONNREFUSED');
+
+      const [content] = sentContents();
+      expect(content).toContain('실행 기록 시작 실패 (run_start)');
+      expect(content).toContain('오류: Error: ECONNREFUSED');
+    });
+
+    it('첫 단계 전 실패는 단계 시작 전으로 표시한다', async () => {
+      episodesService.findTodayEpisode.mockRejectedValue(new Error('query failed'));
+
+      await expect(service.runDailyPipeline()).rejects.toThrow('query failed');
+
+      expect(sentContents()[0]).toContain('(before_first_step)');
+    });
+
+    it('발행 성공 후 결과 기록(finishRun)이 실패하면 실패 알림을 겹쳐 보내지 않는다', async () => {
+      groundingService.fetchLatestTechArticles.mockResolvedValue(threeArticles);
+      aiProcessorService.processNewsBriefing.mockResolvedValue({ title: 'T', script: 'S' });
+      episodesService.create.mockResolvedValue({ id: 'ep-ok', createdAt: new Date() });
+      cardNewsService.generateDeepDive.mockResolvedValue({ id: 'cn-ok', slideCount: 4 });
+      ttsQueue.add.mockResolvedValue({ id: 'job-ok' });
+      pipelineRunService.finishRun.mockRejectedValue(new Error('save failed'));
+
+      await expect(service.runDailyPipeline()).rejects.toThrow('save failed');
+
+      const contents = sentContents();
+      expect(contents).toHaveLength(1);
+      expect(contents[0]).toContain('AiPod 발행 완료');
+      expect(pipelineRunService.failRun).not.toHaveBeenCalled();
     });
   });
 });
