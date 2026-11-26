@@ -15,6 +15,7 @@ import { TTS_JOB, TTS_QUEUE } from '../../common/queues/tts.constants';
 import type { BriefingArticle } from '../ai-processor/interfaces/ai-provider.interface';
 import { PipelineRun, PipelineRunType, PipelineTriggerType } from './entities/pipeline-run.entity';
 import { PipelineRunService } from './pipeline-run.service';
+import { PipelineNotifier, type WebhookResult } from './pipeline-notifier.service';
 
 export interface PipelineResult {
   skipped?: boolean;
@@ -38,6 +39,7 @@ export class PipelineService {
     private readonly thumbnailService: ThumbnailService,
     private readonly dataSource: DataSource,
     private readonly pipelineRunService: PipelineRunService,
+    private readonly notifier: PipelineNotifier,
     @InjectQueue(TTS_QUEUE) private readonly ttsQueue: Queue,
   ) {}
 
@@ -49,25 +51,47 @@ export class PipelineService {
     force = false,
     context?: { requestId?: string; triggerType?: PipelineTriggerType },
   ): Promise<PipelineResult> {
-    const run = await this.pipelineRunService.startRun(
-      force ? PipelineRunType.MANUAL : PipelineRunType.DAILY,
-      this.getBusinessDate(),
-      undefined,
-      context,
-    );
-
+    let run: PipelineRun;
     try {
-      const result = await this.executeDailyPipeline(force, run);
-      if (result.skipped) {
-        await this.pipelineRunService.skipRun(run, result.reason ?? 'skipped', result.episodeId);
-      } else {
-        await this.pipelineRunService.finishRun(run, result.warnings, result.episodeId);
-      }
-      return result;
+      run = await this.pipelineRunService.startRun(
+        force ? PipelineRunType.MANUAL : PipelineRunType.DAILY,
+        this.getBusinessDate(),
+        undefined,
+        context,
+      );
     } catch (error) {
+      // DB 장애는 실행 기록 단계에서 먼저 드러나므로 여기서도 알린다.
+      await this.notifier.notifyPublishFailure({
+        step: 'run_start',
+        error,
+        triggerType: context?.triggerType,
+      });
+      throw error;
+    }
+
+    let result: PipelineResult;
+    try {
+      result = await this.executeDailyPipeline(force, run);
+    } catch (error) {
+      // failRun이 currentStep을 지우므로 실패 단계는 먼저 읽고, DB 기록이 실패해도 알림은 나가도록 먼저 보낸다.
+      await this.notifier.notifyPublishFailure({
+        step: run.currentStep ?? null,
+        error,
+        runId: run.id,
+        triggerType: run.triggerType,
+        episodeId: run.episodeId ?? undefined,
+      });
       await this.pipelineRunService.failRun(run, error);
       throw error;
     }
+
+    // 결과 기록은 알림 대상 밖에 둔다. 성공 알림 뒤에 실패 알림이 겹치거나 skip 알림이 중복되지 않게 하기 위함이다.
+    if (result.skipped) {
+      await this.pipelineRunService.skipRun(run, result.reason ?? 'skipped', result.episodeId);
+    } else {
+      await this.pipelineRunService.finishRun(run, result.warnings, result.episodeId);
+    }
+    return result;
   }
 
   private async executeDailyPipeline(force: boolean, run: PipelineRun): Promise<PipelineResult> {
@@ -98,6 +122,12 @@ export class PipelineService {
     const minArticles = Number(process.env.MIN_ARTICLES ?? 3);
     if (articles.length < minArticles) {
       this.logger.log(`[Pipeline] 기사 부족 (${articles.length}건) → skip`);
+      await this.notifier.notifyPublishFailure({
+        step: 'insufficient_articles',
+        detail: `수집 기사 ${articles.length}건 < 최소 ${minArticles}건`,
+        runId: run.id,
+        triggerType: run.triggerType,
+      });
       return { skipped: true, reason: 'insufficient_articles', warnings };
     }
 
@@ -118,6 +148,7 @@ export class PipelineService {
     }
 
     // ── 3. DB 에피소드 저장 ───────────────────────────────────────────────
+    await this.pipelineRunService.startStep(run, 'episode_save');
     const episode = await this.episodesService.create({
       title: briefing.title,
       script: briefing.script,
@@ -279,13 +310,8 @@ export class PipelineService {
   }
 
   /** Discord/Slack 웹훅 알림 */
-  private async sendWebhook(
-    result: PipelineResult,
-  ): Promise<{ attempted: boolean; ok: boolean; errorMessage?: string }> {
-    const webhookUrl = process.env.DISCORD_WEBHOOK_URL;
-    if (!webhookUrl) return { attempted: false, ok: true };
-
-    const today = new Date().toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' });
+  private sendWebhook(result: PipelineResult): Promise<WebhookResult> {
+    const today = this.notifier.today();
     let content: string;
 
     if (result.skipped) {
@@ -296,36 +322,7 @@ export class PipelineService {
       content = `✅ [${today}] AiPod 발행 완료\n에피소드: ${result.episodeId}\n카드뉴스: ${result.cardNewsId ?? '없음'}\nTTS Job: ${result.ttsJobId ?? '없음'}`;
     }
 
-    try {
-      const response = await fetch(webhookUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content }),
-      });
-
-      if (!response.ok) {
-        let responseBody = '';
-        try {
-          responseBody = await response.text();
-        } catch (err) {
-          responseBody = `응답 본문 읽기 실패: ${this.formatError(err)}`;
-        }
-
-        const status = `${response.status}${response.statusText ? ` ${response.statusText}` : ''}`;
-        const detail = responseBody.trim().replace(/\s+/g, ' ').slice(0, 500) || '응답 본문 없음';
-        this.logger.warn(`[Pipeline] 웹훅 발송 실패: status=${status}, response=${detail}`);
-        return { attempted: true, ok: false, errorMessage: `HTTP ${status}: ${detail}` };
-      }
-      return { attempted: true, ok: true };
-    } catch (err) {
-      const errorMessage = this.formatError(err);
-      this.logger.warn(`[Pipeline] 웹훅 요청 오류: ${errorMessage}`);
-      return { attempted: true, ok: false, errorMessage };
-    }
-  }
-
-  private formatError(error: unknown): string {
-    return error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+    return this.notifier.send(content);
   }
 
   private async resetRuntimeState(): Promise<void> {

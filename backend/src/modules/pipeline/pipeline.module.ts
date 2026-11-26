@@ -14,6 +14,7 @@ import { PipelineRun } from './entities/pipeline-run.entity';
 import { PipelineRunStep } from './entities/pipeline-run-step.entity';
 import { PipelineRunService } from './pipeline-run.service';
 import { PipelineRunController } from './pipeline-run.controller';
+import { PipelineNotifier } from './pipeline-notifier.service';
 
 @Module({
   imports: [
@@ -27,7 +28,7 @@ import { PipelineRunController } from './pipeline-run.controller';
     TypeOrmModule.forFeature([PipelineRun, PipelineRunStep]),
   ],
   controllers: [PipelineController, PipelineRunController],
-  providers: [PipelineService, PipelineScheduler, PipelineRunService],
-  exports: [PipelineRunService],
+  providers: [PipelineService, PipelineScheduler, PipelineRunService, PipelineNotifier],
+  exports: [PipelineRunService, PipelineNotifier],
 })
 export class PipelineModule {}

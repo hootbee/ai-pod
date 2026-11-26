@@ -66,6 +66,8 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
+          # Floating stable broke analyze (3.50 deprecates material.dart); bump deliberately.
+          flutter-version: 3.47.8
           cache: true
 
       - name: Install dependencies

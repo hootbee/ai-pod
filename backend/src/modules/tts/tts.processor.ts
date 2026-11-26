@@ -5,6 +5,7 @@ import { TtsService } from './tts.service';
 import { TTS_JOB, TTS_QUEUE } from '../../common/queues/tts.constants';
 import { PipelineRunService } from '../pipeline/pipeline-run.service';
 import { PipelineRun } from '../pipeline/entities/pipeline-run.entity';
+import { PipelineNotifier } from '../pipeline/pipeline-notifier.service';
 
 export interface TtsGenerateJobData {
   episodeId: string;
@@ -24,6 +25,7 @@ export class TtsProcessor {
   constructor(
     private readonly ttsService: TtsService,
     private readonly pipelineRunService: PipelineRunService,
+    private readonly notifier: PipelineNotifier,
   ) {}
 
   @Process(TTS_JOB.GENERATE)
@@ -43,6 +45,14 @@ export class TtsProcessor {
       this.logger.log(`[JOB] TTS 완료: ${result.audioPath}`);
       return result;
     } catch (error) {
+      // 실행 이력 기록이 실패해도 알림은 나가도록 먼저 보낸다.
+      await this.notifier.notifyPublishFailure({
+        step: 'tts_completion',
+        error,
+        detail: `TTS job: ${job.id}`,
+        episodeId: job.data.episodeId,
+        runId: job.data.pipelineRunId,
+      });
       if (job.data.pipelineRunId) {
         await this.pipelineRunService.failStep(
           { id: job.data.pipelineRunId } as PipelineRun,
